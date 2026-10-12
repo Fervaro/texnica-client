@@ -16,7 +16,6 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useFabricInventories } from '../../hooks/fabricInventories/useFabricInventories';
 import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
 import { useLotOptions } from '../../hooks/lots/useLotOptions';
-import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { FabricInventory } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
 
@@ -51,7 +50,6 @@ const FabricInventoryPage: React.FC = () => {
 
   const { options: fabricPOList } = useFabricPOOptions();
   const { options: lotList } = useLotOptions();
-  const { options: userList } = useUserOptions();
   const [form, setForm] = useState(emptyForm);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };

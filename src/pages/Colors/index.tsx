@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, CircularProgress, Alert, Dialog, DialogTitle,
@@ -45,6 +46,23 @@ const ColorsPage: React.FC = () => {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+
+  // Precarga el formulario de creación cuando se llega desde otro módulo
+  // (ej. FGPO → "+ Agregar nuevo Color \"Navy Blue\"") => /admin/colors?value=Navy%20Blue
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const value = searchParams.get('value');
+    if (!value) return;
+    setEditingId(null);
+    setForm({ ...emptyForm, ColorName: value });
+    setFormError('');
+    setDialogOpen(true);
+    // Limpia el parámetro para no reabrir el diálogo al recargar
+    const next = new URLSearchParams(searchParams);
+    next.delete('value');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const filtered = items.filter(i =>
     !search || i.colorName.toLowerCase().includes(search.toLowerCase()) ||

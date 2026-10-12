@@ -77,8 +77,6 @@ export function useResource<T>(
       try {
         await api.create(data);
         await load();
-      } catch (err: any) {
-        throw err;
       } finally {
         setSaving(false);
       }
@@ -92,8 +90,6 @@ export function useResource<T>(
       try {
         await api.update(id, data);
         await load();
-      } catch (err: any) {
-        throw err;
       } finally {
         setSaving(false);
       }
@@ -107,8 +103,6 @@ export function useResource<T>(
       try {
         await api.delete(id);
         await load();
-      } catch (err: any) {
-        throw err;
       } finally {
         setSaving(false);
       }

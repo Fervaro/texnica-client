@@ -2,7 +2,7 @@ import  { useState, useContext, useEffect } from 'react';
 
 import { HashRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Avatar } from '@mui/material';
+import { CssBaseline, Box, AppBar, Toolbar, Typography, IconButton } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 
@@ -13,7 +13,6 @@ import ChangePasswordModal from './components/ChangePasswordModal';
 import Admin from './pages/Admin';
 import AdminUsuarios from './pages/AdminUsuarios';
 import AdminRoles from './pages/AdminRoles';
-import AdminClientes from './pages/AdminClientes';
 import AdminPermisos from './pages/AdminPermisos';
 import Customers from './pages/Customers';
 import Factories from './pages/Factories';
@@ -102,8 +101,6 @@ const Layout = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const avatarLetter = user?.userName?.charAt(0).toUpperCase() || 'U';
-
   // Mostrar el modal de cambio de contraseña automáticamente si el usuario debe cambiarla
   useEffect(() => {
     if (user?.mustChangePassword) {
@@ -151,14 +148,6 @@ const Layout = () => {
           <IconButton color="primary">
             <NotificationsIcon />
           </IconButton>
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32, fontSize: '0.875rem', fontWeight: 700 }}>
-              {avatarLetter}
-            </Avatar>
-            <Typography variant="body2" sx={{ ml: 1, display: { xs: 'none', sm: 'block' } }}>
-              {user?.userName || 'User'}
-            </Typography>
-          </Box>
         </Toolbar>
       </AppBar>
 
@@ -197,7 +186,6 @@ function App() {
                   <Route path="admin" element={<Admin />} />
                   <Route path="admin/usuarios" element={<AdminUsuarios />} />
                   <Route path="admin/roles" element={<AdminRoles />} />
-                  <Route path="admin/clientes" element={<AdminClientes />} />
                   <Route path="admin/permisos" element={<AdminPermisos />} />
                   <Route path="admin/customers" element={<Customers />} />
                   <Route path="admin/factories" element={<Factories />} />

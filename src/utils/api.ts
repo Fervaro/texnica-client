@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'https://localhost:7123/api',
+  baseURL: import.meta.env.VITE_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -139,6 +139,7 @@ export const fabricRequirementsApi = {
   getById: (id: number) => api.get(`/fabric-requirements/${id}`),
   getByFgpo: (fgpoId: number) => api.get(`/fabric-requirements/fgpo/${fgpoId}`),
   create: (data: any) => api.post('/fabric-requirements', data),
+  generate: (fgpoId: number, data: any) => api.post(`/fabric-requirements/generate/${fgpoId}`, data),
   update: (id: number, data: any) => api.put(`/fabric-requirements/${id}`, data),
   delete: (id: number) => api.delete(`/fabric-requirements/${id}`),
   getPaged: (params: any) => api.get('/fabric-requirements/paged', { params }),
@@ -152,6 +153,15 @@ export const fabricPOsApi = {
   update: (id: number, data: any) => api.put(`/fabric-pos/${id}`, data),
   delete: (id: number) => api.delete(`/fabric-pos/${id}`),
   getPaged: (params: any) => api.get('/fabric-pos/paged', { params }),
+  // Fabric Requirements disponibles para agregar como líneas.
+  // excludeFabricPOId: al editar una PO, omite sus propias líneas del cálculo
+  // de Remaining para que pueda reasignar sus cantidades.
+  getAvailableRequirements: (params: any) =>
+    api.get('/fabric-pos/available-requirements', { params }),
+  // PDF oficial de la Fabric PO: lo construye el backend (MigraDoc).
+  // El frontend sólo lo solicita y lo descarga: no recalcula importes.
+  getPdf: (id: number) =>
+    api.get(`/fabric-pos/${id}/pdf`, { responseType: 'blob' }),
 };
 
 // Mill Production API

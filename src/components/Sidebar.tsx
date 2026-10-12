@@ -45,7 +45,6 @@ import StraightenIcon from '@mui/icons-material/Straighten';
 import WidgetsIcon from '@mui/icons-material/Widgets';
 import PercentIcon from '@mui/icons-material/Percent';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { AuthContext } from '../context/AuthContext';
 
@@ -145,7 +144,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
         { text: 'Box Types',    icon: <InventoryIcon fontSize="small" />,             path: '/admin/box-types' },
         { text: 'Style Yields', icon: <PercentIcon fontSize="small" />,               path: '/admin/style-yields' },
         { text: 'Prices',       icon: <AttachMoneyIcon fontSize="small" />,           path: '/admin/prices' },
-        { text: 'FGPO Lines',   icon: <FormatListNumberedIcon fontSize="small" />,    path: '/admin/fgpo-lines' },
         { text: 'FGPO Master',  icon: <AssignmentIcon fontSize="small" />,             path: '/fgpo' },
       ],
     },
@@ -155,7 +153,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
     { text: 'Users',              icon: <PeopleIcon fontSize="small" />,  path: '/admin/usuarios' },
     { text: 'Roles & Permissions', icon: <SecurityIcon fontSize="small" />, path: '/admin/roles' },
     { text: 'Permissions',        icon: <SecurityIcon fontSize="small" />, path: '/admin/permisos' },
-    { text: 'Clients',            icon: <BusinessIcon fontSize="small" />, path: '/admin/clientes' },
     { text: 'Customers',          icon: <BusinessIcon fontSize="small" />, path: '/admin/customers' },
     { text: 'Factories',          icon: <FactoryIcon2 fontSize="small" />, path: '/admin/factories' },
     { text: 'Suppliers',          icon: <LocalShippingIcon fontSize="small" />, path: '/admin/suppliers' },
@@ -295,13 +292,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
 
         {/* Module sections */}
         {navSections.map(renderSection)}
-
-        <ListItem disablePadding>
-          <ListItemButton component={NavLink} to="/po/demo" sx={itemStyle(isActive('/po/demo'))}>
-            <ListItemIcon sx={{ color: 'white' }}><ReceiptIcon /></ListItemIcon>
-            <ListItemText primary="PO (Demo)" />
-          </ListItemButton>
-        </ListItem>
       </List>
 
       {/* User info and logout at bottom */}

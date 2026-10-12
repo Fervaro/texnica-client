@@ -8,6 +8,7 @@ const mapUser = (raw: any): User => ({
   userEmail: raw.userEmail ?? raw.UserEmail ?? '',
   roleId: raw.roleId ?? raw.RoleId ?? null,
   roleName: raw.roleName ?? raw.RoleName ?? '',
+  userType: raw.userType ?? raw.UserType ?? 'Employee',
   mustChangePassword: raw.mustChangePassword ?? raw.MustChangePassword ?? false,
   active: raw.active ?? raw.Active ?? true,
   createdAt: raw.createdAt ?? raw.CreatedAt ?? '',

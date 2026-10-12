@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setSelectedCustomer(JSON.parse(storedCustomer));
           }
         }
-      } catch (error) {
+      } catch {
         logout();
       }
     }

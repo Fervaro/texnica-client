@@ -29,6 +29,7 @@ const AdminRoles: React.FC = () => {
   const [error, setError] = useState('');
   const [newRole, setNewRole] = useState({ name: '', description: '' });
   const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -42,7 +43,7 @@ const AdminRoles: React.FC = () => {
       ]);
       setRoles(rolesRes.data);
       setPermissions(permissionsRes.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load data');
     } finally {
       setLoading(false);
@@ -51,8 +52,10 @@ const AdminRoles: React.FC = () => {
 
   const handleAddRole = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!newRole.name) return;
-    
+
+    setSaving(true);
     try {
       await rolesApi.create({
         Name: newRole.name,
@@ -62,8 +65,10 @@ const AdminRoles: React.FC = () => {
       setNewRole({ name: '', description: '' });
       setSelectedPermissions([]);
       loadData();
-    } catch (err) {
+    } catch {
       setError('Failed to create role');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,7 +76,7 @@ const AdminRoles: React.FC = () => {
     try {
       await rolesApi.delete(id);
       loadData();
-    } catch (err) {
+    } catch {
       setError('Failed to delete role');
     }
   };
@@ -99,7 +104,7 @@ const AdminRoles: React.FC = () => {
         <Box component="form" onSubmit={handleAddRole} sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <TextField label="Role Name" size="small" required value={newRole.name} onChange={e => setNewRole({ ...newRole, name: e.target.value })} sx={{ flexGrow: 1, minWidth: 200 }} />
           <TextField label="Description" size="small" value={newRole.description} onChange={e => setNewRole({ ...newRole, description: e.target.value })} sx={{ flexGrow: 2, minWidth: 300 }} />
-          <Button type="submit" variant="contained" color="primary">New Role</Button>
+          <Button type="submit" variant="contained" color="primary" disabled={saving}>{saving ? 'Saving...' : 'New Role'}</Button>
         </Box>
 
         <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>Select Permissions:</Typography>

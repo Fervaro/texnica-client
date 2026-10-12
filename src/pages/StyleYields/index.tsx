@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, CircularProgress, Alert, Dialog, DialogTitle,
@@ -23,14 +24,12 @@ const mapStyleYield = (raw: any): StyleYield => ({
   componentId: raw.componentId ?? raw.ComponentId ?? 0,
   componentCode: raw.componentCode ?? raw.ComponentCode ?? '',
   yieldQuoted: raw.yieldQuoted ?? raw.YieldQuoted,
-  yieldReal: raw.yieldReal ?? raw.YieldReal,
-  notes: raw.notes ?? raw.Notes ?? '',
   active: raw.active ?? raw.Active ?? true,
   createdAt: raw.createdAt ?? raw.CreatedAt ?? '',
   updatedAt: raw.updatedAt ?? raw.UpdatedAt,
 });
 
-const emptyForm = { StyleId: 0, ComponentId: 0, YieldQuoted: '', YieldReal: '', Notes: '' };
+const emptyForm = { StyleId: 0, ComponentId: 0, YieldQuoted: '' };
 
 const StyleYieldsPage: React.FC = () => {
   const [items, setItems] = useState<StyleYield[]>([]);
@@ -53,6 +52,29 @@ const StyleYieldsPage: React.FC = () => {
   };
   useEffect(() => { load(); }, []);
 
+  // Precarga el formulario cuando se llega desde Fabric Requirement
+  // ("Configurar Style Yield") => /admin/style-yields?style=1&component=2
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const style = searchParams.get('style');
+    const component = searchParams.get('component');
+    if (!style && !component) return;
+    setEditingId(null);
+    setForm({
+      ...emptyForm,
+      StyleId: style ? Number(style) : 0,
+      ComponentId: component ? Number(component) : 0,
+    });
+    setFormError('');
+    setDialogOpen(true);
+    // Limpia los parámetros para no reabrir el diálogo al recargar
+    const next = new URLSearchParams(searchParams);
+    next.delete('style');
+    next.delete('component');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const filtered = items.filter(i =>
     !search || i.styleCode.toLowerCase().includes(search.toLowerCase()) ||
     i.componentCode.toLowerCase().includes(search.toLowerCase()));
@@ -65,8 +87,6 @@ const StyleYieldsPage: React.FC = () => {
       const payload = {
         StyleId: Number(form.StyleId), ComponentId: Number(form.ComponentId),
         YieldQuoted: form.YieldQuoted === '' ? null : Number(form.YieldQuoted),
-        YieldReal: form.YieldReal === '' ? null : Number(form.YieldReal),
-        Notes: form.Notes,
       };
       if (editingId) await styleYieldsApi.update(editingId, payload); else await styleYieldsApi.create(payload);
       setDialogOpen(false); await load();
@@ -82,7 +102,7 @@ const StyleYieldsPage: React.FC = () => {
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
   const openEdit = (y: StyleYield) => {
     setEditingId(y.id);
-    setForm({ StyleId: y.styleId, ComponentId: y.componentId, YieldQuoted: y.yieldQuoted?.toString() ?? '', YieldReal: y.yieldReal?.toString() ?? '', Notes: y.notes ?? '' });
+    setForm({ StyleId: y.styleId, ComponentId: y.componentId, YieldQuoted: y.yieldQuoted?.toString() ?? '' });
     setFormError(''); setDialogOpen(true);
   };
 
@@ -114,22 +134,20 @@ const StyleYieldsPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Style', 'Component', 'Yield Quoted', 'Yield Real', 'Notes', 'Actions'].map(h =>
+                {['Style', 'Component', 'Yield Quoted', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>No yields found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>No yields found</TableCell></TableRow>
               ) : filtered.map((y) => (
                 <TableRow key={y.id} hover>
                   <TableCell sx={{ fontWeight: 600 }}>{y.styleCode}</TableCell>
                   <TableCell>{y.componentCode}</TableCell>
                   <TableCell>{y.yieldQuoted ?? '-'}</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{y.yieldReal ?? '-'}</TableCell>
-                  <TableCell>{y.notes || '-'}</TableCell>
                   <TableCell>
                     <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(y)}><EditIcon fontSize="small" /></IconButton></Tooltip>
                     <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(y.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
@@ -163,9 +181,7 @@ const StyleYieldsPage: React.FC = () => {
               </FormControl>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField fullWidth size="small" label="Yield Quoted" type="number" value={form.YieldQuoted} onChange={e => setForm({ ...form, YieldQuoted: e.target.value })} />
-                <TextField fullWidth size="small" label="Yield Real" type="number" value={form.YieldReal} onChange={e => setForm({ ...form, YieldReal: e.target.value })} />
               </Box>
-              <TextField fullWidth size="small" label="Notes" value={form.Notes} onChange={e => setForm({ ...form, Notes: e.target.value })} />
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>

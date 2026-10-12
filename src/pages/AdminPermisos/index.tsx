@@ -19,6 +19,7 @@ const AdminPermisos: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newPermission, setNewPermission] = useState({ name: '', description: '', module: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -28,7 +29,7 @@ const AdminPermisos: React.FC = () => {
     try {
       const res = await permissionsApi.getAll();
       setPermissions(res.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load permissions');
     } finally {
       setLoading(false);
@@ -37,8 +38,10 @@ const AdminPermisos: React.FC = () => {
 
   const handleAddPermission = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!newPermission.name || !newPermission.module) return;
-    
+
+    setSaving(true);
     try {
       await permissionsApi.create({
         Name: newPermission.name,
@@ -47,8 +50,10 @@ const AdminPermisos: React.FC = () => {
       });
       setNewPermission({ name: '', description: '', module: '' });
       loadData();
-    } catch (err) {
+    } catch {
       setError('Failed to create permission');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -56,7 +61,7 @@ const AdminPermisos: React.FC = () => {
     try {
       await permissionsApi.delete(id);
       loadData();
-    } catch (err) {
+    } catch {
       setError('Failed to delete permission');
     }
   };
@@ -77,7 +82,7 @@ const AdminPermisos: React.FC = () => {
           <TextField label="Permission Name" size="small" required value={newPermission.name} onChange={e => setNewPermission({ ...newPermission, name: e.target.value })} sx={{ flexGrow: 1, minWidth: 200 }} />
           <TextField label="Module" size="small" required value={newPermission.module} onChange={e => setNewPermission({ ...newPermission, module: e.target.value })} sx={{ minWidth: 150 }} />
           <TextField label="Description" size="small" value={newPermission.description} onChange={e => setNewPermission({ ...newPermission, description: e.target.value })} sx={{ flexGrow: 2, minWidth: 300 }} />
-          <Button type="submit" variant="contained" color="primary">New Permission</Button>
+          <Button type="submit" variant="contained" color="primary" disabled={saving}>{saving ? 'Saving...' : 'New Permission'}</Button>
         </Box>
       </Paper>
 

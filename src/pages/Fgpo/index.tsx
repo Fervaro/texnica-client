@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -9,12 +10,17 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import { fgpoApi, customersApi } from '../../utils/api';
-import { useUserOptions } from '../../hooks/users/useUserOptions';
+import { fgpoApi, fgpoLinesApi, customersApi, pricesApi } from '../../utils/api';
+import CatalogAutocomplete from '../../components/CatalogAutocomplete';
 import { AuthContext } from '../../context/AuthContext';
 import { getCurrentUserName } from '../../utils/session';
+import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
+import { useColorOptions } from '../../hooks/colors/useColorOptions';
+import { useSizeOptions } from '../../hooks/sizes/useSizeOptions';
 
 interface Fgpo {
   ID: number;
@@ -50,14 +56,30 @@ interface CustomerOption {
   Name: string;
 }
 
+interface FgpoLine {
+  id: number;
+  fgpoId: number;
+  styleId: number;
+  styleCode: string;
+  colorId: number;
+  colorName: string;
+  sizeId: number;
+  sizeCode: string;
+  quantity: number;
+  unitPrice?: number;
+  totalValue: number;
+}
+
 interface FgpoForm {
   FGPONumber: string;
   TemporaryNumber: string;
   Status: string;
   CustomerId: number;
+  CustomerName: string;
   Style: string;
   Color: string;
   OrderQuantity: number;
+  CreatedDate: string;
   DeliveryDate: string;
   InTransitQty: number;
   ReceivedQty: number;
@@ -72,9 +94,11 @@ const emptyForm: FgpoForm = {
   TemporaryNumber: '',
   Status: '',
   CustomerId: 0,
+  CustomerName: '',
   Style: '',
   Color: '',
   OrderQuantity: 0,
+  CreatedDate: '',
   DeliveryDate: '',
   InTransitQty: 0,
   ReceivedQty: 0,
@@ -120,8 +144,23 @@ const mapFgpo = (raw: any): Fgpo => ({
   UpdatedAt: raw.updatedAt ?? raw.UpdatedAt,
 });
 
+const mapFgpoLine = (raw: any): FgpoLine => ({
+  id: raw.id ?? raw.ID ?? 0,
+  fgpoId: raw.fgpoId ?? raw.FgpoId ?? 0,
+  styleId: raw.styleId ?? raw.StyleId ?? 0,
+  styleCode: raw.styleCode ?? raw.StyleCode ?? '',
+  colorId: raw.colorId ?? raw.ColorId ?? 0,
+  colorName: raw.colorName ?? raw.ColorName ?? '',
+  sizeId: raw.sizeId ?? raw.SizeId ?? 0,
+  sizeCode: raw.sizeCode ?? raw.SizeCode ?? '',
+  quantity: raw.quantity ?? raw.Quantity ?? 0,
+  unitPrice: raw.unitPrice ?? raw.UnitPrice,
+  totalValue: raw.totalValue ?? raw.TotalValue ?? 0,
+});
+
 const Fgpo: React.FC = () => {
   const { selectedCustomer } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [fgpos, setFgpos] = useState<Fgpo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,10 +187,22 @@ const Fgpo: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FgpoForm>(emptyForm);
   const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Customer options for dropdowns
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const { options: userList } = useUserOptions();
+  const { options: styleOptions } = useStyleOptions();
+  const { options: colorOptions } = useColorOptions();
+  const { options: sizeOptions } = useSizeOptions();
+  const [fgpoLines, setFgpoLines] = useState<FgpoLine[]>([]);
+  const [expandedFgpo, setExpandedFgpo] = useState<number | null>(null);
+  const [lineDialogOpen, setLineDialogOpen] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<number | null>(null);
+  const [lineForm, setLineForm] = useState({ FgpoId: 0, StyleId: 0, ColorId: 0, SizeId: 0, Quantity: '', UnitPrice: '' });
+  const [lineFormError, setLineFormError] = useState('');
+  const [lineSaving, setLineSaving] = useState(false);
+  // Catálogo de precios (Style+Color+Size -> UnitPrice) para autocompletar Price
+  const [priceCatalog, setPriceCatalog] = useState<{ styleId: number; colorId: number; sizeId: number; unitPrice: number }[]>([]);
 
   useEffect(() => {
     if (selectedCustomer) {
@@ -200,6 +251,53 @@ const Fgpo: React.FC = () => {
     }
   };
 
+  const loadFgpoLines = async () => {
+    try {
+      const res = await fgpoLinesApi.getAll();
+      setFgpoLines((res.data ?? []).map(mapFgpoLine));
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to load FGPO lines.');
+    }
+  };
+
+  // Refresca únicamente las líneas de un FGPO (evita recargar todas)
+  const refreshLinesForFgpo = async (fgpoId: number) => {
+    try {
+      const res = await fgpoLinesApi.getByFgpo(fgpoId);
+      const lines = (res.data ?? []).map(mapFgpoLine);
+      setFgpoLines(prev => [...prev.filter(l => l.fgpoId !== fgpoId), ...lines]);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to load FGPO lines.');
+    }
+  };
+
+  // Expande un FGPO y carga sus líneas solo en ese momento (bajo demanda)
+  const toggleExpandFgpo = (fgpoId: number) => {
+    if (expandedFgpo === fgpoId) {
+      setExpandedFgpo(null);
+      return;
+    }
+    setExpandedFgpo(fgpoId);
+    const alreadyLoaded = fgpoLines.some(l => l.fgpoId === fgpoId);
+    if (!alreadyLoaded) refreshLinesForFgpo(fgpoId);
+  };
+
+  const loadPriceCatalog = async () => {
+    try {
+      const res = await pricesApi.getAll();
+      setPriceCatalog((res.data ?? []).map((p: any) => ({
+        styleId: p.styleId ?? p.StyleId ?? 0,
+        colorId: p.colorId ?? p.ColorId ?? 0,
+        sizeId: p.sizeId ?? p.SizeId ?? 0,
+        unitPrice: Number(p.unitPrice ?? p.UnitPrice ?? 0),
+      })));
+    } catch { /* catálogo opcional */ }
+  };
+
+  useEffect(() => {
+    loadPriceCatalog();
+  }, []);
+
   const handleSearch = () => {
     setPage(0);
     setSearch(searchInput);
@@ -223,7 +321,7 @@ const Fgpo: React.FC = () => {
 
   const openCreateDialog = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, CustomerId: selectedCustomer?.id ?? 0 });
+    setForm({ ...emptyForm, CustomerId: selectedCustomer?.id ?? 0, CustomerName: selectedCustomer?.name ?? '', Status: 'In Progress' });
     setFormError('');
     setDialogOpen(true);
   };
@@ -235,9 +333,11 @@ const Fgpo: React.FC = () => {
       TemporaryNumber: fgpo.TemporaryNumber || '',
       Status: fgpo.Status || '',
       CustomerId: fgpo.CustomerId,
+      CustomerName: fgpo.CustomerName || '',
       Style: fgpo.Style || '',
       Color: fgpo.Color || '',
       OrderQuantity: fgpo.OrderQuantity,
+      CreatedDate: fgpo.CreatedAt ? fgpo.CreatedAt.slice(0, 10) : '',
       DeliveryDate: fgpo.DeliveryDate ? fgpo.DeliveryDate.slice(0, 10) : '',
       InTransitQty: fgpo.InTransitQty,
       ReceivedQty: fgpo.ReceivedQty,
@@ -252,6 +352,7 @@ const Fgpo: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setFormError('');
 
     // Client-side validation
@@ -291,6 +392,7 @@ const Fgpo: React.FC = () => {
       ProducedQty: Number(form.ProducedQty),
     };
 
+    setSaving(true);
     try {
       if (editingId !== null) {
         await fgpoApi.update(editingId, payload);
@@ -305,7 +407,128 @@ const Fgpo: React.FC = () => {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setFormError(err?.response?.data || 'Failed to save FGPO record.');
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const openLineDialog = (fgpoId: number, line?: FgpoLine) => {
+    setEditingLineId(line?.id ?? null);
+    if (line) {
+      setLineForm({ FgpoId: line.fgpoId, StyleId: line.styleId, ColorId: line.colorId, SizeId: line.sizeId, Quantity: String(line.quantity), UnitPrice: line.unitPrice == null ? '' : String(line.unitPrice) });
+    } else {
+      // Autocompletar Style y Color desde el FGPO y bloquearlos al crear
+      const fgpo = fgpos.find(f => f.ID === fgpoId);
+      const styleMatch = styleOptions.find((s: any) => (s.label ?? '') === (fgpo?.Style ?? ''));
+      const colorMatch = colorOptions.find((c: any) => (c.label ?? '') === (fgpo?.Color ?? ''));
+      setLineForm({
+        FgpoId: fgpoId,
+        StyleId: styleMatch?.id ?? 0,
+        ColorId: colorMatch?.id ?? 0,
+        SizeId: 0,
+        Quantity: '',
+        UnitPrice: '',
+      });
+    }
+    setLineFormError('');
+    setLineDialogOpen(true);
+  };
+
+  const handleLineSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!lineForm.FgpoId || !lineForm.StyleId || !lineForm.ColorId || !lineForm.SizeId) {
+      setLineFormError('FGPO, Style, Color and Size are required.');
+      return;
+    }
+    if (!lineForm.Quantity || Number(lineForm.Quantity) <= 0) {
+      setLineFormError('Quantity must be greater than 0.');
+      return;
+    }
+    // El Unit Price debe existir en el catálogo Prices para esa combinación Style/Color/Size
+    if (!lineForm.UnitPrice || Number(lineForm.UnitPrice) <= 0) {
+      setLineFormError('No hay Unit Price configurado en el catálogo Prices para esa combinación Style/Color/Size.');
+      return;
+    }
+
+    // Verificación: la suma total de líneas del FGPO no puede exceder el Order Qty del FGPO Master
+    const fgpo = fgpos.find(f => f.ID === Number(lineForm.FgpoId));
+    const newQty = Number(lineForm.Quantity);
+    if (fgpo && fgpo.OrderQuantity > 0) {
+      const currentLines = fgpoLines.filter(l => l.fgpoId === fgpo.ID);
+      const sumOthers = currentLines
+        .filter(l => editingLineId === null || l.id !== editingLineId)
+        .reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+      const totalAfter = sumOthers + newQty;
+      if (totalAfter > fgpo.OrderQuantity) {
+        setLineFormError(
+          `La cantidad total de líneas (${totalAfter}) supera el Order Qty del FGPO (${fgpo.OrderQuantity}).`
+        );
+        return;
+      }
+    }
+
+    setLineSaving(true);
+    try {
+      const payload = {
+        FgpoId: Number(lineForm.FgpoId),
+        StyleId: Number(lineForm.StyleId),
+        ColorId: Number(lineForm.ColorId),
+        SizeId: Number(lineForm.SizeId),
+        Quantity: Number(lineForm.Quantity),
+        UnitPrice: lineForm.UnitPrice === '' ? null : Number(lineForm.UnitPrice),
+      };
+      if (editingLineId !== null) await fgpoLinesApi.update(editingLineId, payload);
+      else await fgpoLinesApi.create(payload);
+      setLineDialogOpen(false);
+      await refreshLinesForFgpo(Number(lineForm.FgpoId));
+    } catch (err: any) {
+      setLineFormError(err?.response?.data?.message || err?.response?.data || 'Failed to save FGPO line.');
+    } finally {
+      setLineSaving(false);
+    }
+  };
+
+  const handleLineDelete = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this FGPO line?')) return;
+    const line = fgpoLines.find(l => l.id === id);
+    try {
+      await fgpoLinesApi.delete(id);
+      if (line) await refreshLinesForFgpo(line.fgpoId);
+      else await loadFgpoLines();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to delete FGPO line.');
+    }
+  };
+
+  // Aplica el precio del catálogo (Style+Color+Size) cuando ya están completos
+  const applyCatalogPrice = (next: typeof lineForm) => {
+    const match = priceCatalog.find(p =>
+      p.styleId === Number(next.StyleId) &&
+      p.colorId === Number(next.ColorId) &&
+      p.sizeId === Number(next.SizeId));
+    return { ...next, UnitPrice: match ? String(match.unitPrice) : '' };
+  };
+
+  /**
+   * Navega al módulo Styles para crear el registro completo.
+   * No se crea nada desde aquí: el formulario de Styles se abre
+   * precargado con el Style Code escrito por el usuario.
+   */
+  const goToCreateStyle = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    navigate(`/admin/styles?value=${encodeURIComponent(trimmed)}`);
+  };
+
+  /**
+   * Navega al módulo Colors para crear el registro completo.
+   * No se crea nada desde aquí: el formulario de Colors se abre
+   * precargado con el Color Name escrito por el usuario.
+   */
+  const goToCreateColor = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    navigate(`/admin/colors?value=${encodeURIComponent(trimmed)}`);
   };
 
   const handleDelete = async (id: number) => {
@@ -427,6 +650,9 @@ const Fgpo: React.FC = () => {
               onChange={e => { setCustomerFilter(e.target.value); setPage(0); }}
             >
               <MenuItem value="">All</MenuItem>
+              {customerFilter && !customers.some(c => c.Name === customerFilter) && (
+                <MenuItem value={customerFilter}>{customerFilter}</MenuItem>
+              )}
               {customers.map(c => <MenuItem key={c.ID} value={c.Name}>{c.Name}</MenuItem>)}
             </Select>
           </FormControl>
@@ -453,6 +679,7 @@ const Fgpo: React.FC = () => {
                 {sortableHeader('Style', 'style')}
                 {sortableHeader('Color', 'color')}
                 {sortableHeader('Order Qty', 'orderquantity')}
+                {sortableHeader('PO Creation Date', 'createdat')}
                 {sortableHeader('Ship Date', 'deliverydate')}
                 <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>In Transit</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Received</TableCell>
@@ -471,9 +698,19 @@ const Fgpo: React.FC = () => {
             </TableHead>
             <TableBody>
               {fgpos.map(fgpo => (
-                <TableRow key={fgpo.ID} hover>
+                <React.Fragment key={fgpo.ID}>
+                <TableRow hover>
                   <TableCell>{fgpo.ID}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{fgpo.FGPONumber || '-'}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>
+                    <Button
+                      size="small"
+                      onClick={() => toggleExpandFgpo(fgpo.ID)}
+                      startIcon={expandedFgpo === fgpo.ID ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      sx={{ fontWeight: 'bold', textTransform: 'none' }}
+                    >
+                      {fgpo.FGPONumber || '-'}
+                    </Button>
+                  </TableCell>
                   <TableCell>{fgpo.TemporaryNumber || '-'}</TableCell>
                   <TableCell>
                     <Chip
@@ -487,6 +724,7 @@ const Fgpo: React.FC = () => {
                   <TableCell>{fgpo.Style || '-'}</TableCell>
                   <TableCell>{fgpo.Color || '-'}</TableCell>
                   <TableCell align="right">{formatNumber(fgpo.OrderQuantity)}</TableCell>
+                  <TableCell>{formatDate(fgpo.CreatedAt)}</TableCell>
                   <TableCell>{formatDate(fgpo.DeliveryDate)}</TableCell>
                   <TableCell align="right">{formatNumber(fgpo.InTransitQty)}</TableCell>
                   <TableCell align="right">{formatNumber(fgpo.ReceivedQty)}</TableCell>
@@ -513,10 +751,58 @@ const Fgpo: React.FC = () => {
                     </Tooltip>
                   </TableCell>
                 </TableRow>
+                {expandedFgpo === fgpo.ID && (
+                  <TableRow>
+                    <TableCell colSpan={23} sx={{ bgcolor: 'grey.50', p: 2 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          FGPO Lines: {fgpo.FGPONumber || '-'}
+                        </Typography>
+                        <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => openLineDialog(fgpo.ID)}>
+                          Add Line
+                        </Button>
+                      </Box>
+                      {fgpoLines.filter(line => line.fgpoId === fgpo.ID).length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">No lines registered for this FGPO.</Typography>
+                      ) : (
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              {['Style', 'Color', 'Size', 'Qty', 'Unit Price', 'Total', 'Actions'].map(header => (
+                                <TableCell key={header} sx={{ fontWeight: 700 }}>{header}</TableCell>
+                              ))}
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {fgpoLines.filter(line => line.fgpoId === fgpo.ID).map(line => (
+                              <TableRow key={line.id}>
+                                <TableCell>{line.styleCode || '-'}</TableCell>
+                                <TableCell>{line.colorName || '-'}</TableCell>
+                                <TableCell>{line.sizeCode || '-'}</TableCell>
+                                <TableCell>{formatNumber(line.quantity)}</TableCell>
+                                <TableCell>{line.unitPrice != null ? `$${line.unitPrice.toFixed(3)}` : '-'}</TableCell>
+                                <TableCell>{`$${line.totalValue.toFixed(2)}`}</TableCell>
+                                <TableCell>
+                                  <Tooltip title="Edit line">
+                                    <IconButton size="small" color="primary" onClick={() => openLineDialog(fgpo.ID, line)}><EditIcon fontSize="small" /></IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Delete line">
+                                    <IconButton size="small" color="error" onClick={() => handleLineDelete(line.id)}><DeleteIcon fontSize="small" /></IconButton>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
+                </React.Fragment>
               ))}
               {fgpos.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={22} align="center">No FGPO records found.</TableCell>
+                  <TableCell colSpan={23} align="center">No FGPO records found.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -543,17 +829,26 @@ const Fgpo: React.FC = () => {
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <FormControl size="small" required>
-                <InputLabel>FGPO Status *</InputLabel>
-                <Select
-                  value={form.Status}
-                  label="FGPO Status *"
-                  onChange={e => setForm({ ...form, Status: e.target.value })}
-                >
-                  <MenuItem value="">Select status...</MenuItem>
-                  {statusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                </Select>
-              </FormControl>
+              {editingId !== null ? (
+                <FormControl size="small" required>
+                  <InputLabel>FGPO Status *</InputLabel>
+                  <Select
+                    value={form.Status}
+                    label="FGPO Status *"
+                    onChange={e => setForm({ ...form, Status: e.target.value })}
+                  >
+                    <MenuItem value="">Select status...</MenuItem>
+                    {statusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              ) : (
+                <TextField
+                  label="FGPO Status"
+                  size="small"
+                  value="In Progress"
+                  slotProps={{ input: { readOnly: true } }}
+                />
+              )}
               <TextField
                 label="FGPO Number"
                 size="small"
@@ -568,29 +863,31 @@ const Fgpo: React.FC = () => {
                 onChange={e => setForm({ ...form, TemporaryNumber: e.target.value })}
                 helperText={form.Status === 'FGPO Pending' ? 'Required and unique when status is FGPO Pending' : ''}
               />
-              <FormControl size="small" required>
-                <InputLabel>Customer *</InputLabel>
-                <Select
-                  value={form.CustomerId}
-                  label="Customer *"
-                  disabled={!!selectedCustomer}
-                  onChange={e => setForm({ ...form, CustomerId: Number(e.target.value) })}
-                >
-                  <MenuItem value={0}>Select customer...</MenuItem>
-                  {customers.map(c => <MenuItem key={c.ID} value={c.ID}>{c.Name}</MenuItem>)}
-                </Select>
-              </FormControl>
               <TextField
-                label="Style"
+                label="Customer"
                 size="small"
-                value={form.Style}
-                onChange={e => setForm({ ...form, Style: e.target.value })}
+                value={form.CustomerName || '—'}
+                slotProps={{ input: { readOnly: true } }}
               />
-              <TextField
+              <CatalogAutocomplete
+                label="Style"
+                placeholder="Buscar un Style..."
+                value={form.Style}
+                options={styleOptions as any}
+                onChange={v => setForm({ ...form, Style: v })}
+                addNewEntityLabel="Style"
+                onAddNew={goToCreateStyle}
+                helperText="Escribe para filtrar. Si no existe, podrás crearlo en el módulo Styles."
+              />
+              <CatalogAutocomplete
                 label="Color"
-                size="small"
+                placeholder="Buscar un Color..."
                 value={form.Color}
-                onChange={e => setForm({ ...form, Color: e.target.value })}
+                options={colorOptions as any}
+                onChange={v => setForm({ ...form, Color: v })}
+                addNewEntityLabel="Color"
+                onAddNew={goToCreateColor}
+                helperText="Escribe para filtrar. Si no existe, podrás crearlo en el módulo Colors."
               />
               <TextField
                 label="Order Quantity *"
@@ -599,6 +896,14 @@ const Fgpo: React.FC = () => {
                 required
                 value={form.OrderQuantity}
                 onChange={e => setForm({ ...form, OrderQuantity: Number(e.target.value) })}
+              />
+              <TextField
+                label="PO Creation Date"
+                size="small"
+                type="date"
+                value={form.CreatedDate}
+                onChange={e => setForm({ ...form, CreatedDate: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
                 label="Ship Date *"
@@ -654,10 +959,72 @@ const Fgpo: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit}>
-            {editingId !== null ? 'Update' : 'Create'}
+          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Saving...' : editingId !== null ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog open={lineDialogOpen} onClose={() => setLineDialogOpen(false)} maxWidth="sm" fullWidth>
+        <form onSubmit={handleLineSubmit}>
+          <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            {editingLineId !== null ? 'Edit FGPO Line' : 'Add FGPO Line'}
+          </DialogTitle>
+          <DialogContent>
+            {lineFormError && <Alert severity="error" sx={{ mb: 2 }}>{lineFormError}</Alert>}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 1 }}>
+              <FormControl size="small" required sx={{ gridColumn: { sm: 'span 2' } }}>
+                <InputLabel>FGPO *</InputLabel>
+                <Select value={lineForm.FgpoId || ''} label="FGPO *" disabled>
+                  <MenuItem value={lineForm.FgpoId}>{fgpos.find(f => f.ID === lineForm.FgpoId)?.FGPONumber || lineForm.FgpoId}</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" required disabled={editingLineId === null}>
+                <InputLabel>Style *</InputLabel>
+                <Select value={lineForm.StyleId || ''} label="Style *" onChange={e => setLineForm(prev => applyCatalogPrice({ ...prev, StyleId: Number(e.target.value) }))}>
+                  {lineForm.StyleId === 0 && (
+                    <MenuItem value=""><em>Sin Style vinculado</em></MenuItem>
+                  )}
+                  {styleOptions.map((option: any) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" required disabled={editingLineId === null}>
+                <InputLabel>Color *</InputLabel>
+                <Select value={lineForm.ColorId || ''} label="Color *" onChange={e => setLineForm(prev => applyCatalogPrice({ ...prev, ColorId: Number(e.target.value) }))}>
+                  {lineForm.ColorId === 0 && (
+                    <MenuItem value=""><em>Sin Color vinculado</em></MenuItem>
+                  )}
+                  {colorOptions.map((option: any) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" required>
+                <InputLabel>Size *</InputLabel>
+                <Select value={lineForm.SizeId || ''} label="Size *" onChange={e => setLineForm(prev => applyCatalogPrice({ ...prev, SizeId: Number(e.target.value) }))}>
+                  <MenuItem value=""><em>Select size...</em></MenuItem>
+                  {sizeOptions.map((option: any) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <TextField label="Qty *" size="small" type="number" required value={lineForm.Quantity} onChange={e => setLineForm({ ...lineForm, Quantity: e.target.value })} />
+              <TextField
+                label="Unit Price"
+                size="small"
+                type="number"
+                required
+                value={lineForm.UnitPrice}
+                slotProps={{ input: { readOnly: true } }}
+                helperText={
+                  lineForm.UnitPrice !== '' && Number(lineForm.UnitPrice) > 0
+                    ? 'Auto desde el catálogo Prices (Style/Color/Size)'
+                    : 'Sin precio configurado para esa combinación en el catálogo Prices'
+                }
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setLineDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={lineSaving}>{editingLineId !== null ? 'Update' : 'Create'}</Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </Box>
   );

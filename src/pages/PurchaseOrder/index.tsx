@@ -20,6 +20,7 @@ interface FgpoDetail {
   Remarks?: string;
 }
 
+
 interface LineRow {
   styleCode: string;
   colorName: string;

@@ -101,7 +101,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
       fullWidth
     >
 
-      <DialogTitle sx={{ textAlign: 'center', pt: 3 }}>
+      <DialogTitle component="div" sx={{ textAlign: 'center', pt: 3 }}>
         <Box
           sx={{
             width: 56,
@@ -117,7 +117,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
         >
           <LockResetIcon sx={{ color: 'primary.main', fontSize: 28 }} />
         </Box>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <Typography component="h2" variant="h6" sx={{ fontWeight: 700 }}>
           Cambiar Contraseña
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

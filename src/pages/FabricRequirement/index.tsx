@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -12,10 +13,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { fabricRequirementsApi, fgpoApi, customersApi } from '../../utils/api';
+import BoltIcon from '@mui/icons-material/Bolt';
+import { fabricRequirementsApi, fgpoApi, customersApi, stylesApi, styleYieldsApi } from '../../utils/api';
 import { getCurrentUserName } from '../../utils/session';
 import { useComponentOptions } from '../../hooks/components/useComponentOptions';
-import { useUserOptions } from '../../hooks/users/useUserOptions';
 
 interface FabricRequirement {
   ID: number;
@@ -55,11 +56,27 @@ interface FgpoOption {
   Style?: string;
   Color?: string;
   OrderQuantity: number;
+  DeliveryDate: string;
 }
 
 interface CustomerOption {
   ID: number;
   Name: string;
+}
+
+interface StyleFabricOption {
+  id: number;
+  styleCode: string;
+  fabricDescription?: string;
+  fabricContent?: string;
+  gsm?: number;
+}
+
+interface StyleYieldOption {
+  styleId: number;
+  componentId: number;
+  yieldQuoted?: number;
+  yieldReal?: number;
 }
 
 interface FabricRequirementForm {
@@ -82,6 +99,11 @@ interface FabricRequirementForm {
   Remarks: string;
 }
 
+// Valores por defecto de negocio para nuevos Fabric Requirements.
+// Deben coincidir con los defaults del backend (FabricRequirementService).
+const DEFAULT_ALLOWANCE_PERCENTAGE = 1; // 1%, no una fracción
+const DEFAULT_STATUS = 'In Progress';
+
 const emptyForm: FabricRequirementForm = {
   FGPOId: 0,
   Style: '',
@@ -94,10 +116,10 @@ const emptyForm: FabricRequirementForm = {
   UOM: '',
   OrderQuantity: 0,
   ApprovedYield: 0,
-  AllowancePercentage: 0,
+  AllowancePercentage: DEFAULT_ALLOWANCE_PERCENTAGE,
   AvailableInventory: 0,
   RequiredDate: '',
-  Status: '',
+  Status: DEFAULT_STATUS,
   DataOwnerId: 0,
   Remarks: '',
 };
@@ -139,6 +161,7 @@ const mapFabricRequirement = (raw: any): FabricRequirement => ({
 });
 
 const FabricRequirement: React.FC = () => {
+  const navigate = useNavigate();
   const [items, setItems] = useState<FabricRequirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -174,8 +197,20 @@ const FabricRequirement: React.FC = () => {
   const [fgpos, setFgpos] = useState<FgpoOption[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [selectedFgpo, setSelectedFgpo] = useState<FgpoOption | null>(null);
+  const [styleOptions, setStyleOptions] = useState<StyleFabricOption[]>([]);
+  const [styleYields, setStyleYields] = useState<StyleYieldOption[]>([]);
+  const [fabricAuto, setFabricAuto] = useState(false);
+
+  // Generación automática desde FGPO (Style Yields -> un Fabric Requirement por Component)
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateFgpoId, setGenerateFgpoId] = useState(0);
+  const [generateUom, setGenerateUom] = useState('Yards');
+  const [generateAllowance, setGenerateAllowance] = useState(String(DEFAULT_ALLOWANCE_PERCENTAGE));
+  const [generateRequiredDate, setGenerateRequiredDate] = useState('');
+  const [generateExisting, setGenerateExisting] = useState<number[]>([]);
+  const [generateError, setGenerateError] = useState('');
+  const [generating, setGenerating] = useState(false);
   const { options: componentList } = useComponentOptions();
-  const { options: userList } = useUserOptions();
 
   useEffect(() => {
     loadData();
@@ -186,9 +221,11 @@ const FabricRequirement: React.FC = () => {
   useEffect(() => {
     const loadOptions = async () => {
       try {
-        const [fgpoRes, custRes] = await Promise.all([
+        const [fgpoRes, custRes, styleRes, yieldRes] = await Promise.all([
           fgpoApi.getAll(),
           customersApi.getAll(),
+          stylesApi.getAll(),
+          styleYieldsApi.getAll(),
         ]);
         setFgpos((fgpoRes.data ?? []).map((f: any) => ({
           ID: f.id ?? f.ID,
@@ -197,8 +234,22 @@ const FabricRequirement: React.FC = () => {
           Style: f.style ?? f.Style,
           Color: f.color ?? f.Color,
           OrderQuantity: f.orderQuantity ?? f.OrderQuantity ?? 0,
+          DeliveryDate: f.deliveryDate ?? f.DeliveryDate ?? '',
         })));
         setCustomers((custRes.data ?? []).map((c: any) => ({ ID: c.id ?? c.ID, Name: c.name ?? c.Name })));
+        setStyleOptions((styleRes.data ?? []).map((s: any) => ({
+          id: s.id ?? s.ID ?? 0,
+          styleCode: s.styleCode ?? s.StyleCode ?? '',
+          fabricDescription: s.fabricDescription ?? s.FabricDescription,
+          fabricContent: s.fabricContent ?? s.FabricContent,
+          gsm: s.gsm ?? s.Gsm ?? s.GSM,
+        })));
+        setStyleYields((yieldRes.data ?? []).map((y: any) => ({
+          styleId: y.styleId ?? y.StyleId ?? 0,
+          componentId: y.componentId ?? y.ComponentId ?? 0,
+          yieldQuoted: y.yieldQuoted ?? y.YieldQuoted,
+          yieldReal: y.yieldReal ?? y.YieldReal,
+        })));
       } catch (err: any) {
         setError(err?.response?.data?.message || 'Failed to load options.');
       }
@@ -252,17 +303,90 @@ const FabricRequirement: React.FC = () => {
     setPage(0);
   };
 
+  // Resuelve el Style del catálogo a partir del código (texto) guardado en el requerimiento
+  const findStyleOption = (styleCode?: string) => {
+    const code = (styleCode ?? '').trim().toLowerCase();
+    if (!code) return undefined;
+    return styleOptions.find(s => (s.styleCode ?? '').trim().toLowerCase() === code);
+  };
+
+  // Style + Component -> Yield (desde el catálogo Style Yields). Devuelve null si no está configurado.
+  const resolveYield = (styleCode?: string, componentId?: number): number | null => {
+    if (!componentId) return null;
+    const style = findStyleOption(styleCode);
+    if (!style) return null;
+    const match = styleYields.find(y => y.styleId === style.id && y.componentId === componentId);
+    const value = match?.yieldQuoted ?? match?.yieldReal;
+    if (value === undefined || value === null || value <= 0) return null;
+    return value;
+  };
+
+  // Aplica el Yield derivado al formulario (el Gross Req. se calcula a partir de él)
+  const withYield = (next: FabricRequirementForm): FabricRequirementForm => ({
+    ...next,
+    ApprovedYield: resolveYield(next.Style, next.ComponentId) ?? 0,
+  });
+
+  const resolvedYield = resolveYield(form.Style, form.ComponentId);
+  const componentLabel = componentList.find((c: any) => c.id === form.ComponentId)?.label ?? '';
+
+  // Datos derivados del diálogo de generación automática
+  const generateFgpo = fgpos.find(f => f.ID === generateFgpoId) || null;
+  const generateStyle = findStyleOption(generateFgpo?.Style);
+  const generateYields = generateStyle
+    ? styleYields.filter(y => y.styleId === generateStyle.id)
+    : [];
+
+  // Allow % vigente en el diálogo de generación (default 1% si el campo está vacío o inválido)
+  const generateAllowanceValue =
+    generateAllowance === '' || Number.isNaN(Number(generateAllowance))
+      ? DEFAULT_ALLOWANCE_PERCENTAGE
+      : Number(generateAllowance);
+
+  // Estado de cada Component en la vista previa (Se creará / Ya existe / Error de configuración)
+  const generateRows = generateFgpo
+    ? generateYields.map(y => {
+        const yieldValue = y.yieldQuoted ?? y.yieldReal;
+        const invalid = yieldValue === undefined || yieldValue === null || yieldValue <= 0;
+        const exists = !invalid && generateExisting.includes(y.componentId);
+        const gross = invalid ? null : generateFgpo.OrderQuantity * (yieldValue as number);
+        return {
+          componentId: y.componentId,
+          label: componentList.find((c: any) => c.id === y.componentId)?.label ?? String(y.componentId),
+          yieldValue,
+          invalid,
+          exists,
+          status: invalid ? 'Error de configuración' : exists ? 'Ya existe' : 'Se creará',
+          gross,
+          // Allow Qty = Gross Requirement x (Allow % / 100)
+          allowQty: gross === null ? null : (gross * generateAllowanceValue) / 100,
+        };
+      })
+    : [];
+  // Componentes que realmente se van a crear (ni existentes ni con error de configuración)
+  const generatePending = generateRows.filter(r => r.status === 'Se creará').length;
+
+  // Navega al módulo Style Yields para configurar el Yield faltante (Style + Component)
+  const goToStyleYield = () => {
+    const style = findStyleOption(form.Style);
+    const params = new URLSearchParams();
+    if (style) params.set('style', String(style.id));
+    if (form.ComponentId) params.set('component', String(form.ComponentId));
+    navigate(`/admin/style-yields?${params.toString()}`);
+  };
+
   const openCreateDialog = () => {
     setEditingId(null);
     setForm(emptyForm);
     setSelectedFgpo(null);
+    setFabricAuto(false);
     setFormError('');
     setDialogOpen(true);
   };
 
   const openEditDialog = (item: FabricRequirement) => {
     setEditingId(item.ID);
-    setForm({
+    setForm(withYield({
       FGPOId: item.FGPOId,
       Style: item.Style || '',
       Color: item.Color || '',
@@ -280,9 +404,13 @@ const FabricRequirement: React.FC = () => {
       Status: item.Status || '',
       DataOwnerId: item.DataOwnerId || 0,
       Remarks: item.Remarks || '',
-    });
+    }));
     const fgpo = fgpos.find(f => f.ID === item.FGPOId) || null;
     setSelectedFgpo(fgpo);
+    const styleCode = (fgpo?.Style ?? item.Style ?? '').trim();
+    const styleMatch = styleOptions.find(s => s.styleCode.trim().toLowerCase() === styleCode.toLowerCase())
+      ?? styleOptions.find(s => s.styleCode.trim().toLowerCase().includes(styleCode.toLowerCase()));
+    setFabricAuto(!!styleMatch);
     setFormError('');
     setDialogOpen(true);
   };
@@ -293,18 +421,21 @@ const FabricRequirement: React.FC = () => {
   };
 
   const handleFgpoChange = (fgpoId: number) => {
-    setForm({ ...form, FGPOId: fgpoId });
     const fgpo = fgpos.find(f => f.ID === fgpoId) || null;
     setSelectedFgpo(fgpo);
-    // Auto-fill Style and Color from the selected FGPO
-    if (fgpo) {
-      setForm(prev => ({
-        ...prev,
-        FGPOId: fgpoId,
-        Style: fgpo.Style || prev.Style,
-        Color: fgpo.Color || prev.Color,
-      }));
-    }
+    const styleCode = (fgpo?.Style ?? '').trim();
+    const styleMatch = styleOptions.find(s => s.styleCode.trim().toLowerCase() === styleCode.toLowerCase())
+      ?? styleOptions.find(s => s.styleCode.trim().toLowerCase().includes(styleCode.toLowerCase()));
+    setFabricAuto(!!styleMatch);
+    setForm(prev => withYield({
+      ...prev,
+      FGPOId: fgpoId,
+      Style: fgpo?.Style || prev.Style,
+      Color: fgpo?.Color || prev.Color,
+      FabricDescription: styleMatch?.fabricDescription ?? prev.FabricDescription,
+      Composition: styleMatch?.fabricContent ?? prev.Composition,
+      GSM: styleMatch?.gsm ?? prev.GSM,
+    }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -329,7 +460,7 @@ const FabricRequirement: React.FC = () => {
       return;
     }
     if (form.ApprovedYield <= 0) {
-      setFormError('Approved Yield must be greater than 0.');
+      setFormError(`No existe un Yield configurado para el Style ${form.Style || '-'} y el componente ${componentLabel || form.ComponentId}. Configúralo en el módulo Style Yields.`);
       return;
     }
     if (form.AllowancePercentage < 0 || form.AllowancePercentage > 100) {
@@ -388,6 +519,68 @@ const FabricRequirement: React.FC = () => {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setPageSize(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  // ── Generación automática desde FGPO ────────────────────────────────────
+  const openGenerateDialog = () => {
+    setGenerateFgpoId(0);
+    setGenerateUom('Yards');
+    setGenerateAllowance(String(DEFAULT_ALLOWANCE_PERCENTAGE));
+    setGenerateRequiredDate('');
+    setGenerateExisting([]);
+    setGenerateError('');
+    setGenerateOpen(true);
+  };
+
+  const handleGenerateFgpoChange = async (fgpoId: number) => {
+    setGenerateFgpoId(fgpoId);
+    setGenerateError('');
+    setGenerateExisting([]);
+    const fgpo = fgpos.find(f => f.ID === fgpoId);
+    setGenerateRequiredDate(fgpo?.DeliveryDate ? fgpo.DeliveryDate.slice(0, 10) : '');
+    if (!fgpoId) return;
+    // Componentes que ya tienen requerimiento en esa FGPO (para mostrar qué se creará)
+    try {
+      const res = await fabricRequirementsApi.getByFgpo(fgpoId);
+      setGenerateExisting(
+        (res.data ?? [])
+          .map((r: any) => r.componentId ?? r.ComponentId)
+          .filter((x: any) => x !== null && x !== undefined),
+      );
+    } catch { /* informativo */ }
+  };
+
+  const handleGenerate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!generateFgpoId) {
+      setGenerateError('Selecciona una FGPO.');
+      return;
+    }
+    setGenerating(true);
+    setGenerateError('');
+    try {
+      const res = await fabricRequirementsApi.generate(generateFgpoId, {
+        UOM: generateUom,
+        // Si el campo queda vacío se omite y el backend aplica su default (1%)
+        AllowancePercentage: generateAllowance === '' ? undefined : Number(generateAllowance),
+        RequiredDate: generateRequiredDate || undefined,
+      });
+      setGenerateOpen(false);
+      setPage(0);
+      await loadData();
+      setSuccess(res?.data?.message ?? 'Generación completada.');
+      setTimeout(() => setSuccess(''), 6000);
+    } catch (err: any) {
+      setGenerateError(err?.response?.data?.message || err?.response?.data || 'No fue posible generar los requerimientos.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const goToStyleYieldsForGenerate = () => {
+    const params = new URLSearchParams();
+    if (generateStyle) params.set('style', String(generateStyle.id));
+    navigate(`/admin/style-yields?${params.toString()}`);
   };
 
   const formatNumber = (value: number) => {
@@ -518,6 +711,10 @@ const FabricRequirement: React.FC = () => {
           </FormControl>
 
           <Box sx={{ flexGrow: 1 }} />
+
+          <Button variant="contained" color="secondary" startIcon={<BoltIcon />} onClick={openGenerateDialog}>
+            Generate from FGPO
+          </Button>
 
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreateDialog}>
             New Fabric Requirement
@@ -679,13 +876,27 @@ const FabricRequirement: React.FC = () => {
               </Paper>
             )}
 
+            {form.Style && form.ComponentId > 0 && resolvedYield === null && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                action={
+                  <Button color="inherit" size="small" onClick={goToStyleYield}>
+                    Configurar Style Yield
+                  </Button>
+                }
+              >
+                No existe un Yield configurado para el Style {form.Style} y el componente {componentLabel || form.ComponentId}.
+              </Alert>
+            )}
+
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
               <FormControl size="small" required>
                 <InputLabel>Fabric Component *</InputLabel>
                 <Select
                   value={form.ComponentId || ''}
                   label="Fabric Component *"
-                  onChange={e => setForm({ ...form, ComponentId: Number(e.target.value) })}
+                  onChange={e => setForm(prev => withYield({ ...prev, ComponentId: Number(e.target.value) }))}
                 >
                   <MenuItem value="">Select component...</MenuItem>
                   {componentList.map(c => <MenuItem key={c.id} value={c.id}>{c.label}{c.sub ? ` — ${c.sub}` : ''}</MenuItem>)}
@@ -695,24 +906,14 @@ const FabricRequirement: React.FC = () => {
                 label="Fabric Description"
                 size="small"
                 value={form.FabricDescription}
+                slotProps={{ input: { readOnly: fabricAuto } }}
                 onChange={e => setForm({ ...form, FabricDescription: e.target.value })}
-              />
-              <TextField
-                label="Style"
-                size="small"
-                value={form.Style}
-                onChange={e => setForm({ ...form, Style: e.target.value })}
-              />
-              <TextField
-                label="Color"
-                size="small"
-                value={form.Color}
-                onChange={e => setForm({ ...form, Color: e.target.value })}
               />
               <TextField
                 label="Composition"
                 size="small"
                 value={form.Composition}
+                slotProps={{ input: { readOnly: fabricAuto } }}
                 onChange={e => setForm({ ...form, Composition: e.target.value })}
               />
               <TextField
@@ -720,6 +921,7 @@ const FabricRequirement: React.FC = () => {
                 size="small"
                 type="number"
                 value={form.GSM}
+                slotProps={{ input: { readOnly: fabricAuto } }}
                 onChange={e => setForm({ ...form, GSM: Number(e.target.value) })}
               />
               <TextField
@@ -748,20 +950,29 @@ const FabricRequirement: React.FC = () => {
                 onChange={e => setForm({ ...form, OrderQuantity: Number(e.target.value) })}
               />
               <TextField
-                label="Approved Yield *"
+                label="Yield"
                 size="small"
                 type="number"
-                required
-                value={form.ApprovedYield}
-                onChange={e => setForm({ ...form, ApprovedYield: Number(e.target.value) })}
+                value={form.ApprovedYield || ''}
+                slotProps={{ input: { readOnly: true } }}
+                helperText="Automático desde Style Yields (Style + Component)"
               />
               <TextField
-                label="Allowance % *"
+                label="Gross Req."
+                size="small"
+                type="number"
+                value={resolvedYield === null ? '' : Number((form.OrderQuantity * form.ApprovedYield).toFixed(2))}
+                slotProps={{ input: { readOnly: true } }}
+                helperText="Order Qty × Yield"
+              />
+              <TextField
+                label="Allow % *"
                 size="small"
                 type="number"
                 required
                 value={form.AllowancePercentage}
                 onChange={e => setForm({ ...form, AllowancePercentage: Number(e.target.value) })}
+                helperText="Valor por defecto: 1%"
               />
               <TextField
                 label="Available Inventory"
@@ -927,6 +1138,155 @@ const FabricRequirement: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Generate from FGPO Dialog */}
+      <Dialog open={generateOpen} onClose={() => setGenerateOpen(false)} maxWidth="md" fullWidth>
+        <form onSubmit={handleGenerate}>
+          <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            Generate Fabric Requirements from FGPO
+          </DialogTitle>
+          <DialogContent>
+            {generateError && <Alert severity="error" sx={{ mb: 2 }}>{generateError}</Alert>}
+
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Se crea un Fabric Requirement por cada Component configurado en Style Yields para el Style de la FGPO.
+              El Yield y el Gross Req. se calculan automáticamente. Los Components que ya existen no se duplican.
+            </Typography>
+
+            <FormControl size="small" fullWidth required sx={{ mb: 2 }}>
+              <InputLabel>FGPO *</InputLabel>
+              <Select
+                value={generateFgpoId || ''}
+                label="FGPO *"
+                onChange={e => { void handleGenerateFgpoChange(Number(e.target.value)); }}
+              >
+                <MenuItem value="">Select FGPO...</MenuItem>
+                {fgpos.map(f => (
+                  <MenuItem key={f.ID} value={f.ID}>
+                    {f.FGPONumber}{f.Style ? ` — Style: ${f.Style}` : ' — (sin Style)'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {generateFgpo && (
+              <Paper elevation={0} sx={{ p: 1.5, mb: 2, backgroundColor: 'primary.light' }}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Style</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{generateFgpo.Style || '-'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Color</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{generateFgpo.Color || '-'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Order Qty</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{generateFgpo.OrderQuantity.toLocaleString()}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Customer</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{generateFgpo.CustomerName}</Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
+
+            {generateFgpo && generateYields.length === 0 && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                action={
+                  <Button color="inherit" size="small" onClick={goToStyleYieldsForGenerate}>
+                    Configurar Style Yields
+                  </Button>
+                }
+              >
+                No existen Style Yields configurados para el Style {generateFgpo.Style || '-'}.
+              </Alert>
+            )}
+
+            {generateFgpo && generateYields.length > 0 && (
+              <>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2, mb: 2 }}>
+                  <FormControl size="small" required>
+                    <InputLabel>UOM *</InputLabel>
+                    <Select value={generateUom} label="UOM *" onChange={e => setGenerateUom(e.target.value)}>
+                      {uomOptions.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    label="Allow %"
+                    size="small"
+                    type="number"
+                    value={generateAllowance}
+                    onChange={e => setGenerateAllowance(e.target.value)}
+                  />
+                  <TextField
+                    label="Required Date"
+                    size="small"
+                    type="date"
+                    value={generateRequiredDate}
+                    onChange={e => setGenerateRequiredDate(e.target.value)}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Box>
+
+                {generatePending === 0 ? (
+                  <Alert severity="warning" sx={{ mb: 1 }}>
+                    Esta FGPO ya tiene todos sus Fabric Requirements generados. No hay nuevos requerimientos por generar.
+                  </Alert>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    {generatePending === 1
+                      ? '1 requerimiento nuevo será generado.'
+                      : `${generatePending} requerimientos nuevos serán generados.`}
+                  </Alert>
+                )}
+
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      {['Component', 'Yield', 'Gross Req.', 'Allow %', 'Allow Qty', 'Status'].map(h => (
+                        <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {generateRows.map(row => (
+                      <TableRow key={row.componentId}>
+                        <TableCell sx={{ fontWeight: 600 }}>{row.label}</TableCell>
+                        <TableCell>{row.invalid ? '-' : row.yieldValue}</TableCell>
+                        <TableCell>{row.gross != null ? row.gross.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}</TableCell>
+                        <TableCell>{row.invalid ? '-' : formatNumber(generateAllowanceValue)}</TableCell>
+                        <TableCell>{row.allowQty != null ? row.allowQty.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={row.status}
+                            color={(row.status === 'Se creará' ? 'success' : row.status === 'Ya existe' ? 'default' : 'error') as any}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setGenerateOpen(false)}>Cancel</Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={generating || !generateFgpoId || generateRows.length === 0 || generatePending === 0}
+            >
+              {generating ? <CircularProgress size={18} /> : `Generate (${generatePending})`}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </Box>
   );

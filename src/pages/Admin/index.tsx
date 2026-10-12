@@ -7,15 +7,13 @@ import {
 } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
-import BusinessIcon from '@mui/icons-material/Business';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 const Admin: React.FC = () => {
-  const { users, roles, clients, addUser, addRole, addClient } = useContext(DataContext);
+  const { users, roles, addUser, addRole } = useContext(DataContext);
   
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Administrator' });
   const [newRole, setNewRole] = useState({ name: '', description: '' });
-  const [newClient, setNewClient] = useState({ name: '', contact: '', phone: '' });
 
   const handleAddUser = (e: FormEvent) => {
     e.preventDefault();
@@ -29,13 +27,6 @@ const Admin: React.FC = () => {
     if (!newRole.name) return;
     addRole({ Name: newRole.name, Description: newRole.description, Active: true, Permissions: [] });
     setNewRole({ name: '', description: '' });
-  };
-
-  const handleAddClient = (e: FormEvent) => {
-    e.preventDefault();
-    if (!newClient.name) return;
-    addClient(newClient);
-    setNewClient({ name: '', contact: '', phone: '' });
   };
 
   return (
@@ -148,58 +139,6 @@ const Admin: React.FC = () => {
                   <TableRow key={role.ID} hover>
                     <TableCell>{role.Name}</TableCell>
                     <TableCell>{role.Permissions?.length ? role.Permissions.map(p => p.Name).join(', ') : '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          </AccordionDetails>
-        </Accordion>
-
-        {/* CLIENTS SECTION */}
-        <Accordion defaultExpanded elevation={2} sx={{ borderTop: 4, borderColor: 'primary.main' }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <BusinessIcon color="primary" />
-              <Typography variant="h6">Clients</Typography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-          
-          <Box component="form" onSubmit={handleAddClient} sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-            <TextField 
-              label="Company Name" size="small" variant="outlined" required
-              value={newClient.name} onChange={e => setNewClient({...newClient, name: e.target.value})}
-              sx={{ flexGrow: 1, minWidth: 200 }}
-            />
-            <TextField 
-              label="Contact" size="small" variant="outlined"
-              value={newClient.contact} onChange={e => setNewClient({...newClient, contact: e.target.value})}
-              sx={{ flexGrow: 1, minWidth: 200 }}
-            />
-            <TextField 
-              label="Phone" size="small" variant="outlined"
-              value={newClient.phone} onChange={e => setNewClient({...newClient, phone: e.target.value})}
-              sx={{ flexGrow: 1, minWidth: 150 }}
-            />
-            <Button type="submit" variant="contained" color="primary">New Client</Button>
-          </Box>
-
-          <TableContainer>
-            <Table size="small">
-              <TableHead sx={{ backgroundColor: 'primary.light' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Company</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Contact</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Phone</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {clients.map(client => (
-                  <TableRow key={client.id} hover>
-                    <TableCell>{client.name}</TableCell>
-                    <TableCell>{client.contact}</TableCell>
-                    <TableCell>{client.phone}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

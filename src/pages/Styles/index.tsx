@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, CircularProgress, Alert, Dialog, DialogTitle,
@@ -57,6 +58,23 @@ const StylesPage: React.FC = () => {
 
   useEffect(() => { load(); }, []);
 
+  // Precarga el formulario de creación cuando se llega desde otro módulo
+  // (ej. FGPO → "+ Agregar nuevo Style \"B4004\"") => /admin/styles?value=B4004
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const value = searchParams.get('value');
+    if (!value) return;
+    setEditingId(null);
+    setForm({ ...emptyForm, StyleCode: value });
+    setFormError('');
+    setDialogOpen(true);
+    // Limpia el parámetro para no reabrir el diálogo al recargar
+    const next = new URLSearchParams(searchParams);
+    next.delete('value');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const filtered = items.filter(i =>
     !search || i.styleCode.toLowerCase().includes(search.toLowerCase()) ||
     (i.description ?? '').toLowerCase().includes(search.toLowerCase()));
@@ -85,7 +103,18 @@ const StylesPage: React.FC = () => {
     catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
   };
 
-  const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setFormError('');
+    setDialogOpen(true);
+  };
+  const calculateWeight = (gsm: string) => {
+    if (!gsm || isNaN(Number(gsm))) return '';
+    const weight = Number(gsm) * 0.0295;
+    return weight.toFixed(2);
+  };
+
   const openEdit = (s: Style) => {
     setEditingId(s.id);
     setForm({
@@ -124,7 +153,7 @@ const StylesPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Style', 'Description', 'Fabric Description', 'Fabric Content', 'Construction', 'GSM', 'Weight (oz)', 'Actions'].map(h =>
+                {['Style', 'Description', 'Fabric Description', 'Fabric Content', 'Construction', 'GSM', 'Weight (oz/yd²)', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
@@ -165,8 +194,30 @@ const StylesPage: React.FC = () => {
               <TextField fullWidth size="small" label="Fabric Content" value={form.FabricContent} onChange={e => setForm({ ...form, FabricContent: e.target.value })} />
               <TextField fullWidth size="small" label="Construction" value={form.Construction} onChange={e => setForm({ ...form, Construction: e.target.value })} />
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth size="small" label="GSM" type="number" value={form.Gsm} onChange={e => setForm({ ...form, Gsm: e.target.value })} />
-                <TextField fullWidth size="small" label="Weight (oz/yd²)" type="number" value={form.WeightOz} onChange={e => setForm({ ...form, WeightOz: e.target.value })} />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="GSM"
+                  type="number"
+                  value={form.Gsm}
+                  onChange={e => {
+                    const newGsm = e.target.value;
+                    setForm({
+                      ...form,
+                      Gsm: newGsm,
+                      WeightOz: calculateWeight(newGsm)
+                    });
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Weight (oz/yd²)"
+                  type="number"
+                  value={form.WeightOz}
+                  slotProps={{ input: { readOnly: true } }}
+                  helperText="Auto-calculated from GSM × 0.0295"
+                />
               </Box>
               <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setForm({ ...form, Comments: e.target.value })} multiline rows={2} />
             </Box>

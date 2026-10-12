@@ -107,7 +107,7 @@ const Dashboard: React.FC = () => {
     { label: 'Cut Quantity', value: totalCut, color: 'success.main' },
     { label: 'Sewing Output', value: totalSew, color: 'info.main' },
     { label: 'Packed Quantity', value: totalPacked, color: 'warning.main' },
-    { label: 'In Transit', value: totalInTransit, color: 'secondary.main' },
+    { label: 'In Transit', value: totalInTransit, color: 'info.main' },
     { label: 'Customer Received', value: totalReceived, color: 'success.main' },
   ];
 

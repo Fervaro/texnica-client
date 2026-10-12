@@ -19,6 +19,7 @@ interface Customer {
   Phone?: string;
   Email?: string;
   Address?: string;
+  ShippingAddress?: string;
   Active: boolean;
   CreatedAt: string;
   UpdatedAt?: string;
@@ -30,6 +31,7 @@ interface CustomerForm {
   Phone: string;
   Email: string;
   Address: string;
+  ShippingAddress: string;
 }
 
 const emptyForm: CustomerForm = {
@@ -38,6 +40,7 @@ const emptyForm: CustomerForm = {
   Phone: '',
   Email: '',
   Address: '',
+  ShippingAddress: '',
 };
 
 // Map the API response (camelCase) to the PascalCase interface used by the UI
@@ -48,6 +51,7 @@ const mapCustomer = (raw: any): Customer => ({
   Phone: raw.phone ?? raw.Phone,
   Email: raw.email ?? raw.Email,
   Address: raw.address ?? raw.Address,
+  ShippingAddress: raw.shippingAddress ?? raw.ShippingAddress,
   Active: raw.active ?? raw.Active ?? true,
   CreatedAt: raw.createdAt ?? raw.CreatedAt ?? '',
   UpdatedAt: raw.updatedAt ?? raw.UpdatedAt,
@@ -130,6 +134,7 @@ const Customers: React.FC = () => {
       Phone: customer.Phone ?? '',
       Email: customer.Email ?? '',
       Address: customer.Address ?? '',
+      ShippingAddress: customer.ShippingAddress ?? '',
     });
     setFormError('');
     setDialogOpen(true);
@@ -230,13 +235,14 @@ const Customers: React.FC = () => {
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Phone</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Email</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Address</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Shipping Address</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {customers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">No customers found.</TableCell>
+                      <TableCell colSpan={7} align="center">No customers found.</TableCell>
                     </TableRow>
                   ) : (
                     customers.map(customer => (
@@ -246,6 +252,7 @@ const Customers: React.FC = () => {
                         <TableCell>{customer.Phone ?? '-'}</TableCell>
                         <TableCell>{customer.Email ?? '-'}</TableCell>
                         <TableCell>{customer.Address ?? '-'}</TableCell>
+                        <TableCell>{customer.ShippingAddress ?? '-'}</TableCell>
                         <TableCell align="right">
                           <Tooltip title="Edit">
                             <IconButton size="small" color="primary" onClick={() => openEdit(customer)}>
@@ -290,7 +297,8 @@ const Customers: React.FC = () => {
             <TextField label="Contact" size="small" value={form.Contact} onChange={e => setForm({ ...form, Contact: e.target.value })} />
             <TextField label="Phone" size="small" value={form.Phone} onChange={e => setForm({ ...form, Phone: e.target.value })} />
             <TextField label="Email" size="small" value={form.Email} onChange={e => setForm({ ...form, Email: e.target.value })} />
-            <TextField label="Address" size="small" value={form.Address} onChange={e => setForm({ ...form, Address: e.target.value })} />
+            <TextField label="General Address" size="small" value={form.Address} onChange={e => setForm({ ...form, Address: e.target.value })} />
+            <TextField label="Shipping Address" size="small" value={form.ShippingAddress} onChange={e => setForm({ ...form, ShippingAddress: e.target.value })} />
           </Box>
         </DialogContent>
         <DialogActions>

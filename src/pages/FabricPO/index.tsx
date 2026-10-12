@@ -1,9 +1,8 @@
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
-  DialogContent, DialogActions, IconButton, InputAdornment, MenuItem, Select,
-  FormControl, InputLabel, TablePagination, Tooltip, Grid, Autocomplete
+  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
+  Grid, IconButton, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TablePagination, TableRow, TextField, Tooltip, Typography, FormControl, InputLabel, Select
 } from '@mui/material';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AddIcon from '@mui/icons-material/Add';
@@ -12,48 +11,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { fabricPOsApi, fgpoApi, fabricRequirementsApi } from '../../utils/api';
-import { useSupplierOptions } from '../../hooks/suppliers/useSupplierOptions';
+import DownloadIcon from '@mui/icons-material/Download';
+import { fabricPOsApi, fgpoApi } from '../../utils/api';
 import { useComponentOptions } from '../../hooks/components/useComponentOptions';
-import { useUserOptions } from '../../hooks/users/useUserOptions';
-
-interface FabricPO {
-  ID: number;
-  FabricPONumber: string;
-  Fgpos: FabricPOFgpo[];
-  SupplierId?: number;
-  SupplierName?: string;
-  FabricMill?: string;
-  ComponentId?: number;
-  ComponentCode?: string;
-  OrderedQuantity: number;
-  UOM?: string;
-  UnitPrice: number;
-  POAmount: number;
-  OrderDate: string;
-  RequiredCompletion: string;
-  PlannedExport?: string;
-  PlannedArrival?: string;
-  POStatus?: string;
-  PurchaseOwnerUserId?: number;
-  PurchaseOwnerName?: string;
-  ApprovedByUserId?: number;
-  ApprovedByName?: string;
-  LastUpdated?: string;
-  Remarks?: string;
-  Active: boolean;
-  CreatedAt: string;
-  UpdatedAt?: string;
-}
-
-interface FabricPOFgpo {
-  FGPOId: number;
-  FGPONumber: string;
-  CustomerName: string;
-  Style?: string;
-  Color?: string;
-  AllocatedQuantity: number;
-}
+import FabricPOFormDialog from './FabricPOFormDialog';
+import type { FabricPO, FabricPOLine } from '../../types/fabricPO';
+import { BUYER_NAME } from '../../types/fabricPO';
 
 interface FgpoOption {
   ID: number;
@@ -64,79 +27,95 @@ interface FgpoOption {
   OrderQuantity: number;
 }
 
-interface FgpoItem {
-  FGPOId: number;
-  Style: string;
-  Color: string;
-  AllocatedQuantity: number;
-}
-
-interface FabricPOForm {
-  FabricPONumber: string;
-  FgpoItems: FgpoItem[];
-  SupplierId: number;
-  FabricMill: string;
-  ComponentId: number;
-  OrderedQuantity: number;
-  UOM: string;
-  UnitPrice: number;
-  OrderDate: string;
-  RequiredCompletion: string;
-  PlannedExport: string;
-  PlannedArrival: string;
-  POStatus: string;
-  PurchaseOwnerUserId: number;
-  ApprovedByUserId: number;
-  Remarks: string;
-}
-
-const emptyForm: FabricPOForm = {
-  FabricPONumber: '', FgpoItems: [], SupplierId: 0, FabricMill: '', ComponentId: 0,
-  OrderedQuantity: 0, UOM: '', UnitPrice: 0, OrderDate: '',
-  RequiredCompletion: '', PlannedExport: '', PlannedArrival: '', POStatus: '',
-  PurchaseOwnerUserId: 0, ApprovedByUserId: 0, Remarks: '',
-};
-
-const uomOptions = ['Yards', 'Meters', 'Kilograms', 'Pounds', 'Rolls', 'Pieces'];
 const poStatusOptions = [
   'Not Started', 'Pending', 'In Progress', 'Partially Completed', 'Completed',
   'Approved', 'Conditionally Approved', 'Rejected', 'On Hold', 'Closed', 'Cancelled'
 ];
 
+const fmtQty = (v?: number | null) =>
+  v === undefined || v === null || Number.isNaN(v)
+    ? '-'
+    : v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const fmtMoney = (v?: number | null) =>
+  v === undefined || v === null || Number.isNaN(v)
+    ? '-'
+    : `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const fmtDate = (date?: string) => (date ? new Date(date).toLocaleDateString() : '-');
+
+/** Normaliza la respuesta del backend (camelCase) al modelo de la UI. */
 const mapFabricPO = (raw: any): FabricPO => ({
-  ID: raw.id ?? raw.ID,
-  FabricPONumber: raw.fabricPONumber ?? raw.FabricPONumber ?? '',
-  Fgpos: (raw.fgpos ?? raw.Fgpos ?? []).map((f: any) => ({
-    FGPOId: f.fgpoId ?? f.FGPOId ?? 0,
-    FGPONumber: f.fgpoNumber ?? f.FGPONumber ?? '',
-    CustomerName: f.customerName ?? f.CustomerName ?? '',
-    Style: f.style ?? f.Style,
-    Color: f.color ?? f.Color,
-    AllocatedQuantity: f.allocatedQuantity ?? f.AllocatedQuantity ?? 0,
+  id: raw.id ?? raw.ID,
+  fabricPONumber: raw.fabricPONumber ?? raw.FabricPONumber ?? '',
+  fgpos: (raw.fgpos ?? raw.Fgpos ?? []).map((f: any) => ({
+    fgpoId: f.fgpoId ?? f.FGPOId ?? 0,
+    fgpoNumber: f.fgpoNumber ?? f.FGPONumber ?? '',
+    customerName: f.customerName ?? f.CustomerName ?? '',
+    style: f.style ?? f.Style,
+    color: f.color ?? f.Color,
+    allocatedQuantity: f.allocatedQuantity ?? f.AllocatedQuantity ?? 0,
   })),
-  SupplierId: raw.supplierId ?? raw.SupplierId ?? undefined,
-  SupplierName: raw.supplierName ?? raw.SupplierName ?? raw.supplier ?? raw.Supplier,
-  FabricMill: raw.fabricMill ?? raw.FabricMill,
-  ComponentId: raw.componentId ?? raw.ComponentId ?? undefined,
-  ComponentCode: raw.componentCode ?? raw.ComponentCode ?? raw.fabricComponent ?? raw.FabricComponent,
-  OrderedQuantity: raw.orderedQuantity ?? raw.OrderedQuantity ?? 0,
-  UOM: raw.uom ?? raw.UOM,
-  UnitPrice: raw.unitPrice ?? raw.UnitPrice ?? 0,
-  POAmount: raw.poAmount ?? raw.POAmount ?? 0,
-  OrderDate: raw.orderDate ?? raw.OrderDate ?? '',
-  RequiredCompletion: raw.requiredCompletion ?? raw.RequiredCompletion ?? '',
-  PlannedExport: raw.plannedExport ?? raw.PlannedExport,
-  PlannedArrival: raw.plannedArrival ?? raw.PlannedArrival,
-  POStatus: raw.poStatus ?? raw.POStatus,
-  PurchaseOwnerUserId: raw.purchaseOwnerUserId ?? raw.PurchaseOwnerUserId ?? undefined,
-  PurchaseOwnerName: raw.purchaseOwnerName ?? raw.PurchaseOwnerName ?? raw.purchaseOwner ?? raw.PurchaseOwner,
-  ApprovedByUserId: raw.approvedByUserId ?? raw.ApprovedByUserId ?? undefined,
-  ApprovedByName: raw.approvedByName ?? raw.ApprovedByName ?? raw.approvedBy ?? raw.ApprovedBy,
-  LastUpdated: raw.lastUpdated ?? raw.LastUpdated,
-  Remarks: raw.remarks ?? raw.Remarks,
-  Active: raw.active ?? raw.Active ?? true,
-  CreatedAt: raw.createdAt ?? raw.CreatedAt ?? '',
-  UpdatedAt: raw.updatedAt ?? raw.UpdatedAt,
+  lines: (raw.lines ?? raw.Lines ?? []).map((l: any): FabricPOLine => ({
+    id: l.id ?? l.ID ?? 0,
+    fabricPOId: l.fabricPOId ?? l.FabricPOId ?? 0,
+    lineNumber: l.lineNumber ?? l.LineNumber ?? 0,
+    fgpoId: l.fgpoId ?? l.FGPOId ?? 0,
+    fgpoNumber: l.fgpoNumber ?? l.FGPONumber,
+    fabricRequirementId: l.fabricRequirementId ?? l.FabricRequirementId,
+    style: l.style ?? l.Style,
+    color: l.color ?? l.Color,
+    componentId: l.componentId ?? l.ComponentId,
+    componentCode: l.componentCode ?? l.ComponentCode ?? l.category ?? l.Category,
+    fabricName: l.fabricName ?? l.FabricName,
+    yarn: l.yarn ?? l.Yarn,
+    composition: l.composition ?? l.Composition,
+    requiredWidth: l.requiredWidth ?? l.RequiredWidth,
+    gsm: l.gsm ?? l.GSM ?? 0,
+    quantity: l.quantity ?? l.Quantity ?? 0,
+    unitPrice: l.unitPrice ?? l.UnitPrice ?? 0,
+    amount: l.amount ?? l.Amount ?? 0,
+    approval: l.approval ?? l.Approval,
+    remarks: l.remarks ?? l.Remarks,
+    uom: l.uom ?? l.UOM,
+    active: l.active ?? l.Active ?? true,
+    createdAt: l.createdAt ?? l.CreatedAt ?? '',
+    updatedAt: l.updatedAt ?? l.UpdatedAt,
+  })),
+  lineCount: raw.lineCount ?? raw.LineCount ?? 0,
+  fgpoCount: raw.fgpoCount ?? raw.FgpoCount ?? 0,
+  componentSummary: raw.componentSummary ?? raw.ComponentSummary,
+  commonUnitPrice: raw.commonUnitPrice ?? raw.CommonUnitPrice ?? null,
+  supplierId: raw.supplierId ?? raw.SupplierId,
+  supplierName: raw.supplierName ?? raw.SupplierName ?? raw.supplier ?? raw.Supplier,
+  fabricMill: raw.fabricMill ?? raw.FabricMill,
+  componentId: raw.componentId ?? raw.ComponentId,
+  componentCode: raw.componentCode ?? raw.ComponentCode,
+  orderedQuantity: raw.orderedQuantity ?? raw.OrderedQuantity ?? 0,
+  uom: raw.uom ?? raw.UOM,
+  unitPrice: raw.unitPrice ?? raw.UnitPrice ?? 0,
+  poAmount: raw.poAmount ?? raw.POAmount ?? 0,
+  orderDate: raw.orderDate ?? raw.OrderDate ?? '',
+  requiredCompletion: raw.requiredCompletion ?? raw.RequiredCompletion ?? '',
+  plannedExport: raw.plannedExport ?? raw.PlannedExport,
+  plannedArrival: raw.plannedArrival ?? raw.PlannedArrival,
+  poStatus: raw.poStatus ?? raw.POStatus,
+  currency: raw.currency ?? raw.Currency,
+  incoterm: raw.incoterm ?? raw.Incoterm,
+  customerId: raw.customerId ?? raw.CustomerId,
+  customerName: raw.customerName ?? raw.CustomerName,
+  preparedBy: raw.preparedBy ?? raw.PreparedBy,
+  checkedBy: raw.checkedBy ?? raw.CheckedBy,
+  program: raw.program ?? raw.Program,
+  paymentTerms: raw.paymentTerms ?? raw.PaymentTerms,
+  purchaseOwnerUserId: raw.purchaseOwnerUserId ?? raw.PurchaseOwnerUserId,
+  purchaseOwnerName: raw.purchaseOwnerName ?? raw.PurchaseOwnerName,
+  approvedByUserId: raw.approvedByUserId ?? raw.ApprovedByUserId,
+  approvedByName: raw.approvedByName ?? raw.ApprovedByName,
+  remarks: raw.remarks ?? raw.Remarks,
+  active: raw.active ?? raw.Active ?? true,
+  createdAt: raw.createdAt ?? raw.CreatedAt ?? '',
+  updatedAt: raw.updatedAt ?? raw.UpdatedAt,
 });
 
 const FabricPO: React.FC = () => {
@@ -144,41 +123,44 @@ const FabricPO: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Filtros
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [fgpoFilter, setFgpoFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
-  const [fabricMillFilter, setFabricMillFilter] = useState('');
   const [fabricComponentFilter, setFabricComponentFilter] = useState('');
   const [poStatusFilter, setPoStatusFilter] = useState('');
+
   const [sortBy, setSortBy] = useState('createdat');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Diálogos
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<FabricPO | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<FabricPOForm>(emptyForm);
-  const [formError, setFormError] = useState('');
   const [detailItem, setDetailItem] = useState<FabricPO | null>(null);
+
+  // id de la PO cuyo PDF se está descargando (para bloquear el botón)
+  const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
+
   const [fgpos, setFgpos] = useState<FgpoOption[]>([]);
-  // NetPurchaseRequirement por FGPO (desde Fabric Requirement) para auto-llenar la asignación
-  const [reqByFgpo, setReqByFgpo] = useState<Record<number, number>>({});
-  const { options: supplierList } = useSupplierOptions();
   const { options: componentList } = useComponentOptions();
-  const { options: userList } = useUserOptions();
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, search, fgpoFilter, supplierFilter, fabricMillFilter, fabricComponentFilter, poStatusFilter, sortBy, sortOrder]);
+  }, [page, pageSize, search, fgpoFilter, supplierFilter, fabricComponentFilter, poStatusFilter, sortBy, sortOrder]);
 
   useEffect(() => {
-    const loadOptions = async () => {
+    const loadFgpos = async () => {
       try {
-        const [fgpoRes, reqRes] = await Promise.all([fgpoApi.getAll(), fabricRequirementsApi.getAll()]);
-        setFgpos((fgpoRes.data ?? []).map((f: any) => ({
+        const res = await fgpoApi.getAll();
+        setFgpos((res.data ?? []).map((f: any) => ({
           ID: f.id ?? f.ID,
           FGPONumber: f.fgpoNumber ?? f.FGPONumber ?? '',
           CustomerName: f.customerName ?? f.CustomerName ?? '',
@@ -186,19 +168,11 @@ const FabricPO: React.FC = () => {
           Color: f.color ?? f.Color,
           OrderQuantity: f.orderQuantity ?? f.OrderQuantity ?? 0,
         })));
-        // Suma del NetPurchaseRequirement por FGPO (auto-carga para la asignación)
-        const map: Record<number, number> = {};
-        (reqRes.data ?? []).forEach((r: any) => {
-          const fgpoId = r.fgpoId ?? r.FGPOId ?? 0;
-          if (!fgpoId) return;
-          map[fgpoId] = (map[fgpoId] ?? 0) + Number(r.netPurchaseRequirement ?? r.NetPurchaseRequirement ?? 0);
-        });
-        setReqByFgpo(map);
-      } catch (err: any) {
-        setError(err?.response?.data?.message || 'Failed to load options.');
+      } catch {
+        /* El filtro por FGPO es opcional: si falla, la pantalla sigue usable. */
       }
     };
-    loadOptions();
+    void loadFgpos();
   }, []);
 
   const loadData = async () => {
@@ -208,15 +182,15 @@ const FabricPO: React.FC = () => {
       const res = await fabricPOsApi.getPaged({
         page: page + 1, pageSize,
         search: search || undefined, sortBy, sortOrder,
-        fgpo: fgpoFilter || undefined, supplier: supplierFilter || undefined,
-        fabricMill: fabricMillFilter || undefined,
+        fgpo: fgpoFilter || undefined,
+        supplier: supplierFilter || undefined,
         fabricComponent: fabricComponentFilter || undefined,
         poStatus: poStatusFilter || undefined,
       });
       setItems((res.data.items || []).map(mapFabricPO));
       setTotalCount(res.data.totalCount ?? 0);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load Fabric PO records');
+      setError(err?.response?.data?.message || err?.response?.data || 'Failed to load Fabric PO records');
     } finally {
       setLoading(false);
     }
@@ -231,127 +205,27 @@ const FabricPO: React.FC = () => {
     setPage(0);
   };
 
-  const openCreateDialog = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => { setEditingItem(null); setFormOpen(true); };
 
-  const openEditDialog = (item: FabricPO) => {
-    setEditingId(item.ID);
-    setForm({
-      FabricPONumber: item.FabricPONumber,
-      FgpoItems: item.Fgpos.map(f => ({
-        FGPOId: f.FGPOId,
-        Style: f.Style || '',
-        Color: f.Color || '',
-        AllocatedQuantity: f.AllocatedQuantity,
-      })),
-      SupplierId: item.SupplierId || 0, FabricMill: item.FabricMill || '',
-      ComponentId: item.ComponentId || 0,
-      OrderedQuantity: item.OrderedQuantity,
-      UOM: item.UOM || '', UnitPrice: item.UnitPrice,
-      OrderDate: item.OrderDate ? item.OrderDate.slice(0, 10) : '',
-      RequiredCompletion: item.RequiredCompletion ? item.RequiredCompletion.slice(0, 10) : '',
-      PlannedExport: item.PlannedExport ? item.PlannedExport.slice(0, 10) : '',
-      PlannedArrival: item.PlannedArrival ? item.PlannedArrival.slice(0, 10) : '',
-      POStatus: item.POStatus || '', PurchaseOwnerUserId: item.PurchaseOwnerUserId || 0,
-      ApprovedByUserId: item.ApprovedByUserId || 0, Remarks: item.Remarks || '',
-    });
-    setFormError('');
-    setDialogOpen(true);
-  };
-
-  const openDetailDialog = (item: FabricPO) => { setDetailItem(item); setDetailOpen(true); };
-
-  const handleFgpoSelectionChange = (selected: FgpoOption[]) => {
-    const existing = new Map(form.FgpoItems.map(i => [i.FGPOId, i]));
-    const newItems: FgpoItem[] = selected.map(opt => {
-      const prev = existing.get(opt.ID);
-      return {
-        FGPOId: opt.ID,
-        Style: prev?.Style ?? opt.Style ?? '',
-        Color: prev?.Color ?? opt.Color ?? '',
-        // Auto-carga desde Fabric Requirement (NetPurchaseRequirement) si es nuevo
-        AllocatedQuantity: prev?.AllocatedQuantity ?? (reqByFgpo[opt.ID] ?? 0),
-      };
-    });
-    const totalAlloc = newItems.reduce((sum, i) => sum + i.AllocatedQuantity, 0);
-    setForm({ ...form, FgpoItems: newItems, OrderedQuantity: totalAlloc || form.OrderedQuantity });
-  };
-
-  const updateFgpoItem = (fgpoId: number, field: keyof FgpoItem, value: string | number) => {
-    setForm({
-      ...form,
-      FgpoItems: form.FgpoItems.map(i => i.FGPOId === fgpoId ? { ...i, [field]: value } : i),
-    });
-  };
-
-  // Recalcular OrderedQuantity como suma de las asignaciones
-  const handleAllocatedQtyChange = (fgpoId: number, value: number) => {
-    updateFgpoItem(fgpoId, 'AllocatedQuantity', value);
-    const total = form.FgpoItems.reduce((sum, i) => sum + (i.FGPOId === fgpoId ? value : (Number(i.AllocatedQuantity) || 0)), 0);
-    setForm(prev => ({ ...prev, OrderedQuantity: total }));
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-    if (!form.FabricPONumber.trim()) { setFormError('Fabric PO Number is required.'); return; }
-    if (form.FgpoItems.length === 0) { setFormError('At least one FGPO must be selected.'); return; }
-    if (!form.ComponentId) { setFormError('Fabric Component is required.'); return; }
-    if (!form.UOM.trim()) { setFormError('UOM is required.'); return; }
-    if (form.OrderedQuantity <= 0) { setFormError('Ordered Quantity must be greater than 0.'); return; }
-    if (form.UnitPrice <= 0) { setFormError('Unit Price must be greater than 0.'); return; }
-    if (!form.OrderDate) { setFormError('Order Date is required.'); return; }
-    if (!form.RequiredCompletion) { setFormError('Required Completion is required.'); return; }
-
-    for (const item of form.FgpoItems) {
-      if (item.AllocatedQuantity <= 0) {
-        setFormError(`Allocated Quantity for FGPO ${item.FGPOId} must be greater than 0.`);
-        return;
-      }
-    }
-    const totalAllocated = form.FgpoItems.reduce((sum, i) => sum + i.AllocatedQuantity, 0);
-    if (totalAllocated > form.OrderedQuantity) {
-      setFormError(`Allocated quantity (${totalAllocated}) exceeds Ordered Quantity (${form.OrderedQuantity}).`);
-      return;
-    }
-
-    const payload = {
-      FabricPONumber: form.FabricPONumber,
-      FgpoItems: form.FgpoItems.map(i => ({
-        FGPOId: i.FGPOId,
-        Style: i.Style || null,
-        Color: i.Color || null,
-        AllocatedQuantity: Number(i.AllocatedQuantity),
-      })),
-      SupplierId: form.SupplierId || null,
-      FabricMill: form.FabricMill || null,
-      ComponentId: form.ComponentId || null,
-      OrderedQuantity: Number(form.OrderedQuantity),
-      UOM: form.UOM,
-      UnitPrice: Number(form.UnitPrice),
-      OrderDate: form.OrderDate,
-      RequiredCompletion: form.RequiredCompletion,
-      PlannedExport: form.PlannedExport || null,
-      PlannedArrival: form.PlannedArrival || null,
-      POStatus: form.POStatus || null,
-      PurchaseOwnerUserId: form.PurchaseOwnerUserId || null,
-      ApprovedByUserId: form.ApprovedByUserId || null,
-      Remarks: form.Remarks || null,
-    };
-
+  const openEdit = async (item: FabricPO) => {
+    // Se recarga la PO completa para garantizar que las líneas estén al día
     try {
-      if (editingId !== null) {
-        await fabricPOsApi.update(editingId, payload);
-        setSuccess('Fabric PO updated successfully.');
-      } else {
-        await fabricPOsApi.create(payload);
-        setSuccess('Fabric PO created successfully.');
-      }
-      setDialogOpen(false);
-      setPage(0);
-      loadData();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      setFormError(err?.response?.data || 'Failed to save Fabric PO record.');
+      const res = await fabricPOsApi.getById(item.id);
+      setEditingItem(mapFabricPO(res.data));
+    } catch {
+      setEditingItem(item);
+    }
+    setFormOpen(true);
+  };
+
+  const openDetail = async (item: FabricPO) => {
+    setDetailItem(item);
+    setDetailOpen(true);
+    try {
+      const res = await fabricPOsApi.getById(item.id);
+      setDetailItem(mapFabricPO(res.data));
+    } catch {
+      /* se conserva el detalle ya cargado */
     }
   };
 
@@ -360,27 +234,64 @@ const FabricPO: React.FC = () => {
     try {
       await fabricPOsApi.delete(id);
       setSuccess('Fabric PO deleted successfully.');
-      loadData();
+      await loadData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to delete Fabric PO record.');
+      setError(err?.response?.data?.message || err?.response?.data || 'Failed to delete Fabric PO record.');
     }
   };
 
-  const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setPageSize(parseInt(event.target.value, 10));
+  const handleSaved = async (message: string) => {
+    setSuccess(message);
     setPage(0);
+    await loadData();
+    setTimeout(() => setSuccess(''), 5000);
   };
 
-  const formatNumber = (value: number) => {
-    if (value === undefined || value === null) return '-';
-    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+  /**
+   * #32: descarga el PDF oficial generado por el backend.
+   * No se recalcula nada en el frontend: sólo se solicita y se guarda el archivo.
+   * El PDF respeta los mismos filtros por cliente que la vista (un ID de otro
+   * Customer devuelve 404).
+   */
+  const handleDownloadPdf = async (item: FabricPO) => {
+    setPdfLoadingId(item.id);
+    setError('');
+    try {
+      const res = await fabricPOsApi.getPdf(item.id);
 
-  const formatDate = (date?: string) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString();
+      // Nombre de archivo sugerido por el backend (Content-Disposition).
+      let fileName = `FabricPO_${item.fabricPONumber || item.id}.pdf`;
+      const disposition = res.headers?.['content-disposition'] as string | undefined;
+      const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition ?? '');
+      if (match?.[1]) {
+        try { fileName = decodeURIComponent(match[1]); } catch { fileName = match[1]; }
+      }
+
+      const url = window.URL.createObjectURL(res.data as Blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      // Con responseType blob el error del backend llega como Blob: se lee como texto.
+      let message = 'No fue posible generar el PDF de la Fabric Purchase Order.';
+      const data = err?.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const text = (await data.text()).trim().replace(/^"|"$/g, '');
+          if (text) message = text;
+        } catch { /* se conserva el mensaje genérico */ }
+      } else if (typeof data === 'string' && data) {
+        message = data;
+      }
+      setError(message);
+    } finally {
+      setPdfLoadingId(null);
+    }
   };
 
   const getStatusColor = (status?: string) => {
@@ -394,11 +305,36 @@ const FabricPO: React.FC = () => {
   };
 
   const sortableHeader = (label: string, column: string) => (
-    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort(column)}>
+    <TableCell
+      sx={{ fontWeight: 'bold', color: 'primary.main', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+      onClick={() => handleSort(column)}
+    >
       {label}
       {sortBy === column && <span style={{ marginLeft: 4 }}>{sortOrder === 'asc' ? '▲' : '▼'}</span>}
     </TableCell>
   );
+
+  /** #28: una FGPO muestra el código; varias muestran resumen con detalle en tooltip. */
+  const renderFgpos = (item: FabricPO) => {
+    const codes = item.fgpos.map(f => f.fgpoNumber).filter(Boolean);
+    if (codes.length === 0) return '-';
+    if (codes.length === 1) return codes[0];
+    return (
+      <Tooltip title={codes.join(', ')}>
+        <span>{codes.length} FGPOs</span>
+      </Tooltip>
+    );
+  };
+
+  /** #28: precio común si todas las líneas coinciden; si no, "Multiple". */
+  const renderUnitPrice = (item: FabricPO) => {
+    if (item.commonUnitPrice === null || item.commonUnitPrice === undefined) {
+      return item.lineCount > 1
+        ? <Chip size="small" variant="outlined" label="Multiple" />
+        : fmtMoney(item.unitPrice);
+    }
+    return fmtMoney(item.commonUnitPrice);
+  };
 
   if (loading && items.length === 0) return <CircularProgress />;
 
@@ -412,6 +348,7 @@ const FabricPO: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
+      {/* ── Filtros ─────────────────────────────────────────────────── */}
       <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main', mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -422,17 +359,17 @@ const FabricPO: React.FC = () => {
             slotProps={{
               input: {
                 startAdornment: (<InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>),
-                endAdornment: searchInput && (
+                endAdornment: searchInput ? (
                   <InputAdornment position="end">
                     <IconButton size="small" onClick={handleClearSearch}><ClearIcon fontSize="small" /></IconButton>
                   </InputAdornment>
-                ),
+                ) : undefined,
               },
             }}
           />
           <Button variant="contained" onClick={handleSearch} startIcon={<SearchIcon />}>Search</Button>
 
-          <FormControl size="small" sx={{ minWidth: 140 }}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>FGPO</InputLabel>
             <Select value={fgpoFilter} label="FGPO" onChange={e => { setFgpoFilter(e.target.value); setPage(0); }}>
               <MenuItem value="">All</MenuItem>
@@ -440,30 +377,41 @@ const FabricPO: React.FC = () => {
             </Select>
           </FormControl>
 
-          <TextField label="Supplier" size="small" value={supplierFilter} onChange={e => { setSupplierFilter(e.target.value); setPage(0); }} sx={{ minWidth: 140 }} />
-          <TextField label="Fabric Mill" size="small" value={fabricMillFilter} onChange={e => { setFabricMillFilter(e.target.value); setPage(0); }} sx={{ minWidth: 140 }} />
+          <TextField
+            label="Supplier" size="small" value={supplierFilter}
+            onChange={e => { setSupplierFilter(e.target.value); setPage(0); }} sx={{ minWidth: 140 }}
+          />
 
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+          <FormControl size="small" sx={{ minWidth: 170 }}>
             <InputLabel>Fabric Component</InputLabel>
-            <Select value={fabricComponentFilter} label="Fabric Component" onChange={e => { setFabricComponentFilter(e.target.value); setPage(0); }}>
+            <Select
+              value={fabricComponentFilter} label="Fabric Component"
+              onChange={e => { setFabricComponentFilter(e.target.value); setPage(0); }}
+            >
               <MenuItem value="">All</MenuItem>
               {componentList.map(c => <MenuItem key={c.id} value={c.label}>{c.label}</MenuItem>)}
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+          <FormControl size="small" sx={{ minWidth: 170 }}>
             <InputLabel>PO Status</InputLabel>
-            <Select value={poStatusFilter} label="PO Status" onChange={e => { setPoStatusFilter(e.target.value); setPage(0); }}>
+            <Select
+              value={poStatusFilter} label="PO Status"
+              onChange={e => { setPoStatusFilter(e.target.value); setPage(0); }}
+            >
               <MenuItem value="">All</MenuItem>
               {poStatusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
             </Select>
           </FormControl>
 
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreateDialog}>New Fabric PO</Button>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreate}>
+            New Fabric PO
+          </Button>
         </Box>
       </Paper>
 
+      {/* ── Listado ─────────────────────────────────────────────────── */}
       <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
         <TableContainer>
           <Table size="small">
@@ -473,11 +421,10 @@ const FabricPO: React.FC = () => {
                 {sortableHeader('Fabric PO #', 'fabricponumber')}
                 <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>FGPO(s)</TableCell>
                 {sortableHeader('Supplier', 'supplier')}
-                {sortableHeader('Fabric Mill', 'fabricmill')}
-                {sortableHeader('Component', 'fabriccomponent')}
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Component</TableCell>
                 {sortableHeader('Ordered Qty', 'orderedquantity')}
                 <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>UOM</TableCell>
-                {sortableHeader('Unit Price', 'unitprice')}
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Unit Price</TableCell>
                 {sortableHeader('PO Amount', 'poamount')}
                 {sortableHeader('Order Date', 'orderdate')}
                 {sortableHeader('Req. Completion', 'requiredcompletion')}
@@ -487,265 +434,221 @@ const FabricPO: React.FC = () => {
             </TableHead>
             <TableBody>
               {items.map(item => (
-                <TableRow key={item.ID} hover>
-                  <TableCell>{item.ID}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{item.FabricPONumber}</TableCell>
-                  <TableCell>{item.Fgpos.length > 0 ? item.Fgpos.map(f => f.FGPONumber).join(', ') : '-'}</TableCell>
-                  <TableCell>{item.SupplierName || '-'}</TableCell>
-                  <TableCell>{item.FabricMill || '-'}</TableCell>
-                  <TableCell>{item.ComponentCode || '-'}</TableCell>
-                  <TableCell align="right">{formatNumber(item.OrderedQuantity)}</TableCell>
-                  <TableCell>{item.UOM || '-'}</TableCell>
-                  <TableCell align="right">{formatNumber(item.UnitPrice)}</TableCell>
+                <TableRow key={item.id} hover>
+                  <TableCell>{item.id}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>{item.fabricPONumber}</TableCell>
+                  <TableCell>{renderFgpos(item)}</TableCell>
+                  <TableCell>{item.supplierName || '-'}</TableCell>
+                  <TableCell>{item.componentSummary || '-'}</TableCell>
+                  <TableCell align="right">{fmtQty(item.orderedQuantity)}</TableCell>
+                  <TableCell>{item.uom || '-'}</TableCell>
+                  <TableCell align="right">{renderUnitPrice(item)}</TableCell>
                   <TableCell align="right">
-                    <Chip label={formatNumber(item.POAmount)} size="small" color="primary" variant="outlined" />
+                    <Chip label={fmtMoney(item.poAmount)} size="small" color="primary" variant="outlined" />
                   </TableCell>
-                  <TableCell>{formatDate(item.OrderDate)}</TableCell>
-                  <TableCell>{formatDate(item.RequiredCompletion)}</TableCell>
+                  <TableCell>{fmtDate(item.orderDate)}</TableCell>
+                  <TableCell>{fmtDate(item.requiredCompletion)}</TableCell>
                   <TableCell>
-                    <Chip label={item.POStatus || 'N/A'} size="small" color={getStatusColor(item.POStatus) as any} variant="outlined" />
+                    <Chip
+                      label={item.poStatus || 'N/A'} size="small"
+                      color={getStatusColor(item.poStatus) as any} variant="outlined"
+                    />
                   </TableCell>
-                  <TableCell>
-                    <Tooltip title="View"><IconButton size="small" color="info" onClick={() => openDetailDialog(item)}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={() => openEditDialog(item)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(item.ID)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                  {/*
+                    Acciones en cuadrícula 2x2 (View/Download PDF · Edit/Delete).
+                    Antes iban apiladas en vertical y eso hacía que cada fila fuera
+                    ~2x más alta. No se añade gap: el propio padding de IconButton
+                    (size="small") ya deja una separación uniforme de ~10px tanto en
+                    horizontal como en vertical.
+                  */}
+                  <TableCell sx={{ py: 0.25 }}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, auto)',
+                        justifyContent: 'center',
+                        alignContent: 'center',
+                        justifyItems: 'center',
+                      }}
+                    >
+                      <Tooltip title="View">
+                        <IconButton size="small" color="info" onClick={() => void openDetail(item)}>
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+
+                      {/* Box component="span": el Tooltip necesita un hijo no deshabilitado
+                          para poder mostrar el texto cuando el botón está cargando. */}
+                      <Tooltip title="Download PDF">
+                        <Box component="span" sx={{ display: 'flex' }}>
+                          <IconButton
+                            size="small" color="success"
+                            disabled={pdfLoadingId === item.id}
+                            onClick={() => void handleDownloadPdf(item)}
+                          >
+                            {pdfLoadingId === item.id
+                              ? <CircularProgress size={20} color="inherit" />
+                              : <DownloadIcon fontSize="small" />}
+                          </IconButton>
+                        </Box>
+                      </Tooltip>
+
+                      <Tooltip title="Edit">
+                        <IconButton size="small" color="primary" onClick={() => void openEdit(item)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+
+                      <Tooltip title="Delete">
+                        <IconButton size="small" color="error" onClick={() => void handleDelete(item.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
               {items.length === 0 && !loading && (
-                <TableRow><TableCell colSpan={14} align="center">No Fabric PO records found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} align="center">No Fabric PO records found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
         <TablePagination
-          component="div" count={totalCount} page={page} onPageChange={handleChangePage}
-          rowsPerPage={pageSize} onRowsPerPageChange={handleChangeRowsPerPage}
+          component="div" count={totalCount} page={page} onPageChange={(_, p) => setPage(p)}
+          rowsPerPage={pageSize} onRowsPerPageChange={e => { setPageSize(parseInt(e.target.value, 10)); setPage(0); }}
           rowsPerPageOptions={[5, 10, 25, 50]} labelRowsPerPage="Rows per page:"
         />
       </Paper>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      {/* ── New / Edit ──────────────────────────────────────────────── */}
+      <FabricPOFormDialog
+        open={formOpen}
+        editing={editingItem}
+        onClose={() => setFormOpen(false)}
+        onSaved={(msg) => void handleSaved(msg)}
+      />
+
+      {/* ── View: Header + Lines + Totals ───────────────────────────── */}
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-          {editingId !== null ? 'Edit Fabric PO' : 'New Fabric PO'}
+          Fabric PO Detail — {detailItem?.fabricPONumber}
         </DialogTitle>
-        <DialogContent>
-          {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField label="Fabric PO Number *" size="small" required value={form.FabricPONumber} onChange={e => setForm({ ...form, FabricPONumber: e.target.value })} />
-              <FormControl size="small" required>
-                <InputLabel>Fabric Component *</InputLabel>
-                <Select value={form.ComponentId || ''} label="Fabric Component *" onChange={e => setForm({ ...form, ComponentId: Number(e.target.value) })}>
-                  <MenuItem value="">Select component...</MenuItem>
-                  {componentList.map(c => <MenuItem key={c.id} value={c.id}>{c.label}{c.sub ? ` — ${c.sub}` : ''}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl size="small" required>
-                <InputLabel>Supplier</InputLabel>
-                <Select value={form.SupplierId || ''} label="Supplier" onChange={e => setForm({ ...form, SupplierId: Number(e.target.value) })}>
-                  <MenuItem value="">Select supplier...</MenuItem>
-                  {supplierList.map(s => <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <TextField label="Fabric Mill" size="small" value={form.FabricMill} onChange={e => setForm({ ...form, FabricMill: e.target.value })} />
-              <TextField label="Ordered Quantity *" size="small" type="number" required value={form.OrderedQuantity} onChange={e => setForm({ ...form, OrderedQuantity: Number(e.target.value) })} />
-              <FormControl size="small" required>
-                <InputLabel>UOM *</InputLabel>
-                <Select value={form.UOM} label="UOM *" onChange={e => setForm({ ...form, UOM: e.target.value })}>
-                  <MenuItem value="">Select UOM...</MenuItem>
-                  {uomOptions.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <TextField label="Unit Price *" size="small" type="number" required value={form.UnitPrice} onChange={e => setForm({ ...form, UnitPrice: Number(e.target.value) })} />
-              <TextField label="Order Date *" size="small" type="date" required value={form.OrderDate} onChange={e => setForm({ ...form, OrderDate: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField label="Required Completion *" size="small" type="date" required value={form.RequiredCompletion} onChange={e => setForm({ ...form, RequiredCompletion: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField label="Planned Export" size="small" type="date" value={form.PlannedExport} onChange={e => setForm({ ...form, PlannedExport: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField label="Planned Arrival" size="small" type="date" value={form.PlannedArrival} onChange={e => setForm({ ...form, PlannedArrival: e.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-              <FormControl size="small">
-                <InputLabel>PO Status</InputLabel>
-                <Select value={form.POStatus} label="PO Status" onChange={e => setForm({ ...form, POStatus: e.target.value })}>
-                  <MenuItem value="">None</MenuItem>
-                  {poStatusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl size="small">
-                <InputLabel>Purchase Owner</InputLabel>
-                <Select value={form.PurchaseOwnerUserId || ''} label="Purchase Owner" onChange={e => setForm({ ...form, PurchaseOwnerUserId: Number(e.target.value) })}>
-                  <MenuItem value="">Select a User...</MenuItem>
-                  {userList.map(u => <MenuItem key={u.id} value={u.id}>{u.label}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <FormControl size="small">
-                <InputLabel>Approved By</InputLabel>
-                <Select value={form.ApprovedByUserId || ''} label="Approved By" onChange={e => setForm({ ...form, ApprovedByUserId: Number(e.target.value) })}>
-                  <MenuItem value="">Select a User...</MenuItem>
-                  {userList.map(u => <MenuItem key={u.id} value={u.id}>{u.label}</MenuItem>)}
-                </Select>
-              </FormControl>
-              <TextField label="Remarks" size="small" multiline rows={2} value={form.Remarks} onChange={e => setForm({ ...form, Remarks: e.target.value })} sx={{ gridColumn: { sm: 'span 2' } }} />
-            </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Autocomplete
-                multiple size="small" options={fgpos}
-                getOptionLabel={(option) => `${option.FGPONumber}${option.CustomerName ? ` - ${option.CustomerName}` : ''}`}
-                isOptionEqualToValue={(option, value) => option.ID === value.ID}
-                value={fgpos.filter(f => form.FgpoItems.some(i => i.FGPOId === f.ID))}
-                onChange={(_, newValue) => handleFgpoSelectionChange(newValue)}
-                renderInput={(params) => (
-                  <TextField {...params} label="FGPO(s) *" required placeholder="Select one or more FGPO..." />
-                )}
-              />
-            </Box>
-
-            {form.FgpoItems.length > 0 && (
-              <Paper elevation={1} sx={{ p: 2, mt: 2, backgroundColor: 'primary.light' }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>FGPO Allocation Details</Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>FGPO</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Style</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Color</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Allocated Qty</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {form.FgpoItems.map(item => {
-                        const opt = fgpos.find(f => f.ID === item.FGPOId);
-                        return (
-                          <TableRow key={item.FGPOId}>
-                            <TableCell>{opt?.FGPONumber ?? item.FGPOId}</TableCell>
-                            <TableCell>
-                              <TextField size="small" value={item.Style} placeholder={opt?.Style || 'Style'}
-                                onChange={e => updateFgpoItem(item.FGPOId, 'Style', e.target.value)} />
-                            </TableCell>
-                            <TableCell>
-                              <TextField size="small" value={item.Color} placeholder={opt?.Color || 'Color'}
-                                onChange={e => updateFgpoItem(item.FGPOId, 'Color', e.target.value)} />
-                            </TableCell>
-                            <TableCell>
-                              <TextField size="small" type="number" value={item.AllocatedQuantity}
-                                onChange={e => handleAllocatedQtyChange(item.FGPOId, Number(e.target.value))} />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit}>
-            {editingId !== null ? 'Update' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>Fabric PO Detail</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           {detailItem && (
             <Box>
-              <Paper elevation={1} sx={{ p: 2, mb: 2, backgroundColor: 'primary.light' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>Header</Typography>
+              <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: 'primary.light' }}>
                 <Grid container spacing={2}>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Fabric PO Number</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.FabricPONumber}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Supplier</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.SupplierName || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Fabric Mill</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.FabricMill || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Fabric Component</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.ComponentCode || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Ordered Quantity</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatNumber(detailItem.OrderedQuantity)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">UOM</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.UOM || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Unit Price</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatNumber(detailItem.UnitPrice)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">PO Amount</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>{formatNumber(detailItem.POAmount)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Order Date</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatDate(detailItem.OrderDate)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Required Completion</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatDate(detailItem.RequiredCompletion)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">PO Status</Typography>
+                  {[
+                    ['Fabric PO Number', detailItem.fabricPONumber],
+                    ['Supplier', detailItem.supplierName || '-'],
+                    ['Issue Date', fmtDate(detailItem.orderDate)],
+                    ['Delivery', fmtDate(detailItem.requiredCompletion)],
+                    ['Currency', detailItem.currency || '-'],
+                    ['Buyer', BUYER_NAME],
+                    ['Incoterm', detailItem.incoterm || '-'],
+                    ['Customer', detailItem.customerName || '-'],
+                    ['Prepared', detailItem.preparedBy || '-'],
+                    ['Checked', detailItem.checkedBy || '-'],
+                    ['Program', detailItem.program || '-'],
+                    ['Payment Terms', detailItem.paymentTerms || '-'],
+                    ['UOM', detailItem.uom || '-'],
+                  ].map(([label, value]) => (
+                    <Grid key={label} size={{ xs: 6, sm: 4, md: 3 }}>
+                      <Typography variant="caption" color="text.secondary">{label}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{value}</Typography>
+                    </Grid>
+                  ))}
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Status</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                      <Chip label={detailItem.POStatus || 'N/A'} size="small" color={getStatusColor(detailItem.POStatus) as any} variant="outlined" />
+                      <Chip
+                        label={detailItem.poStatus || 'N/A'} size="small"
+                        color={getStatusColor(detailItem.poStatus) as any} variant="outlined"
+                      />
                     </Typography>
                   </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Created At</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatDate(detailItem.CreatedAt)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
+                  <Grid size={{ xs: 12 }}>
                     <Typography variant="caption" color="text.secondary">Remarks</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.Remarks || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{detailItem.remarks || '-'}</Typography>
                   </Grid>
                 </Grid>
               </Paper>
 
-              <Paper elevation={1} sx={{ p: 2, backgroundColor: 'primary.light' }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>FGPO Allocation Details</Typography>
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>FGPO</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Style</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Color</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Allocated Qty</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {detailItem.Fgpos.map(f => (
-                        <TableRow key={f.FGPOId}>
-                          <TableCell>{f.FGPONumber}</TableCell>
-                          <TableCell>{f.Style || '-'}</TableCell>
-                          <TableCell>{f.Color || '-'}</TableCell>
-                          <TableCell align="right">{formatNumber(f.AllocatedQuantity)}</TableCell>
-                        </TableRow>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Lines ({detailItem.lines.length})
+              </Typography>
+              <TableContainer sx={{ maxHeight: 400, border: '1px solid', borderColor: 'divider' }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      {['No.', 'FGPO', 'Style', 'Color', 'Category', 'Fabric / Yarn', 'Content',
+                        'Width', 'GSM', 'Qty Yd', 'USD/Yd', 'Amount USD', 'Approval', 'Remarks'].map(h => (
+                        <TableCell key={h} sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{h}</TableCell>
                       ))}
-                      {detailItem.Fgpos.length === 0 && (
-                        <TableRow><TableCell colSpan={4} align="center">No FGPO allocations.</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {detailItem.lines.map(l => (
+                      <TableRow key={l.id} hover>
+                        <TableCell>{l.lineNumber}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{l.fgpoNumber || '-'}</TableCell>
+                        <TableCell>{l.style || '-'}</TableCell>
+                        <TableCell>{l.color || '-'}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{l.componentCode || '-'}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{l.fabricName || '-'}</Typography>
+                          <Typography variant="caption" color="text.secondary">{l.yarn || '-'}</Typography>
+                        </TableCell>
+                        <TableCell>{l.composition || '-'}</TableCell>
+                        <TableCell>{l.requiredWidth || '-'}</TableCell>
+                        <TableCell align="right">{l.gsm || '-'}</TableCell>
+                        <TableCell align="right">{fmtQty(l.quantity)}</TableCell>
+                        <TableCell align="right">{fmtMoney(l.unitPrice)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>{fmtMoney(l.amount)}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small" variant="outlined"
+                            color={l.approval === 'Confirmed' ? 'success' : 'warning'}
+                            label={l.approval || '-'}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 200 }}>{l.remarks || ''}</TableCell>
+                      </TableRow>
+                    ))}
+                    {detailItem.lines.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={14} align="center" sx={{ py: 3 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Esta PO no tiene líneas registradas.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Paper elevation={0} sx={{ mt: 2, p: 2, backgroundColor: 'primary.light' }}>
+                <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Typography variant="body2"><strong>Total Qty:</strong> {fmtQty(detailItem.orderedQuantity)}</Typography>
+                  <Typography variant="body2"><strong>Total Amount:</strong> {fmtMoney(detailItem.poAmount)}</Typography>
+                </Box>
               </Paper>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
+          {/* #32: mismo PDF que en el listado; el backend es la única fuente. */}
+          <Button
+            variant="outlined"
+            startIcon={pdfLoadingId === detailItem?.id ? <CircularProgress size={16} /> : <DownloadIcon />}
+            disabled={!detailItem || pdfLoadingId === detailItem?.id}
+            onClick={() => detailItem && void handleDownloadPdf(detailItem)}
+          >
+            Download PDF
+          </Button>
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>

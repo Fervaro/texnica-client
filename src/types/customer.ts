@@ -7,6 +7,7 @@ export interface Customer {
   phone?: string;
   email?: string;
   address?: string;
+  shippingAddress?: string;
   active: boolean;
   createdAt: string;
   updatedAt?: string;
@@ -18,4 +19,5 @@ export interface CreateCustomerInput {
   phone?: string;
   email?: string;
   address?: string;
+  shippingAddress?: string;
 }

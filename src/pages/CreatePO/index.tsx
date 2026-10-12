@@ -4,7 +4,6 @@ import {
   Box, Typography, Paper, TextField, Button, Grid, Alert, MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
 import { fgpoApi, customersApi } from '../../utils/api';
-import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { getCurrentUserName } from '../../utils/session';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -21,7 +20,6 @@ const emptyForm = {
 const CreatePO: React.FC = () => {
   const navigate = useNavigate();
   const { selectedCustomer } = useContext(AuthContext);
-  const { options: userList } = useUserOptions();
   const [customers, setCustomers] = useState<{ ID: number; Name: string }[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
@@ -107,7 +105,7 @@ const CreatePO: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="medium">
                 <InputLabel>Customer *</InputLabel>
-                <Select label="Customer *" value={form.CustomerId || ''} disabled={!!selectedCustomer} onChange={e => setF('CustomerId', Number(e.target.value))}>
+                <Select label="Customer *" value={form.CustomerId || ''} disabled onChange={e => setF('CustomerId', Number(e.target.value))}>
                   {selectedCustomer ? (
                     <MenuItem value={selectedCustomer.id}>{selectedCustomer.name}</MenuItem>
                   ) : (
