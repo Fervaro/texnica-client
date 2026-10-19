@@ -1,4 +1,5 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -13,11 +14,20 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+import AllInboxIcon from '@mui/icons-material/AllInbox';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import ScienceIcon from '@mui/icons-material/Science';
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
+import ContentCutIcon from '@mui/icons-material/ContentCut';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import { useFabricInventories } from '../../hooks/fabricInventories/useFabricInventories';
 import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
 import { useLotOptions } from '../../hooks/lots/useLotOptions';
 import { FabricInventory } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
+import { fabricInventoriesApi } from '../../utils/api';
 
 const INVENTORY_STATUS = ['Available', 'On Hold', 'Shortage', 'Closed'];
 
@@ -51,6 +61,28 @@ const FabricInventoryPage: React.FC = () => {
   const { options: fabricPOList } = useFabricPOOptions();
   const { options: lotList } = useLotOptions();
   const [form, setForm] = useState(emptyForm);
+
+  const navigate = useNavigate();
+  const [totals, setTotals] = useState({ received: 0, available: 0, reserved: 0, holdRejected: 0 });
+
+  // Totales sobre TODOS los registros (GET /fabric-inventories), no solo la página actual.
+  useEffect(() => {
+    let active = true;
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
+    fabricInventoriesApi.getAll()
+      .then(res => {
+        const rows: any[] = Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
+        if (!active) return;
+        setTotals({
+          received: rows.reduce((s, r) => s + num(r.receivedQuantity ?? r.ReceivedQuantity), 0),
+          available: rows.reduce((s, r) => s + num(r.availableQuantity ?? r.AvailableQuantity), 0),
+          reserved: rows.reduce((s, r) => s + num(r.reservedQuantity ?? r.ReservedQuantity), 0),
+          holdRejected: rows.reduce((s, r) => s + num(r.holdQuantity ?? r.HoldQuantity) + num(r.rejectedQuantity ?? r.RejectedQuantity), 0),
+        });
+      })
+      .catch(() => { /* indicadores opcionales: si fallan, se mantienen en 0 */ });
+    return () => { active = false; };
+  }, []);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
@@ -127,6 +159,53 @@ const FabricInventoryPage: React.FC = () => {
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Entry</Button>
         </Box>
       </Box>
+
+      {/* Indicadores (totales de todos los registros, no solo la página actual) */}
+      <Grid container spacing={2} sx={{ mb: 1 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
+            <Typography variant="caption" color="text.secondary">Total recibido</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>{totals.received.toLocaleString()}</Typography>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'success.main' }}>
+            <Typography variant="caption" color="text.secondary">Disponible</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{totals.available.toLocaleString()}</Typography>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'warning.main' }}>
+            <Typography variant="caption" color="text.secondary">Reservado</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>{totals.reserved.toLocaleString()}</Typography>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'error.main' }}>
+            <Typography variant="caption" color="text.secondary">Retenido + Rechazado</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>{totals.holdRejected.toLocaleString()}</Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+        Totales agregados sobre todos los registros. Las cantidades pueden expresarse en distintas unidades según el Fabric PO.
+      </Typography>
+
+      {/* Accesos rápidos a operaciones de tela */}
+      <Paper sx={{ p: 1.5, mb: 2 }}>
+        <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>Operaciones de tela</Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Button variant="outlined" startIcon={<MoveToInboxIcon />} onClick={() => navigate('/fabric-receiving')}>Recepción de tela</Button>
+          <Button variant="outlined" startIcon={<AllInboxIcon />} onClick={() => navigate('/roll-receiving')}>Registro de rollos</Button>
+          <Button variant="outlined" startIcon={<FactCheckIcon />} onClick={() => navigate('/four-point')}>Inspección Four-Point</Button>
+          <Button variant="outlined" startIcon={<ScienceIcon />} onClick={() => navigate('/internal-test')}>Internal Test</Button>
+          <Button variant="outlined" startIcon={<BookmarkAddIcon />} onClick={() => navigate('/fabric-reservation')}>Reservas</Button>
+          <Button variant="outlined" startIcon={<ContentCutIcon />} onClick={() => navigate('/cutting-control')}>Corte</Button>
+          <Button variant="contained" startIcon={<Inventory2Icon />} onClick={() => navigate('/fabric-inventory')}>Existencias</Button>
+          <Button variant="outlined" disabled startIcon={<SwapHorizIcon />}>Movimientos (pendiente)</Button>
+          <Button variant="outlined" disabled startIcon={<TableChartIcon />}>Importación Excel (pendiente)</Button>
+        </Box>
+      </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 

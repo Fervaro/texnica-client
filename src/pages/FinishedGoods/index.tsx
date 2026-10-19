@@ -101,9 +101,8 @@ const FinishedGoodsPage: React.FC = () => {
   const num = (v: number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
   const setF = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
-  // Vistas previas de las columnas calculadas (igual que el Excel)
-  const readyToShip = Math.max(0, form.WarehouseReceived - form.ReservedForShipment - form.LoadedQty - form.ShippedQty);
-  const warehouseBalance = Math.max(0, form.WarehouseReceived - form.LoadedQty - form.ShippedQty);
+  // Ready to Ship y Warehouse Balance ya no se previsualizan aquí: el backend
+  // los calcula a partir de Shipment Control y los devuelve en el DTO.
 
   return (
     <Box>
@@ -237,13 +236,12 @@ const FinishedGoodsPage: React.FC = () => {
               <TextField fullWidth size="small" label="Remarks" value={form.Remarks} onChange={e => setF('Remarks', e.target.value)} />
             </Grid>
 
-            {/* Previa de columnas calculadas */}
+            {/* Ready to Ship y Warehouse Balance se calculan en el backend a partir de Shipment Control. */}
             <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 1 }} />
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                <Chip label={`Ready to Ship: ${num(readyToShip)}`} size="small" color="success" variant="outlined" />
-                <Chip label={`Warehouse Balance: ${num(warehouseBalance)}`} size="small" color="info" variant="outlined" />
-              </Box>
+              <Alert severity="info" variant="outlined">
+                Ready to Ship y Warehouse Balance se calculan automáticamente a partir de los embarques (Shipment Control).
+              </Alert>
             </Grid>
           </Grid>
         </DialogContent>

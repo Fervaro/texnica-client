@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || 'https://localhost:7123/api',
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
+
 
 // API Key: header exigido por el backend en /api/** — se lee únicamente del env
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -242,8 +243,18 @@ export const fabricReservationsApi = {
   getByFgpo: (fgpoId: number) => api.get(`/fabric-reservations/fgpo/${fgpoId}`),
   create: (data: any) => api.post('/fabric-reservations', data),
   update: (id: number, data: any) => api.put(`/fabric-reservations/${id}`, data),
+  release: (id: number, data: any) => api.post(`/fabric-reservations/${id}/release`, data),
   delete: (id: number) => api.delete(`/fabric-reservations/${id}`),
   getPaged: (params: any) => api.get('/fabric-reservations/paged', { params }),
+};
+
+// Fabric Movements API (historial de movimientos físicos + saldos por rollo)
+export const fabricMovementsApi = {
+  getAll: () => api.get('/fabric-movements'),
+  getById: (id: number) => api.get(`/fabric-movements/${id}`),
+  getByRoll: (rollReceivingId: number) => api.get(`/fabric-movements/roll/${rollReceivingId}`),
+  getBalances: () => api.get('/fabric-movements/balances'),
+  create: (data: any) => api.post('/fabric-movements', data),
 };
 
 // Packing Control API

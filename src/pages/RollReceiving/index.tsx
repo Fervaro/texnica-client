@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -18,7 +18,8 @@ import { useRollReceivings } from '../../hooks/rollReceivings/useRollReceivings'
 import { useFabricReceivingOptions, FabricReceivingOption } from '../../hooks/fabricReceivings/useFabricReceivingOptions';
 import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
-import { RollReceiving } from '../../types';
+import { fabricMovementsApi } from '../../utils/api';
+import { RollReceiving, RollBalance } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
 
 const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
@@ -57,6 +58,14 @@ const RollReceivingPage: React.FC = () => {
   const { options: receivingList } = useFabricReceivingOptions();
   const { options: userList } = useUserOptions();
   const { catalogs } = useCatalogs();
+  const [balances, setBalances] = useState<RollBalance[]>([]);
+  const [balancesError, setBalancesError] = useState('');
+
+  useEffect(() => {
+    fabricMovementsApi.getBalances()
+      .then(res => { setBalances(res.data ?? []); setBalancesError(''); })
+      .catch((err: any) => setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'));
+  }, []);
   const CONDITION_OPTIONS = catalogs['RollCondition']?.length ? catalogs['RollCondition'] : DEFAULT_CONDITIONS;
   const SHADE_OPTIONS = catalogs['ShadeGroup']?.length ? catalogs['ShadeGroup'] : DEFAULT_SHADE_GROUPS;
 
@@ -147,6 +156,7 @@ const RollReceivingPage: React.FC = () => {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {balancesError && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setBalancesError('')}>{balancesError}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5, display: 'flex', gap: 1 }}>
         <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, flex: 1 }}>
@@ -169,26 +179,31 @@ const RollReceivingPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Roll #', 'Receiving', 'Fabric PO', 'FGPO', 'Lot', 'Yardage', 'Net Wt', 'Shade', 'Condition', 'Date', 'Actions'].map(h =>
+                {['Roll #', 'Receiving', 'Fabric PO', 'FGPO', 'Lot', 'Físico', 'Reservado', 'Disp.', 'Yardage', 'Net Wt', 'Shade', 'Condition', 'Date', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={14} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No rolls found</Typography>
                   <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Register your first roll</Button>
                 </TableCell></TableRow>
-              ) : items.map((item: RollReceiving) => (
+              ) : items.map((item: RollReceiving) => {
+                const bal = balances.find(b => b.rollReceivingId === item.id);
+                return (
                 <TableRow key={item.id} hover>
                   <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{item.rollNumber || '-'}</Typography></TableCell>
                   <TableCell>{item.receivingNumber}</TableCell>
                   <TableCell>{item.fabricPONumber}</TableCell>
                   <TableCell>{item.fgpoNumber}</TableCell>
                   <TableCell>{item.lotNumber || '-'}</TableCell>
+                  <TableCell>{bal ? num(bal.physicalQuantity) : '-'}</TableCell>
+                  <TableCell>{bal ? num(bal.reservedQuantity) : '-'}</TableCell>
+                  <TableCell><Typography sx={{ fontWeight: 600 }}>{bal ? num(bal.availableQuantity) : '-'}</Typography></TableCell>
                   <TableCell>{num(item.actualYardage)}</TableCell>
                   <TableCell>{num(item.netWeight)}</TableCell>
                   <TableCell>{item.shadeGroup || '-'}</TableCell>
@@ -200,7 +215,8 @@ const RollReceivingPage: React.FC = () => {
                     <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Chip, CircularProgress, Alert
+  Chip, CircularProgress, Alert, Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import InventoryIcon from '@mui/icons-material/Inventory';
@@ -14,10 +14,13 @@ interface FgRow {
   customerName: string;
   style?: string;
   color?: string;
+  packedQty: number;
   warehouseReceived: number;
   reservedForShipment: number;
   readyToShipQty: number;
   warehouseBalance: number;
+  totalShippedQty: number;
+  overShippedQty: number;
   warehouseLocation?: string;
   status?: string;
 }
@@ -48,6 +51,7 @@ const Warehouse: React.FC = () => {
   const [invItems, setInvItems] = useState<InvRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedUom, setSelectedUom] = useState<string>('');
 
   useEffect(() => {
     const load = async () => {
@@ -63,10 +67,13 @@ const Warehouse: React.FC = () => {
           customerName: f.customerName ?? f.CustomerName ?? '',
           style: f.style ?? f.Style ?? '',
           color: f.color ?? f.Color ?? '',
+          packedQty: f.packedQty ?? f.PackedQty ?? 0,
           warehouseReceived: f.warehouseReceived ?? f.WarehouseReceived ?? 0,
           reservedForShipment: f.reservedForShipment ?? f.ReservedForShipment ?? 0,
           readyToShipQty: f.readyToShipQty ?? f.ReadyToShipQty ?? 0,
           warehouseBalance: f.warehouseBalance ?? f.WarehouseBalance ?? 0,
+          totalShippedQty: f.totalShippedQty ?? f.TotalShippedQty ?? 0,
+          overShippedQty: f.overShippedQty ?? f.OverShippedQty ?? 0,
           warehouseLocation: f.warehouseLocation ?? f.WarehouseLocation ?? '',
           status: f.status ?? f.Status ?? '',
         })));
@@ -89,7 +96,23 @@ const Warehouse: React.FC = () => {
 
   const totalBalance = fgItems.reduce((s, f) => s + f.warehouseBalance, 0);
   const totalReady = fgItems.reduce((s, f) => s + f.readyToShipQty, 0);
-  const totalFabric = invItems.reduce((s, i) => s + i.availableQuantity, 0);
+
+  // Unidades presentes en los datos (sin duplicados ni vacías).
+  const fabricUoms = useMemo(() => {
+    const set = new Set<string>();
+    invItems.forEach(i => {
+      const u = (i.uom || '').trim();
+      if (u) set.add(u);
+    });
+    return Array.from(set).sort();
+  }, [invItems]);
+
+  // Nunca se mantiene una selección inválida: si la unidad elegida deja de
+  // existir, se cae a la primera unidad disponible.
+  const effectiveUom = fabricUoms.includes(selectedUom) ? selectedUom : (fabricUoms[0] ?? '');
+  const totalFabric = invItems
+    .filter(i => (i.uom || '').trim() === effectiveUom)
+    .reduce((s, i) => s + i.availableQuantity, 0);
 
   return (
     <Box>
@@ -127,9 +150,28 @@ const Warehouse: React.FC = () => {
             <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'warning.main', flex: 1, minWidth: 240 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <InventoryIcon sx={{ fontSize: 40, color: 'warning.main' }} />
-                <Box>
+                <Box sx={{ flex: 1 }}>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Fabric Available</Typography>
-                  <Typography variant="h4" sx={{ color: 'warning.main', fontWeight: 'bold' }}>{totalFabric.toLocaleString()}</Typography>
+                  <Typography variant="h4" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
+                    {totalFabric.toLocaleString()}{effectiveUom ? ` ${effectiveUom}` : ''}
+                  </Typography>
+                  <FormControl size="small" sx={{ mt: 1, minWidth: 140 }}>
+                    <InputLabel id="fabric-uom-label">Unit</InputLabel>
+                    <Select
+                      labelId="fabric-uom-label"
+                      label="Unit"
+                      value={effectiveUom}
+                      onChange={e => setSelectedUom(e.target.value as string)}
+                      disabled={fabricUoms.length === 0}
+                    >
+                      {fabricUoms.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  {fabricUoms.length === 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      Sin registros de tela
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             </Paper>
@@ -140,6 +182,11 @@ const Warehouse: React.FC = () => {
             <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold', mb: 2 }}>
               <WarehouseIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Finished Goods
             </Typography>
+            {fgItems.some(f => f.overShippedQty > 0) && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Discrepancia: hay FGPO con envíos que superan la cantidad recibida (ver columna Over-shipped).
+              </Alert>
+            )}
             <TableContainer>
               <Table size="small">
                 <TableHead sx={{ backgroundColor: 'primary.light' }}>
@@ -147,24 +194,28 @@ const Warehouse: React.FC = () => {
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>FGPO</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Style / Color</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Received</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Packed</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Reserved</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Ready to Ship</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Balance</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Over-shipped</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Location</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {fgItems.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} align="center" sx={{ color: 'text.secondary', py: 3 }}>No finished goods yet.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} align="center" sx={{ color: 'text.secondary', py: 3 }}>No finished goods yet.</TableCell></TableRow>
                   ) : fgItems.map(f => (
                     <TableRow key={f.id} hover>
                       <TableCell sx={{ fontWeight: 600 }}>{f.fgpoNumber}</TableCell>
                       <TableCell>{f.style || '-'} / {f.color || '-'}</TableCell>
                       <TableCell>{f.warehouseReceived}</TableCell>
+                      <TableCell>{f.packedQty}</TableCell>
                       <TableCell>{f.reservedForShipment}</TableCell>
                       <TableCell sx={{ color: 'success.main', fontWeight: 600 }}>{f.readyToShipQty}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{f.warehouseBalance}</TableCell>
+                      <TableCell sx={{ color: 'error.main', fontWeight: 600 }}>{f.overShippedQty > 0 ? f.overShippedQty : '-'}</TableCell>
                       <TableCell>{f.warehouseLocation || '-'}</TableCell>
                       <TableCell><Chip label={f.status || 'N/A'} size="small" color={sc(f.status ?? '')} /></TableCell>
                     </TableRow>

@@ -28,6 +28,27 @@ export interface FabricReservation {
   active: boolean;
   createdAt: string;
   updatedAt?: string;
+  rolls?: FabricReservationRoll[];
+  hasRollAssignment?: boolean;
+}
+
+export interface FabricReservationRoll {
+  id: number;
+  fabricReservationId: number;
+  rollReceivingId: number;
+  rollNumber: string;
+  supplierRollNumber?: string;
+  lotNumber?: string;
+  reservedQuantity: number;
+  releasedQuantity: number;
+  status?: string;
+}
+
+export interface ReservationRollInput {
+  rollReceivingId: number;
+  reservedQuantity: number;
+  releasedQuantity?: number;
+  status?: string;
 }
 
 export interface CreateFabricReservationInput {
@@ -42,4 +63,5 @@ export interface CreateFabricReservationInput {
   approvedByUserId?: number;
   lastUpdated?: string;
   comments?: string;
+  rolls?: ReservationRollInput[];
 }

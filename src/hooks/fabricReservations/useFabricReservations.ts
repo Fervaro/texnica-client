@@ -30,6 +30,18 @@ const mapFabricReservation = (raw: any): FabricReservation => ({
   active: raw.active ?? raw.Active ?? true,
   createdAt: raw.createdAt ?? raw.CreatedAt ?? '',
   updatedAt: raw.updatedAt ?? raw.UpdatedAt,
+  rolls: (raw.rolls ?? raw.Rolls ?? []).map((l: any) => ({
+    id: l.id ?? l.ID ?? 0,
+    fabricReservationId: l.fabricReservationId ?? l.FabricReservationId ?? 0,
+    rollReceivingId: l.rollReceivingId ?? l.RollReceivingId ?? 0,
+    rollNumber: l.rollNumber ?? l.RollNumber ?? '',
+    supplierRollNumber: l.supplierRollNumber ?? l.SupplierRollNumber,
+    lotNumber: l.lotNumber ?? l.LotNumber,
+    reservedQuantity: l.reservedQuantity ?? l.ReservedQuantity ?? 0,
+    releasedQuantity: l.releasedQuantity ?? l.ReleasedQuantity ?? 0,
+    status: l.status ?? l.Status,
+  })),
+  hasRollAssignment: raw.hasRollAssignment ?? raw.HasRollAssignment ?? false,
 });
 
 /** Hook de Fabric Reservation: consume /api/fabric-reservations */

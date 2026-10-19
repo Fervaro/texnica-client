@@ -12,12 +12,14 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useFabricReservations } from '../../hooks/fabricReservations/useFabricReservations';
 import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
 import { useLotOptions } from '../../hooks/lots/useLotOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
-import { FabricReservation } from '../../types';
+import { fabricMovementsApi, fabricReservationsApi } from '../../utils/api';
+import { FabricReservation, RollBalance } from '../../types';
 
 const RESERVATION_STATUS = ['Pending', 'Approved', 'Released for Cutting', 'Rejected', 'On Hold'];
 
@@ -52,11 +54,29 @@ const FabricReservationPage: React.FC = () => {
   const { options: lotList } = useLotOptions();
   const { options: userList } = useUserOptions();
   const [form, setForm] = useState(emptyForm);
+  const [balances, setBalances] = useState<RollBalance[]>([]);
+  const [balancesError, setBalancesError] = useState('');
+  const [rollInputs, setRollInputs] = useState<Record<number, string>>({});
+
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const [releaseItem, setReleaseItem] = useState<FabricReservation | null>(null);
+  const [releaseQty, setReleaseQty] = useState('');
+  const [releaseError, setReleaseError] = useState('');
+  const [releasing, setReleasing] = useState(false);
+
+  const loadBalances = async () => {
+    try { const res = await fabricMovementsApi.getBalances(); setBalances(res.data ?? []); setBalancesError(''); }
+    catch (err: any) { setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'); }
+  };
+
+  // Rollos compatibles con la Fabric PO/FGPO seleccionada (regla del backend)
+  const availableRolls = balances.filter(b => b.fabricPOId === form.FabricPOId && b.fgpoId === form.FGPOId);
+  const setRollQty = (rollId: number, value: string) => setRollInputs(prev => ({ ...prev, [rollId]: value }));
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
-  const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => { setEditingId(null); setForm(emptyForm); setRollInputs({}); setFormError(''); setDialogOpen(true); loadBalances(); };
   const openEdit = (r: FabricReservation) => {
     setEditingId(r.id);
     setForm({
@@ -65,12 +85,34 @@ const FabricReservationPage: React.FC = () => {
       Status: r.status || 'Pending', ReservedByUserId: r.reservedByUserId ?? 0, ApprovedByUserId: r.approvedByUserId ?? 0,
       LastUpdated: r.lastUpdated?.split('T')[0] || '', Comments: r.comments ?? '',
     });
+    const initRollInputs: Record<number, string> = {};
+    (r.rolls ?? []).forEach(l => { initRollInputs[l.rollReceivingId] = l.reservedQuantity.toString(); });
+    setRollInputs(initRollInputs);
     setFormError(''); setDialogOpen(true);
+    loadBalances();
   };
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Eliminar esta reserva?')) return;
     try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+  };
+
+  const openRelease = (r: FabricReservation) => { setReleaseItem(r); setReleaseQty(''); setReleaseError(''); setReleaseOpen(true); };
+  const handleRelease = async () => {
+    setReleaseError('');
+    const q = Number(releaseQty);
+    if (!(q > 0)) { setReleaseError('La cantidad debe ser mayor que cero.'); return; }
+    if (releaseItem && q > (releaseItem.remainingReservation ?? 0)) {
+      setReleaseError(`La cantidad no puede superar el pendiente (${releaseItem.remainingReservation}).`); return;
+    }
+    setReleasing(true);
+    try {
+      await fabricReservationsApi.release(releaseItem!.id, { quantity: q });
+      setReleaseOpen(false);
+      await Promise.all([refresh(), loadBalances()]);
+    } catch (err: any) {
+      setReleaseError(err?.response?.data?.message || err?.response?.data || 'Error liberando la reserva.');
+    } finally { setReleasing(false); }
   };
 
   const handleSave = async () => {
@@ -79,6 +121,9 @@ const FabricReservationPage: React.FC = () => {
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
     try {
       const num = (v: string) => v === '' ? 0 : Number(v);
+      const rolls = availableRolls
+        .map(r => ({ rollReceivingId: r.rollReceivingId, reservedQuantity: Number(rollInputs[r.rollReceivingId] || '') || 0 }))
+        .filter(l => l.reservedQuantity > 0);
       const payload = {
         ...form,
         LotId: form.LotId || null,
@@ -86,6 +131,7 @@ const FabricReservationPage: React.FC = () => {
         ReservedQuantity: num(form.ReservedQuantity), ReleasedQuantity: num(form.ReleasedQuantity),
         ReservationDate: form.ReservationDate ? new Date(form.ReservationDate).toISOString() : new Date().toISOString(),
         LastUpdated: form.LastUpdated ? new Date(form.LastUpdated).toISOString() : null,
+        rolls: rolls.length > 0 ? rolls : undefined,
       };
       if (editingId) await update(editingId, payload);
       else await create(payload);
@@ -126,6 +172,7 @@ const FabricReservationPage: React.FC = () => {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {balancesError && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setBalancesError('')}>{balancesError}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5, display: 'flex', gap: 1 }}>
         <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, flex: 1 }}>
@@ -142,15 +189,15 @@ const FabricReservationPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Date', 'Fabric PO', 'FGPO', 'Component', 'Lot', 'Reserved', 'UOM', 'Released', 'Remaining', 'Status', 'Reserved By', 'Actions'].map(h =>
+                {['Date', 'Fabric PO', 'FGPO', 'Component', 'Lot', 'Reserved', 'UOM', 'Released', 'Remaining', 'Status', 'Reserved By', 'Rollos', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={12} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={12} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No reservations found</Typography>
                   <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first reservation</Button>
                 </TableCell></TableRow>
@@ -168,6 +215,12 @@ const FabricReservationPage: React.FC = () => {
                   <TableCell><Chip label={r.status || 'N/A'} size="small" color={sc(r.status ?? '')} /></TableCell>
                   <TableCell>{r.reservedByName || '-'}</TableCell>
                   <TableCell>
+                    {r.hasRollAssignment
+                      ? <Chip label={`${(r.rolls ?? []).length} rollo(s)`} size="small" variant="outlined" color="info" />
+                      : <Chip label="Sin rollo" size="small" variant="outlined" color="default" />}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton size="small" color="success" title="Liberar (release)" onClick={() => openRelease(r)}><UnarchiveIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(r); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(r)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(r.id)}><DeleteIcon fontSize="small" /></IconButton>
@@ -226,6 +279,22 @@ const FabricReservationPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Reserved Quantity" type="number" value={form.ReservedQuantity} onChange={e => setF('ReservedQuantity', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Released Quantity" type="number" value={form.ReleasedQuantity} onChange={e => setF('ReleasedQuantity', e.target.value)} /></Grid>
 
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Asignación por rollo (opcional)</Typography></Divider></Grid>
+            {availableRolls.length === 0 ? (
+              <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">
+                {form.FabricPOId && form.FGPOId ? 'Sin rollos disponibles para esta Fabric PO/FGPO (sin saldo físico o sin movimientos).' : 'Seleccione Fabric PO y FGPO para ver los rollos disponibles.'}
+              </Typography></Grid>
+            ) : (
+              availableRolls.map(r => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={r.rollReceivingId}>
+                  <TextField fullWidth size="small"
+                    label={`${r.rollNumber} — disp. ${r.availableQuantity} / reservado ${r.reservedQuantity} / físico ${r.physicalQuantity}`}
+                    type="number" value={rollInputs[r.rollReceivingId] ?? ''}
+                    onChange={e => setRollQty(r.rollReceivingId, e.target.value)} />
+                </Grid>
+              ))
+            )}
+
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculado automáticamente</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Remaining Reservation" value={remaining} slotProps={{ input: { readOnly: true } }} /></Grid>
 
@@ -283,11 +352,46 @@ const FabricReservationPage: React.FC = () => {
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Status</Typography><Chip label={viewItem.status || '-'} size="small" color={sc(viewItem.status ?? '')} /></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Reserved By</Typography><Typography>{viewItem.reservedByName || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Approved By</Typography><Typography>{viewItem.approvedByName || '-'}</Typography></Grid>
+              <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Rollos asignados</Typography></Grid>
+              {(viewItem.rolls && viewItem.rolls.length > 0) ? viewItem.rolls.map(l => (
+                <Grid size={{ xs: 12, sm: 6 }} key={l.id}>
+                  <Typography variant="body2">{l.rollNumber} — reservado {l.reservedQuantity} / liberado {l.releasedQuantity}</Typography>
+                </Grid>
+              )) : (
+                <Grid size={{ xs: 12 }}><Typography variant="body2" color="text.secondary">Reserva histórica sin rollo asignado</Typography></Grid>
+              )}
               {viewItem.comments && <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Comments</Typography><Typography>{viewItem.comments}</Typography></Grid>}
             </Grid>
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setViewOpen(false)}>Close</Button></DialogActions>
+      </Dialog>
+
+      {/* Release Dialog */}
+      <Dialog open={releaseOpen} onClose={() => setReleaseOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Liberar reserva (release)</DialogTitle>
+        <DialogContent>
+          {releaseError && <Alert severity="error" sx={{ mb: 2 }}>{releaseError}</Alert>}
+          {releaseItem && (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="body2">Fabric PO <b>{releaseItem.fabricPONumber}</b> · FGPO <b>{releaseItem.fgpoNumber}</b></Typography>
+                <Typography variant="body2" color="text.secondary">Reservado {releaseItem.reservedQuantity} · Liberado {releaseItem.releasedQuantity}</Typography>
+                <Typography variant="body2" color="warning.main">Pendiente {releaseItem.remainingReservation}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField fullWidth size="small" label="Cantidad a liberar" type="number" value={releaseQty}
+                  onChange={e => setReleaseQty(e.target.value)} slotProps={{ htmlInput: { min: 0, max: releaseItem.remainingReservation } }} />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setReleaseOpen(false)} disabled={releasing}>Cancel</Button>
+          <Button variant="contained" onClick={handleRelease} disabled={releasing} startIcon={releasing ? <CircularProgress size={18} /> : null}>
+            {releasing ? 'Liberando...' : 'Liberar'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
