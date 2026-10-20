@@ -1,11 +1,13 @@
 import axios from 'axios';
 
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://localhost:7123/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://tpcs-texnica.runasp.net/api',
   headers: {
     'Content-Type': 'application/json'
   }
 });
+
 
 
 // API Key: header exigido por el backend en /api/** — se lee únicamente del env
