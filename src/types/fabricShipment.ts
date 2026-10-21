@@ -3,7 +3,7 @@
 export interface FabricShipment {
   id: number;
   shipmentNumber: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;
   fgpoNumber: string;
@@ -34,12 +34,11 @@ export interface FabricShipment {
 
 export interface CreateFabricShipmentInput {
   shipmentNumber: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fgpoId: number;
   supplier?: string;
   lotNumber?: string;
   rollQty: number;
-  shippedQuantity: number;
   uom?: string;
   shippedWeight: number;
   packingList?: string;

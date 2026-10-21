@@ -18,6 +18,7 @@ import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useSupplierOptions } from '../../hooks/suppliers/useSupplierOptions';
 import { TrimsControl } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 // Listas del Excel
 const TRIM_TYPES = ['Main Label', 'Size Label', 'Care Label', 'Hangtag', 'Thread', 'Rib', 'Shoulder Tape', 'Polybag', 'Sticker', 'Carton', 'Carton Label', 'Button', 'Zipper', 'Elastic', 'Other'];
@@ -81,6 +82,17 @@ const TrimsControlPage: React.FC = () => {
   const handleSave = async () => {
     setFormError('');
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Consumption / Garment', value: form.ConsumptionPerGarment },
+      { name: 'Required Qty', value: form.RequiredQty },
+      { name: 'Ordered Qty', value: form.OrderedQty },
+      { name: 'Received Qty', value: form.ReceivedQty },
+      { name: 'Approved Qty', value: form.ApprovedQty },
+      { name: 'Rejected Qty', value: form.RejectedQty },
+      { name: 'Reserved Qty', value: form.ReservedQty },
+      { name: 'Issued Qty', value: form.IssuedQty },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const num = (v: string) => v === '' ? 0 : Number(v);
       const payload = {
@@ -221,7 +233,7 @@ const TrimsControlPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Consumption / Garment" type="number" value={form.ConsumptionPerGarment} onChange={e => setF('ConsumptionPerGarment', e.target.value)} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Consumption / Garment" type="number" value={form.ConsumptionPerGarment} onChange={e => setF('ConsumptionPerGarment', e.target.value)} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades (input)</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Required Qty" type="number" value={form.RequiredQty} onChange={e => setF('RequiredQty', e.target.value)} /></Grid>

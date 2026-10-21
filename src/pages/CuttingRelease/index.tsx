@@ -17,6 +17,7 @@ import { useCuttingReleases } from '../../hooks/cuttingReleases/useCuttingReleas
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { fgpoLinesApi, stylesApi } from '../../utils/api';
 import { CuttingRelease } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const getWeek = (date: string) => {
   const value = new Date(`${date}T00:00:00`);
@@ -116,6 +117,17 @@ const CuttingReleasePage: React.FC = () => {
     setFormError('');
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
     if (!form.CutDate || !form.Section || form.Layers <= 0) { setFormError('Cut date, section and layers are required.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Group', value: form.Group },
+      { name: 'Rolls', value: form.Rolls },
+      { name: 'Yds Packing List', value: form.YdsPackingList },
+      { name: 'F. Damage', value: form.FDamage },
+      { name: 'Overlaps', value: form.Overlaps },
+      { name: 'Marker Length', value: form.MarkerLength },
+      { name: 'Width', value: form.Width },
+      { name: 'Efficiency', value: form.Efficiency },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
@@ -264,13 +276,13 @@ const CuttingReleasePage: React.FC = () => {
             {sizeCodes.map(size => <Grid size={{ xs: 6, sm: 4, md: 2 }} key={size}><TextField fullWidth size="small" label={`${size} body`} type="number" value={form.BodyBySize[size] || ''} onChange={e => setF('BodyBySize', { ...form.BodyBySize, [size]: Number(e.target.value) })} /></Grid>)}
             {sizeCodes.map(size => <Grid size={{ xs: 6, sm: 4, md: 2 }} key={`pieces-${size}`}><TextField fullWidth size="small" label={`${size} pieces`} value={piecesBySize[size] || ''} slotProps={{ input: { readOnly: true } }} /></Grid>)}
             <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Total" value={total || ''} slotProps={{ input: { readOnly: true } }} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Rolls" type="number" value={form.Rolls || ''} onChange={e => setF('Rolls', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Yds Packing List" type="number" value={form.YdsPackingList || ''} onChange={e => setF('YdsPackingList', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Marker Length" type="number" value={form.MarkerLength || ''} onChange={e => setF('MarkerLength', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="F. Damage" type="number" value={form.FDamage || ''} onChange={e => setF('FDamage', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Overlaps" type="number" value={form.Overlaps || ''} onChange={e => setF('Overlaps', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Width" type="number" value={form.Width || ''} onChange={e => setF('Width', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Effi" type="number" value={form.Efficiency || ''} onChange={e => setF('Efficiency', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Rolls" type="number" value={form.Rolls || ''} onChange={e => setF('Rolls', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Yds Packing List" type="number" value={form.YdsPackingList || ''} onChange={e => setF('YdsPackingList', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Marker Length" type="number" value={form.MarkerLength || ''} onChange={e => setF('MarkerLength', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="F. Damage" type="number" value={form.FDamage || ''} onChange={e => setF('FDamage', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Overlaps" type="number" value={form.Overlaps || ''} onChange={e => setF('Overlaps', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Width" type="number" value={form.Width || ''} onChange={e => setF('Width', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Effi" type="number" value={form.Efficiency || ''} onChange={e => setF('Efficiency', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             {[
               ['Physical Yards', physicalYards], ['Short', short], ['% Short', percentShort], ['% Damage', percentDamage],
               ['PCS / Marker', pcsPerMarker], ['Total Yds', totalYds], ['Marker Yield', markerYield], ['Real Yield', realYield],

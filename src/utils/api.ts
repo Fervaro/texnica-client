@@ -194,6 +194,7 @@ export const millTestsApi = {
 // Fabric Shipment API
 export const fabricShipmentsApi = {
   getAll: () => api.get('/fabric-shipments'),
+  getTotals: () => api.get('/fabric-shipments/totals'),
   getById: (id: number) => api.get(`/fabric-shipments/${id}`),
   getByFabricPO: (fabricPOId: number) => api.get(`/fabric-shipments/fabric-po/${fabricPOId}`),
   getByFgpo: (fgpoId: number) => api.get(`/fabric-shipments/fgpo/${fgpoId}`),
@@ -204,9 +205,22 @@ export const fabricShipmentsApi = {
   getPaged: (params: any) => api.get('/fabric-shipments/paged', { params }),
 };
 
+// Fabric Shipment Lots API
+export const fabricShipmentLotsApi = {
+  getByShipment: (shipmentId: number) => api.get(`/fabric-shipments/${shipmentId}/lots`),
+  getById: (id: number) => api.get(`/fabric-shipment-lots/${id}`),
+  create: (data: any) => api.post('/fabric-shipment-lots', data),
+  update: (id: number, data: any) => api.put(`/fabric-shipment-lots/${id}`, data),
+  delete: (id: number) => api.delete(`/fabric-shipment-lots/${id}`),
+  getRolls: (lotId: number) => api.get(`/fabric-shipment-lots/${lotId}/rolls`),
+  associateRoll: (lotId: number, rollReceivingId: number) => api.post(`/fabric-shipment-lots/${lotId}/rolls`, { rollReceivingId }),
+  unlinkRoll: (lotId: number, rollReceivingId: number) => api.delete(`/fabric-shipment-lots/${lotId}/rolls/${rollReceivingId}`),
+};
+
 // Fabric Receiving API
 export const fabricReceivingsApi = {
   getAll: () => api.get('/fabric-receivings'),
+  getTotals: () => api.get('/fabric-receivings/totals'),
   getById: (id: number) => api.get(`/fabric-receivings/${id}`),
   getByFabricPO: (fabricPOId: number) => api.get(`/fabric-receivings/fabric-po/${fabricPOId}`),
   getByFgpo: (fgpoId: number) => api.get(`/fabric-receivings/fgpo/${fgpoId}`),
@@ -230,6 +244,7 @@ export const rollReceivingsApi = {
 // Fabric Inventory API
 export const fabricInventoriesApi = {
   getAll: () => api.get('/fabric-inventories'),
+  getTotals: () => api.get('/fabric-inventories/totals'),
   getById: (id: number) => api.get(`/fabric-inventories/${id}`),
   getByFgpo: (fgpoId: number) => api.get(`/fabric-inventories/fgpo/${fgpoId}`),
   create: (data: any) => api.post('/fabric-inventories', data),
@@ -241,6 +256,7 @@ export const fabricInventoriesApi = {
 // Fabric Reservation API
 export const fabricReservationsApi = {
   getAll: () => api.get('/fabric-reservations'),
+  getTotals: () => api.get('/fabric-reservations/totals'),
   getById: (id: number) => api.get(`/fabric-reservations/${id}`),
   getByFgpo: (fgpoId: number) => api.get(`/fabric-reservations/fgpo/${fgpoId}`),
   create: (data: any) => api.post('/fabric-reservations', data),
@@ -253,6 +269,7 @@ export const fabricReservationsApi = {
 // Fabric Movements API (historial de movimientos físicos + saldos por rollo)
 export const fabricMovementsApi = {
   getAll: () => api.get('/fabric-movements'),
+  getTotals: () => api.get('/fabric-movements/totals'),
   getById: (id: number) => api.get(`/fabric-movements/${id}`),
   getByRoll: (rollReceivingId: number) => api.get(`/fabric-movements/roll/${rollReceivingId}`),
   getBalances: () => api.get('/fabric-movements/balances'),

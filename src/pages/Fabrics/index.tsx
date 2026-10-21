@@ -14,6 +14,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { fabricsApi, fgpoApi, stylesApi } from '../../utils/api';
 import { Fabric } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const mapFabric = (raw: any): Fabric => ({
   id: raw.id ?? raw.ID ?? 0,
@@ -132,6 +133,11 @@ const FabricsPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const negField = firstNegativeField([
+      { name: 'GSM', value: form.Gsm },
+      { name: 'Weight', value: form.WeightOz },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = { ...form, Gsm: form.Gsm === '' ? null : Number(form.Gsm), WeightOz: form.WeightOz === '' ? null : Number(form.WeightOz) };
@@ -245,8 +251,8 @@ const FabricsPage: React.FC = () => {
               <TextField fullWidth size="small" label="Thread Title" value={form.ThreadTitle} onChange={e => setForm({ ...form, ThreadTitle: e.target.value })} />
               <TextField fullWidth size="small" label="Thread Quality" value={form.ThreadQuality} onChange={e => setForm({ ...form, ThreadQuality: e.target.value })} />
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth size="small" label="GSM" type="number" value={form.Gsm} slotProps={{ input: { readOnly: !editingId && autoFgpoId > 0 } }} onChange={e => setForm({ ...form, Gsm: e.target.value })} />
-                <TextField fullWidth size="small" label="Weight (oz/yd²)" type="number" value={form.WeightOz} slotProps={{ input: { readOnly: !editingId && autoFgpoId > 0 } }} onChange={e => setForm({ ...form, WeightOz: e.target.value })} />
+                <TextField fullWidth size="small" label="GSM" type="number" value={form.Gsm} slotProps={{ input: { readOnly: !editingId && autoFgpoId > 0 }, htmlInput: nonNegativeInputProps }} onKeyDown={e => blockNegativeKey(e)} onChange={e => setForm({ ...form, Gsm: e.target.value })} />
+                <TextField fullWidth size="small" label="Weight (oz/yd²)" type="number" value={form.WeightOz} slotProps={{ input: { readOnly: !editingId && autoFgpoId > 0 }, htmlInput: nonNegativeInputProps }} onKeyDown={e => blockNegativeKey(e)} onChange={e => setForm({ ...form, WeightOz: e.target.value })} />
               </Box>
               <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setForm({ ...form, Comments: e.target.value })} multiline rows={2} />
             </Box>

@@ -36,11 +36,12 @@ export interface RollBalance {
   rollNumber: string;
   supplierRollNumber?: string;
   lotNumber?: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;
   fgpoNumber: string;
   unitOfMeasure?: string;
+  receivedQuantity: number;
   physicalQuantity: number;
   reservedQuantity: number;
   availableQuantity: number;

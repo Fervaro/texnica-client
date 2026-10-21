@@ -19,6 +19,7 @@ import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { InternalTest } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const sc = (s: string) => {
   const m: Record<string, any> = { Passed: 'success', Failed: 'error', Pending: 'default', 'Conditionally Passed': 'warning' };
@@ -93,6 +94,17 @@ const InternalTestPage: React.FC = () => {
     setFormError('');
     if (!form.FabricPOId || !form.FGPOId) { setFormError('Fabric PO and FGPO are required.'); return; }
     if (form.TargetGSM <= 0) { setFormError('Target GSM must be greater than 0.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Actual Width', value: form.ActualWidth },
+      { name: 'Specimen Area', value: form.SpecimenAreaCm2 },
+      { name: 'Weight Before', value: form.WeightBeforeG },
+      { name: 'Weight After', value: form.WeightAfterG },
+      { name: 'Length Before', value: form.LengthBefore },
+      { name: 'Length After', value: form.LengthAfter },
+      { name: 'Width Before', value: form.WidthBefore },
+      { name: 'Width After', value: form.WidthAfter },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
@@ -244,10 +256,10 @@ const InternalTestPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Target GSM *" type="number" value={form.TargetGSM || ''} onChange={e => setF('TargetGSM', Number(e.target.value))} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Encogimiento (Length / Width)</Typography></Divider></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Length Before" type="number" value={form.LengthBefore || ''} onChange={e => setF('LengthBefore', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Length After" type="number" value={form.LengthAfter || ''} onChange={e => setF('LengthAfter', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Width Before" type="number" value={form.WidthBefore || ''} onChange={e => setF('WidthBefore', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Width After" type="number" value={form.WidthAfter || ''} onChange={e => setF('WidthAfter', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Length Before" type="number" value={form.LengthBefore || ''} onChange={e => setF('LengthBefore', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Length After" type="number" value={form.LengthAfter || ''} onChange={e => setF('LengthAfter', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Width Before" type="number" value={form.WidthBefore || ''} onChange={e => setF('WidthBefore', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Width After" type="number" value={form.WidthAfter || ''} onChange={e => setF('WidthAfter', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Propiedades Dimensionales (%)</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Torque %" type="number" value={form.TorquePct || ''} onChange={e => setF('TorquePct', Number(e.target.value))} /></Grid>

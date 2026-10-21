@@ -4,7 +4,7 @@ export interface RollReceiving {
   id: number;
   receivingId: number;
   receivingNumber: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;
   fgpoNumber: string;
@@ -12,6 +12,8 @@ export interface RollReceiving {
   supplier?: string;
   lotNumber?: string;
   lotId?: number;
+  shipmentLotId?: number;
+  shipmentLotNumber?: string;
   rollNumber?: string;
   supplierRollNumber?: string;
   color?: string;

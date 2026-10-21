@@ -14,6 +14,8 @@ const mapRollReceiving = (raw: any): RollReceiving => ({
   supplier: raw.supplier ?? raw.Supplier ?? '',
   lotNumber: raw.lotNumber ?? raw.LotNumber ?? '',
   lotId: raw.lotId ?? raw.LotId,
+  shipmentLotId: raw.shipmentLotId ?? raw.ShipmentLotId,
+  shipmentLotNumber: raw.shipmentLotNumber ?? raw.ShipmentLotNumber ?? '',
   rollNumber: raw.rollNumber ?? raw.RollNumber ?? '',
   supplierRollNumber: raw.supplierRollNumber ?? raw.SupplierRollNumber ?? '',
   color: raw.color ?? raw.Color ?? '',

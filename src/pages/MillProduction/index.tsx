@@ -20,6 +20,7 @@ import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { MillProduction } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const DEFAULT_STATUS_OPTIONS = ['Not Started', 'Pending', 'In Progress', 'Partially Completed', 'Completed', 'On Hold', 'Cancelled'];
 
@@ -92,6 +93,14 @@ const MillProductionPage: React.FC = () => {
     setFormError('');
     if (!form.FabricPOId || !form.FGPOId) { setFormError('Fabric PO and FGPO are required.'); return; }
     if (!form.LotNumber) { setFormError('Lot Number is required.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Planned Quantity', value: form.PlannedQuantity },
+      { name: 'Produced Quantity', value: form.ProducedQuantity },
+      { name: 'Roll Quantity', value: form.RollQuantity },
+      { name: 'Yardage / Quantity', value: form.YardageOrQty },
+      { name: 'Weight', value: form.Weight },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = { ...form, DataOwnerId: form.DataOwnerId || null, FinishDate: form.FinishDate || null, PlannedExport: form.PlannedExport || null, ActualExport: form.ActualExport || null };
       if (editingId) await update(editingId, payload);
@@ -250,19 +259,19 @@ const MillProductionPage: React.FC = () => {
               <TextField fullWidth size="small" label="Lot Number *" value={form.LotNumber} onChange={e => setF('LotNumber', e.target.value)} required />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Planned Quantity" type="number" value={form.PlannedQuantity || ''} onChange={e => setF('PlannedQuantity', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Planned Quantity" type="number" value={form.PlannedQuantity || ''} onChange={e => setF('PlannedQuantity', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Produced Quantity" type="number" value={form.ProducedQuantity || ''} onChange={e => setF('ProducedQuantity', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Produced Quantity" type="number" value={form.ProducedQuantity || ''} onChange={e => setF('ProducedQuantity', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Roll Quantity" type="number" value={form.RollQuantity || ''} onChange={e => setF('RollQuantity', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Roll Quantity" type="number" value={form.RollQuantity || ''} onChange={e => setF('RollQuantity', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Yardage / Quantity" type="number" value={form.YardageOrQty || ''} onChange={e => setF('YardageOrQty', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Yardage / Quantity" type="number" value={form.YardageOrQty || ''} onChange={e => setF('YardageOrQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Weight" type="number" value={form.Weight || ''} onChange={e => setF('Weight', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Weight" type="number" value={form.Weight || ''} onChange={e => setF('Weight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
 
             {/* ── Dates & Status ── */}

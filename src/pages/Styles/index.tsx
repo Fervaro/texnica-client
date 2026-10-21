@@ -14,6 +14,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { stylesApi } from '../../utils/api';
 import { Style } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const mapStyle = (raw: any): Style => ({
   id: raw.id ?? raw.ID ?? 0,
@@ -81,6 +82,8 @@ const StylesPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const negField = firstNegativeField([{ name: 'GSM', value: form.Gsm }]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     setFormError('');
     setSaving(true);
     try {
@@ -200,6 +203,8 @@ const StylesPage: React.FC = () => {
                   label="GSM"
                   type="number"
                   value={form.Gsm}
+                  onKeyDown={e => blockNegativeKey(e)}
+                  slotProps={{ htmlInput: nonNegativeInputProps }}
                   onChange={e => {
                     const newGsm = e.target.value;
                     setForm({

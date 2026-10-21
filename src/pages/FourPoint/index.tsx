@@ -19,6 +19,7 @@ import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { FourPoint } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const sc = (s: string) => {
   const m: Record<string, any> = { Passed: 'success', Failed: 'error', 'On Hold': 'warning' };
@@ -88,6 +89,17 @@ const FourPointPage: React.FC = () => {
     setFormError('');
     if (!form.FabricPOId || !form.FGPOId) { setFormError('Fabric PO and FGPO are required.'); return; }
     if (form.Width <= 0 || form.InspectedLength <= 0) { setFormError('Width and Inspected Length must be greater than 0.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Max Allowed', value: form.MaxAllowed },
+      { name: '1-Point', value: form.Points1 },
+      { name: '2-Point', value: form.Points2 },
+      { name: '3-Point', value: form.Points3 },
+      { name: '4-Point', value: form.Points4 },
+      { name: 'Accepted Qty', value: form.AcceptedQty },
+      { name: 'Rejected Qty', value: form.RejectedQty },
+      { name: 'Hold Qty', value: form.HoldQty },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
@@ -253,9 +265,9 @@ const FourPointPage: React.FC = () => {
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="4-Point" type="number" value={form.Points4 || ''} onChange={e => setF('Points4', Number(e.target.value))} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades (yd)</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Accepted Qty" type="number" value={form.AcceptedQty || ''} onChange={e => setF('AcceptedQty', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Rejected Qty" type="number" value={form.RejectedQty || ''} onChange={e => setF('RejectedQty', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Hold Qty" type="number" value={form.HoldQty || ''} onChange={e => setF('HoldQty', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Accepted Qty" type="number" value={form.AcceptedQty || ''} onChange={e => setF('AcceptedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Rejected Qty" type="number" value={form.RejectedQty || ''} onChange={e => setF('RejectedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Hold Qty" type="number" value={form.HoldQty || ''} onChange={e => setF('HoldQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setF('Comments', e.target.value)} multiline rows={2} /></Grid>
           </Grid>
         </DialogContent>

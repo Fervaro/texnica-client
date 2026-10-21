@@ -17,6 +17,7 @@ import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
 import { useColorOptions } from '../../hooks/colors/useColorOptions';
 import { useSizeOptions } from '../../hooks/sizes/useSizeOptions';
 import { FgpoLine, Price } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const mapPrice = (raw: any): Price => ({
   id: raw.id ?? raw.ID ?? 0,
@@ -113,6 +114,11 @@ const FgpoLinesPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!form.FgpoId || !form.StyleId || !form.ColorId || !form.SizeId) { setFormError('FGPO, Style, Color y Size son obligatorios.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Quantity', value: form.Quantity },
+      { name: 'Unit Price', value: form.UnitPrice },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = {
@@ -233,9 +239,8 @@ const FgpoLinesPage: React.FC = () => {
                 </FormControl>
               </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth size="small" label="Quantity *" type="number" value={form.Quantity} onChange={e => setForm({ ...form, Quantity: e.target.value })} required />
-                <TextField fullWidth size="small" label="Unit Price" type="number" value={form.UnitPrice} onChange={e => setForm({ ...form, UnitPrice: e.target.value })}
-                  slotProps={{ htmlInput: { step: 'any' } }} />
+                <TextField fullWidth size="small" label="Quantity *" type="number" value={form.Quantity} onChange={e => setForm({ ...form, Quantity: e.target.value })} required onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+                <TextField fullWidth size="small" label="Unit Price" type="number" value={form.UnitPrice} onChange={e => setForm({ ...form, UnitPrice: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: { min: 0, step: 'any' } }} />
               </Box>
               {form.StyleId && form.ColorId && form.SizeId && (
                 <Typography variant="caption" color={catalogPrice ? 'success.main' : 'text.secondary'}>

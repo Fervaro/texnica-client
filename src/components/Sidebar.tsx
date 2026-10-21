@@ -26,13 +26,9 @@ import ContentCutIcon from '@mui/icons-material/ContentCut';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import TuneIcon from '@mui/icons-material/Tune';
 import ChairAltIcon from '@mui/icons-material/ChairAlt';
-import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
-import AllInboxIcon from '@mui/icons-material/AllInbox';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
-import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -84,7 +80,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
         { text: 'Fabric PO',        icon: <ReceiptIcon fontSize="small" />,                path: '/fabric-po' },
         { text: 'Mill Production',  icon: <PrecisionManufacturingIcon fontSize="small" />, path: '/mill-production' },
         { text: 'Mill Test',        icon: <ScienceIcon fontSize="small" />,                path: '/mill-test' },
-        { text: 'Fabric Shipment',  icon: <FlightTakeoffIcon fontSize="small" />,          path: '/fabric-shipment' },
         { text: 'Fabric Inventory', icon: <Inventory2Icon fontSize="small" />,             path: '/fabric-inventory' },
       ],
     },
@@ -123,10 +118,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
       title: 'Shipping & Warehouse',
       icon: <LocalShippingIcon />,
       subItems: [
-        { text: 'Fabric Receiving',   icon: <MoveToInboxIcon fontSize="small" />,      path: '/fabric-receiving' },
-        { text: 'Roll Receiving',     icon: <AllInboxIcon fontSize="small" />,         path: '/roll-receiving' },
-        { text: 'Fabric Movements',   icon: <SwapHorizIcon fontSize="small" />,        path: '/fabric-movements' },
-        { text: 'Fabric Reservation', icon: <BookmarkAddIcon fontSize="small" />,      path: '/fabric-reservation' },
         { text: 'Packing Control',    icon: <InventoryIcon fontSize="small" />,        path: '/packing-control' },
         { text: 'Finished Goods',     icon: <WarehouseIcon fontSize="small" />,        path: '/finished-goods' },
         { text: 'Shipment Control',   icon: <FlightTakeoffIcon fontSize="small" />,    path: '/shipment-control' },

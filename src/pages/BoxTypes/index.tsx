@@ -13,6 +13,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { boxTypesApi } from '../../utils/api';
 import { BoxType } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const mapBoxType = (raw: any): BoxType => ({
   id: raw.id ?? raw.ID ?? 0,
@@ -51,7 +52,15 @@ const BoxTypesPage: React.FC = () => {
   const filtered = items.filter(i => !search || i.boxCode.toLowerCase().includes(search.toLowerCase()));
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault(); setFormError(''); setSaving(true);
+    e.preventDefault();
+    const negField = firstNegativeField([
+      { name: 'Length', value: form.Length },
+      { name: 'Width', value: form.Width },
+      { name: 'Height', value: form.Height },
+      { name: 'Empty Carton Weight', value: form.EmptyCartonWeight },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    setFormError(''); setSaving(true);
     try {
       const payload = {
         ...form,
@@ -142,11 +151,11 @@ const BoxTypesPage: React.FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField fullWidth size="small" label="Box Code * (ej. A box)" value={form.BoxCode} onChange={e => setForm({ ...form, BoxCode: e.target.value })} required />
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth size="small" label="Length" type="number" value={form.Length} onChange={e => setForm({ ...form, Length: e.target.value })} />
-                <TextField fullWidth size="small" label="Width" type="number" value={form.Width} onChange={e => setForm({ ...form, Width: e.target.value })} />
-                <TextField fullWidth size="small" label="Height" type="number" value={form.Height} onChange={e => setForm({ ...form, Height: e.target.value })} />
+                <TextField fullWidth size="small" label="Length" type="number" value={form.Length} onChange={e => setForm({ ...form, Length: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+                <TextField fullWidth size="small" label="Width" type="number" value={form.Width} onChange={e => setForm({ ...form, Width: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+                <TextField fullWidth size="small" label="Height" type="number" value={form.Height} onChange={e => setForm({ ...form, Height: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
               </Box>
-              <TextField fullWidth size="small" label="Empty Carton Weight (kg)" type="number" value={form.EmptyCartonWeight} onChange={e => setForm({ ...form, EmptyCartonWeight: e.target.value })} />
+              <TextField fullWidth size="small" label="Empty Carton Weight (kg)" type="number" value={form.EmptyCartonWeight} onChange={e => setForm({ ...form, EmptyCartonWeight: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
               <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setForm({ ...form, Comments: e.target.value })} multiline rows={2} />
             </Box>
           </DialogContent>

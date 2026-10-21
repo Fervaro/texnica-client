@@ -5,7 +5,7 @@ export interface FabricReceiving {
   receivingNumber: string;
   receivingDate: string;
   shipmentNumber?: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;
   fgpoNumber: string;
@@ -33,7 +33,7 @@ export interface CreateFabricReceivingInput {
   receivingNumber: string;
   receivingDate: string;
   shipmentNumber?: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fgpoId: number;
   supplier?: string;
   packingListQty: number;

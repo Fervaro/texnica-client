@@ -42,7 +42,7 @@ import CuttingControl from './pages/CuttingControl';
 import CuttingPanelQC from './pages/CuttingPanelQC';
 import TrimsControl from './pages/TrimsControl';
 import SewingProduction from './pages/SewingProduction';
-import FabricInventory from './pages/FabricInventory';
+import FabricInventoryHub from './pages/FabricInventoryHub';
 import FabricReservation from './pages/FabricReservation';
 import PackingControl from './pages/PackingControl';
 import StylesPage from './pages/Styles';
@@ -226,7 +226,7 @@ function App() {
                   <Route path="cutting-panel-qc" element={<CuttingPanelQC />} />
                   <Route path="trims-control" element={<TrimsControl />} />
                   <Route path="sewing-production" element={<SewingProduction />} />
-                  <Route path="fabric-inventory" element={<FabricInventory />} />
+                  <Route path="fabric-inventory" element={<FabricInventoryHub />} />
                   <Route path="fabric-reservation" element={<FabricReservation />} />
                   <Route path="packing-control" element={<PackingControl />} />
                   <Route path="finished-goods" element={<FinishedGoods />} />

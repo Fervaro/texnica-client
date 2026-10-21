@@ -10,6 +10,7 @@ export * from './fabricPO';
 export * from './millProduction';
 export * from './millTest';
 export * from './fabricShipment';
+export * from './fabricShipmentLot';
 export * from './fabricReceiving';
 export * from './rollReceiving';
 export * from './fourPoint';

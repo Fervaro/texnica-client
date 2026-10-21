@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -20,6 +20,9 @@ import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { FabricReceiving } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps, nonNegativeIntegerInputProps } from '../../utils/validation';
+import { fabricReceivingsApi } from '../../utils/api';
+import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 
 const DEFAULT_STATUSES = ['Pending', 'Partially Received', 'Fully Received', 'Quantity Difference', 'Rejected'];
 
@@ -60,6 +63,26 @@ const FabricReceivingPage: React.FC = () => {
 
   const [form, setForm] = useState(emptyForm);
 
+  const [recTotals, setRecTotals] = useState({ declared: 0, received: 0, variance: 0, count: 0 });
+  const [totalsError, setTotalsError] = useState('');
+  const loadRecTotals = async () => {
+    setTotalsError('');
+    try {
+      const res = await fabricReceivingsApi.getTotals();
+      const t = res.data ?? {};
+      setRecTotals({
+        declared: t.declaredYards ?? t.DeclaredYards ?? 0,
+        received: t.receivedYards ?? t.ReceivedYards ?? 0,
+        variance: t.varianceYards ?? t.VarianceYards ?? 0,
+        count: t.receivingsCount ?? t.ReceivingsCount ?? 0,
+      });
+    } catch (err: any) {
+      const status = err?.response?.status;
+      setTotalsError(status ? `Error ${status} al cargar los totales de recepciones.` : 'No se pudieron cargar los totales de recepciones.');
+    }
+  };
+  useEffect(() => { loadRecTotals(); }, []);
+
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
@@ -70,7 +93,7 @@ const FabricReceivingPage: React.FC = () => {
     setEditingId(item.id);
     setForm({
       ReceivingNumber: item.receivingNumber, ReceivingDate: item.receivingDate?.split('T')[0] || '',
-      ShipmentNumber: item.shipmentNumber ?? '', FabricPOId: item.fabricPOId, FGPOId: item.fgpoId,
+      ShipmentNumber: item.shipmentNumber ?? '', FabricPOId: item.fabricPOId ?? 0, FGPOId: item.fgpoId,
       Supplier: item.supplier ?? '',
       PackingListQty: item.packingListQty, ActualReceivedQty: item.actualReceivedQty,
       ExpectedRolls: item.expectedRolls, ReceivedRolls: item.receivedRolls,
@@ -90,10 +113,18 @@ const FabricReceivingPage: React.FC = () => {
   const handleSave = async () => {
     setFormError('');
     if (!form.ReceivingNumber) { setFormError('Receiving Number is required.'); return; }
-    if (!form.FabricPOId || !form.FGPOId) { setFormError('Fabric PO and FGPO are required.'); return; }
+    if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Packing List Qty', value: form.PackingListQty },
+      { name: 'Actual Received Qty', value: form.ActualReceivedQty },
+      { name: 'Expected Rolls', value: form.ExpectedRolls },
+      { name: 'Received Rolls', value: form.ReceivedRolls },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
+        FabricPOId: form.FabricPOId || null,
         ReceivedByUserId: form.ReceivedByUserId || null,
         DataOwnerId: form.DataOwnerId || null,
         ReceivingDate: form.ReceivingDate ? new Date(form.ReceivingDate).toISOString() : new Date().toISOString(),
@@ -124,6 +155,17 @@ const FabricReceivingPage: React.FC = () => {
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Receiving</Button>
         </Box>
       </Box>
+
+      {totalsError && <Alert severity="warning" sx={{ mb: 1 }}>{totalsError}</Alert>}
+      <ModuleTotalsBar
+        suffix="yd"
+        items={[
+          { label: 'Declarado', value: recTotals.declared.toLocaleString(), color: 'primary.main' },
+          { label: 'Recibido (reportado)', value: recTotals.received.toLocaleString(), color: 'info.main' },
+          { label: 'Diferencia', value: recTotals.variance.toLocaleString(), color: 'warning.main' },
+          { label: 'Recepciones', value: recTotals.count.toLocaleString(), color: 'text.disabled' },
+        ]}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -213,14 +255,14 @@ const FabricReceivingPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Fabric PO *</InputLabel>
-                <Select value={form.FabricPOId || ''} label="Fabric PO *" onChange={e => {
+                <InputLabel>Fabric PO (opcional)</InputLabel>
+                <Select value={form.FabricPOId || ''} label="Fabric PO (opcional)" onChange={e => {
                   const v = Number(e.target.value);
                   const po = poList.find((p: any) => (p.id ?? p.ID) === v);
                   setF('FabricPOId', v);
-                  setF('Supplier', (po as any)?.sub || form.Supplier);
+                  setF('Supplier', (po as any)?.sub || '');
                 }}>
-                  <MenuItem value=""><em>Select a Fabric PO...</em></MenuItem>
+                  <MenuItem value=""><em>Sin Fabric PO (tela del cliente)</em></MenuItem>
                   {poList.map((p: any) => <MenuItem key={p.id ?? p.ID} value={p.id ?? p.ID}>{p.label}{(p as any)?.sub ? ` — ${(p as any).sub}` : ''}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -237,10 +279,10 @@ const FabricReceivingPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Supplier" value={form.Supplier} onChange={e => setF('Supplier', e.target.value)} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Packing List Qty *" type="number" value={form.PackingListQty || ''} onChange={e => setF('PackingListQty', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Received Qty *" type="number" value={form.ActualReceivedQty || ''} onChange={e => setF('ActualReceivedQty', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Expected Rolls" type="number" value={form.ExpectedRolls || ''} onChange={e => setF('ExpectedRolls', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Received Rolls" type="number" value={form.ReceivedRolls || ''} onChange={e => setF('ReceivedRolls', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Packing List Qty *" type="number" value={form.PackingListQty || ''} onChange={e => setF('PackingListQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Received Qty *" type="number" value={form.ActualReceivedQty || ''} onChange={e => setF('ActualReceivedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Expected Rolls" type="number" value={form.ExpectedRolls || ''} onChange={e => setF('ExpectedRolls', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeIntegerInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Received Rolls" type="number" value={form.ReceivedRolls || ''} onChange={e => setF('ReceivedRolls', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeIntegerInputProps }} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Estado & Ubicación</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>

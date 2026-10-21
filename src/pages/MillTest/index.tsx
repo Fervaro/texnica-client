@@ -20,6 +20,7 @@ import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { MillTest } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const DEFAULT_TEST_RESULTS = ['Pending', 'Testing', 'Passed', 'Conditionally Passed', 'Failed'];
 
@@ -97,6 +98,12 @@ const MillTestPage: React.FC = () => {
     setFormError('');
     if (!form.FabricPOId || !form.FGPOId) { setFormError('Fabric PO and FGPO are required.'); return; }
     if (!form.LotNumber) { setFormError('Lot Number is required.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Roll Quantity', value: form.RollQty },
+      { name: 'Actual Width', value: form.ActualWidth },
+      { name: 'Actual GSM', value: form.ActualGSM },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
@@ -241,13 +248,13 @@ const MillTestPage: React.FC = () => {
             {/* ── Physical Measurements ── */}
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Physical Measurements</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Roll Quantity" type="number" value={form.RollQty || ''} onChange={e => setF('RollQty', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Roll Quantity" type="number" value={form.RollQty || ''} onChange={e => setF('RollQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Actual Width" type="number" value={form.ActualWidth || ''} onChange={e => setF('ActualWidth', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Actual Width" type="number" value={form.ActualWidth || ''} onChange={e => setF('ActualWidth', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Actual GSM" type="number" value={form.ActualGSM || ''} onChange={e => setF('ActualGSM', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Actual GSM" type="number" value={form.ActualGSM || ''} onChange={e => setF('ActualGSM', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField fullWidth size="small" label="Colorfastness" value={form.Colorfastness} onChange={e => setF('Colorfastness', e.target.value)} />

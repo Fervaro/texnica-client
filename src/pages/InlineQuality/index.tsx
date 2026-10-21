@@ -17,6 +17,7 @@ import { useInlineQualities } from '../../hooks/inlineQualities/useInlineQualiti
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { InlineQuality } from '../../types';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const sc = (s: string) => {
   const m: Record<string, any> = { Passed: 'success', Failed: 'error', 'On Hold': 'warning' };
@@ -82,6 +83,14 @@ const InlineQualityPage: React.FC = () => {
     setFormError('');
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
     if (form.CheckedQty <= 0) { setFormError('Checked Qty must be greater than 0.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Critical Defects', value: form.CriticalDefects },
+      { name: 'Major Defects', value: form.MajorDefects },
+      { name: 'Minor Defects', value: form.MinorDefects },
+      { name: 'Defective Pieces', value: form.DefectivePieces },
+      { name: 'Max Allowed', value: form.MaxAllowed },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
@@ -214,7 +223,7 @@ const InlineQualityPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Critical Defects" type="number" value={form.CriticalDefects || ''} onChange={e => setF('CriticalDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Major Defects" type="number" value={form.MajorDefects || ''} onChange={e => setF('MajorDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Minor Defects" type="number" value={form.MinorDefects || ''} onChange={e => setF('MinorDefects', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Defective Pieces" type="number" value={form.DefectivePieces || ''} onChange={e => setF('DefectivePieces', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Defective Pieces" type="number" value={form.DefectivePieces || ''} onChange={e => setF('DefectivePieces', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Max Allowed (%)" type="number" value={form.MaxAllowed || ''} onChange={e => setF('MaxAllowed', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">

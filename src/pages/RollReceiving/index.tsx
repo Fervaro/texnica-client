@@ -21,6 +21,8 @@ import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { fabricMovementsApi } from '../../utils/api';
 import { RollReceiving, RollBalance } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
+import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
+import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 
 const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
 const DEFAULT_SHADE_GROUPS = ['A', 'B', 'C', 'D'];
@@ -66,6 +68,15 @@ const RollReceivingPage: React.FC = () => {
       .then(res => { setBalances(res.data ?? []); setBalancesError(''); })
       .catch((err: any) => setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'));
   }, []);
+
+  // Indicadores del inventario físico, calculados desde los saldos de rollos (fuente: /fabric-movements/balances).
+  const rollSummary = {
+    rolls: balances.length,
+    received: balances.reduce((s, b) => s + (b.receivedQuantity ?? 0), 0),
+    physical: balances.reduce((s, b) => s + (b.physicalQuantity ?? 0), 0),
+    reserved: balances.reduce((s, b) => s + (b.reservedQuantity ?? 0), 0),
+    available: balances.reduce((s, b) => s + (b.availableQuantity ?? 0), 0),
+  };
   const CONDITION_OPTIONS = catalogs['RollCondition']?.length ? catalogs['RollCondition'] : DEFAULT_CONDITIONS;
   const SHADE_OPTIONS = catalogs['ShadeGroup']?.length ? catalogs['ShadeGroup'] : DEFAULT_SHADE_GROUPS;
 
@@ -120,6 +131,15 @@ const RollReceivingPage: React.FC = () => {
     setFormError('');
     if (!form.ReceivingId) { setFormError('Fabric Receiving is required.'); return; }
     if (!form.RollNumber) { setFormError('Roll Number is required.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Gross Weight', value: form.GrossWeight },
+      { name: 'Net Weight', value: form.NetWeight },
+      { name: 'Actual Yardage', value: form.ActualYardage },
+      { name: 'Actual Width', value: form.ActualWidth },
+      { name: 'Actual GSM', value: form.ActualGSM },
+      { name: 'Damaged Qty', value: form.DamagedQty },
+    ]);
+    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
     try {
       const payload = {
         ...form,
@@ -143,10 +163,10 @@ const RollReceivingPage: React.FC = () => {
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <AllInboxIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
-            Roll Receiving
+            Inventario Físico de Tela
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Detalle de rollos recibidos — hereda PO/FGPO/Proveedor del Fabric Receiving
+            Metraje real y estados de los rollos recibidos — hereda PO/FGPO/Proveedor de la recepción
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -154,6 +174,16 @@ const RollReceivingPage: React.FC = () => {
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Roll</Button>
         </Box>
       </Box>
+
+      <ModuleTotalsBar
+        items={[
+          { label: 'Rollos activos', value: rollSummary.rolls.toLocaleString(), color: 'text.disabled' },
+          { label: 'Metraje registrado', value: `${rollSummary.received.toLocaleString()} yd`, color: 'primary.main' },
+          { label: 'Existencia física', value: `${rollSummary.physical.toLocaleString()} yd`, color: 'info.main' },
+          { label: 'Reservado', value: `${rollSummary.reserved.toLocaleString()} yd`, color: 'warning.main' },
+          { label: 'Disponible', value: `${rollSummary.available.toLocaleString()} yd`, color: 'success.main' },
+        ]}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {balancesError && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setBalancesError('')}>{balancesError}</Alert>}
@@ -179,16 +209,16 @@ const RollReceivingPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Roll #', 'Receiving', 'Fabric PO', 'FGPO', 'Lot', 'Físico', 'Reservado', 'Disp.', 'Yardage', 'Net Wt', 'Shade', 'Condition', 'Date', 'Actions'].map(h =>
+                {['Roll #', 'Receiving', 'Fabric PO', 'FGPO', 'Lot', 'Lote (embarque)', 'Físico', 'Reservado', 'Disp.', 'Yardage', 'Net Wt', 'Shade', 'Condition', 'Date', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={14} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={15} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={15} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No rolls found</Typography>
                   <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Register your first roll</Button>
                 </TableCell></TableRow>
@@ -201,6 +231,7 @@ const RollReceivingPage: React.FC = () => {
                   <TableCell>{item.fabricPONumber}</TableCell>
                   <TableCell>{item.fgpoNumber}</TableCell>
                   <TableCell>{item.lotNumber || '-'}</TableCell>
+                  <TableCell>{item.shipmentLotNumber || '-'}</TableCell>
                   <TableCell>{bal ? num(bal.physicalQuantity) : '-'}</TableCell>
                   <TableCell>{bal ? num(bal.reservedQuantity) : '-'}</TableCell>
                   <TableCell><Typography sx={{ fontWeight: 600 }}>{bal ? num(bal.availableQuantity) : '-'}</Typography></TableCell>
@@ -273,11 +304,11 @@ const RollReceivingPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Lot Number" value={form.LotNumber} onChange={e => setF('LotNumber', e.target.value)} placeholder="LOT-MILL-001 (auto)" /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Medidas & Pesos</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Gross Weight" type="number" value={form.GrossWeight || ''} onChange={e => setF('GrossWeight', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Net Weight" type="number" value={form.NetWeight || ''} onChange={e => setF('NetWeight', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Yardage" type="number" value={form.ActualYardage || ''} onChange={e => setF('ActualYardage', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Width" type="number" value={form.ActualWidth || ''} onChange={e => setF('ActualWidth', Number(e.target.value))} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual GSM" type="number" value={form.ActualGSM || ''} onChange={e => setF('ActualGSM', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Gross Weight" type="number" value={form.GrossWeight || ''} onChange={e => setF('GrossWeight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Net Weight" type="number" value={form.NetWeight || ''} onChange={e => setF('NetWeight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Yardage" type="number" value={form.ActualYardage || ''} onChange={e => setF('ActualYardage', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Width" type="number" value={form.ActualWidth || ''} onChange={e => setF('ActualWidth', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual GSM" type="number" value={form.ActualGSM || ''} onChange={e => setF('ActualGSM', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small"><InputLabel>Shade Group</InputLabel>
                 <Select value={form.ShadeGroup} label="Shade Group" onChange={e => setF('ShadeGroup', e.target.value)}>
@@ -286,7 +317,7 @@ const RollReceivingPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Damaged Qty" type="number" value={form.DamagedQty || ''} onChange={e => setF('DamagedQty', Number(e.target.value))} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Damaged Qty" type="number" value={form.DamagedQty || ''} onChange={e => setF('DamagedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small"><InputLabel>Condition</InputLabel>
                 <Select value={form.Condition} label="Condition" onChange={e => setF('Condition', e.target.value)}>
@@ -325,6 +356,7 @@ const RollReceivingPage: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">FGPO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fgpoNumber} ({viewItem.customerName})</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Supplier</Typography><Typography>{viewItem.supplier || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Lot</Typography><Typography>{viewItem.lotNumber || '-'}</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Lote (embarque)</Typography><Typography>{viewItem.shipmentLotNumber || '-'}</Typography></Grid>
               <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Gross Wt</Typography><Typography sx={{ fontWeight: 600 }}>{num(viewItem.grossWeight)}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Net Wt</Typography><Typography sx={{ fontWeight: 600 }}>{num(viewItem.netWeight)}</Typography></Grid>

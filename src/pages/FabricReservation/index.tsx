@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -20,6 +20,7 @@ import { useLotOptions } from '../../hooks/lots/useLotOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { fabricMovementsApi, fabricReservationsApi } from '../../utils/api';
 import { FabricReservation, RollBalance } from '../../types';
+import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 
 const RESERVATION_STATUS = ['Pending', 'Approved', 'Released for Cutting', 'Rejected', 'On Hold'];
 
@@ -68,6 +69,27 @@ const FabricReservationPage: React.FC = () => {
     try { const res = await fabricMovementsApi.getBalances(); setBalances(res.data ?? []); setBalancesError(''); }
     catch (err: any) { setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'); }
   };
+
+  const [resTotals, setResTotals] = useState({ reserved: 0, released: 0, pending: 0, count: 0 });
+  const [totalsError, setTotalsError] = useState('');
+  const loadResTotals = async () => {
+    setTotalsError('');
+    try {
+      const res = await fabricReservationsApi.getTotals();
+      const t = res.data ?? {};
+      setResTotals({
+        reserved: t.reservedYards ?? t.ReservedYards ?? 0,
+        released: t.releasedYards ?? t.ReleasedYards ?? 0,
+        pending: t.pendingYards ?? t.PendingYards ?? 0,
+        count: t.activeCount ?? t.ActiveCount ?? 0,
+      });
+    } catch (err: any) {
+      const status = err?.response?.status;
+      setTotalsError(status ? `Error ${status} al cargar los totales de reservas.` : 'No se pudieron cargar los totales de reservas.');
+    }
+  };
+
+  useEffect(() => { loadResTotals(); }, []);
 
   // Rollos compatibles con la Fabric PO/FGPO seleccionada (regla del backend)
   const availableRolls = balances.filter(b => b.fabricPOId === form.FabricPOId && b.fgpoId === form.FGPOId);
@@ -170,6 +192,17 @@ const FabricReservationPage: React.FC = () => {
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Reservation</Button>
         </Box>
       </Box>
+
+      {totalsError && <Alert severity="warning" sx={{ mb: 1 }}>{totalsError}</Alert>}
+      <ModuleTotalsBar
+        suffix="yd"
+        items={[
+          { label: 'Reservado', value: resTotals.reserved.toLocaleString(), color: 'warning.main' },
+          { label: 'Liberado', value: resTotals.released.toLocaleString(), color: 'info.main' },
+          { label: 'Pendiente activo', value: resTotals.pending.toLocaleString(), color: 'primary.main' },
+          { label: 'Reservas activas', value: resTotals.count.toLocaleString(), color: 'text.disabled' },
+        ]}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {balancesError && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setBalancesError('')}>{balancesError}</Alert>}

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -14,14 +13,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
-import AllInboxIcon from '@mui/icons-material/AllInbox';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import ScienceIcon from '@mui/icons-material/Science';
-import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
-import ContentCutIcon from '@mui/icons-material/ContentCut';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import TableChartIcon from '@mui/icons-material/TableChart';
 import { useFabricInventories } from '../../hooks/fabricInventories/useFabricInventories';
 import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
 import { useLotOptions } from '../../hooks/lots/useLotOptions';
@@ -62,27 +53,38 @@ const FabricInventoryPage: React.FC = () => {
   const { options: lotList } = useLotOptions();
   const [form, setForm] = useState(emptyForm);
 
-  const navigate = useNavigate();
-  const [totals, setTotals] = useState({ received: 0, available: 0, reserved: 0, holdRejected: 0 });
+  const [totals, setTotals] = useState({ received: 0, physical: 0, pendingTransit: 0, totalControlled: 0, available: 0, reserved: 0, damaged: 0, rolls: 0 });
+  const [totalsError, setTotalsError] = useState('');
 
-  // Totales sobre TODOS los registros (GET /fabric-inventories), no solo la página actual.
-  useEffect(() => {
-    let active = true;
-    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
-    fabricInventoriesApi.getAll()
-      .then(res => {
-        const rows: any[] = Array.isArray(res.data) ? res.data : (res.data?.items ?? []);
-        if (!active) return;
-        setTotals({
-          received: rows.reduce((s, r) => s + num(r.receivedQuantity ?? r.ReceivedQuantity), 0),
-          available: rows.reduce((s, r) => s + num(r.availableQuantity ?? r.AvailableQuantity), 0),
-          reserved: rows.reduce((s, r) => s + num(r.reservedQuantity ?? r.ReservedQuantity), 0),
-          holdRejected: rows.reduce((s, r) => s + num(r.holdQuantity ?? r.HoldQuantity) + num(r.rejectedQuantity ?? r.RejectedQuantity), 0),
-        });
-      })
-      .catch(() => { /* indicadores opcionales: si fallan, se mantienen en 0 */ });
-    return () => { active = false; };
-  }, []);
+  // Totales consolidados desde el backend (rollos + movimientos + reservas + lotes),
+  // no desde la tabla manual de FabricInventory.
+  const loadTotals = async () => {
+    setTotalsError('');
+    try {
+      const res = await fabricInventoriesApi.getTotals();
+      const t = res.data ?? {};
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
+      setTotals({
+        received: num(t.receivedYards ?? t.ReceivedYards),
+        physical: num(t.physicalYards ?? t.PhysicalYards),
+        pendingTransit: num(t.pendingTransitYards ?? t.PendingTransitYards),
+        totalControlled: num(t.totalControlledYards ?? t.TotalControlledYards),
+        available: num(t.availableYards ?? t.AvailableYards),
+        reserved: num(t.reservedYards ?? t.ReservedYards),
+        damaged: num(t.damagedYards ?? t.DamagedYards),
+        rolls: num(t.rollsCount ?? t.RollsCount),
+      });
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const detail = typeof err?.response?.data === 'string' ? err.response.data : (err?.response?.data?.message);
+      setTotalsError(
+        (status ? `Error ${status} al cargar los totales` : 'No se pudieron cargar los totales')
+        + (detail ? `: ${detail}` : '')
+      );
+    }
+  };
+
+  useEffect(() => { loadTotals(); }, []);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
@@ -150,62 +152,60 @@ const FabricInventoryPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            <Inventory2Icon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Fabric Inventory
+            <Inventory2Icon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Control de Tela
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Inventario de tela por lote: disponible y faltante (calculado automáticamente)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Existencias y disponibilidad por lote, a partir de las recepciones y los rollos registrados</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { refresh(); loadTotals(); }}>Refresh</Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Entry</Button>
         </Box>
       </Box>
 
-      {/* Indicadores (totales de todos los registros, no solo la página actual) */}
-      <Grid container spacing={2} sx={{ mb: 1 }}>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
-            <Typography variant="caption" color="text.secondary">Total recibido</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>{totals.received.toLocaleString()}</Typography>
+      {/* Resumen global de tela (totales consolidados desde el backend) */}
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Resumen global de tela</Typography>
+      {totalsError && <Alert severity="warning" sx={{ mb: 1 }}>{totalsError}</Alert>}
+      <Grid container spacing={1.5} sx={{ mb: 1 }}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'primary.main' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Total recibido (histórico)</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.received.toLocaleString()} yd</Typography>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'success.main' }}>
-            <Typography variant="caption" color="text.secondary">Disponible</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>{totals.available.toLocaleString()}</Typography>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'info.main' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Existencia física</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2, color: 'info.main' }}>{totals.physical.toLocaleString()} yd</Typography>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'warning.main' }}>
-            <Typography variant="caption" color="text.secondary">Reservado</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>{totals.reserved.toLocaleString()}</Typography>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'warning.main' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Tránsito pendiente</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.pendingTransit.toLocaleString()} yd</Typography>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'error.main' }}>
-            <Typography variant="caption" color="text.secondary">Retenido + Rechazado</Typography>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>{totals.holdRejected.toLocaleString()}</Typography>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'primary.main' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Total controlado</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.totalControlled.toLocaleString()} yd</Typography>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'warning.main' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Reservado</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.reserved.toLocaleString()} yd</Typography>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'success.main' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Disponible</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2, color: 'success.main' }}>{totals.available.toLocaleString()} yd</Typography>
           </Paper>
         </Grid>
       </Grid>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        Totales agregados sobre todos los registros. Las cantidades pueden expresarse en distintas unidades según el Fabric PO.
+        Existencia física = metraje de rollos + entradas − salidas. Tránsito pendiente = enviado − registrado físicamente (por lote). Total controlado = existencia física + tránsito. Disponible = existencia física − reservas activas. La cantidad enviada, la declarada en recepción y el metraje de los rollos pueden diferir sin que el cálculo esté equivocado.
       </Typography>
-
-      {/* Accesos rápidos a operaciones de tela */}
-      <Paper sx={{ p: 1.5, mb: 2 }}>
-        <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>Operaciones de tela</Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          <Button variant="outlined" startIcon={<MoveToInboxIcon />} onClick={() => navigate('/fabric-receiving')}>Recepción de tela</Button>
-          <Button variant="outlined" startIcon={<AllInboxIcon />} onClick={() => navigate('/roll-receiving')}>Registro de rollos</Button>
-          <Button variant="outlined" startIcon={<FactCheckIcon />} onClick={() => navigate('/four-point')}>Inspección Four-Point</Button>
-          <Button variant="outlined" startIcon={<ScienceIcon />} onClick={() => navigate('/internal-test')}>Internal Test</Button>
-          <Button variant="outlined" startIcon={<BookmarkAddIcon />} onClick={() => navigate('/fabric-reservation')}>Reservas</Button>
-          <Button variant="outlined" startIcon={<ContentCutIcon />} onClick={() => navigate('/cutting-control')}>Corte</Button>
-          <Button variant="contained" startIcon={<Inventory2Icon />} onClick={() => navigate('/fabric-inventory')}>Existencias</Button>
-          <Button variant="outlined" disabled startIcon={<SwapHorizIcon />}>Movimientos (pendiente)</Button>
-          <Button variant="outlined" disabled startIcon={<TableChartIcon />}>Importación Excel (pendiente)</Button>
-        </Box>
-      </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
@@ -223,9 +223,28 @@ const FabricInventoryPage: React.FC = () => {
         <TableContainer>
           <Table size="small">
             <TableHead>
+              <TableRow sx={{ backgroundColor: 'primary.dark' }}>
+                <TableCell colSpan={4} align="center" sx={{ color: 'white', fontWeight: 700, borderRight: '1px solid rgba(255,255,255,0.25)' }}>Identificación</TableCell>
+                <TableCell colSpan={4} align="center" sx={{ color: 'white', fontWeight: 700, borderRight: '1px solid rgba(255,255,255,0.25)' }}>Recepción y rollos</TableCell>
+                <TableCell colSpan={3} align="center" sx={{ color: 'white', fontWeight: 700, borderRight: '1px solid rgba(255,255,255,0.25)' }}>Movimientos</TableCell>
+                <TableCell colSpan={3} align="center" sx={{ color: 'white', fontWeight: 700, borderRight: '1px solid rgba(255,255,255,0.25)' }}>Disponibilidad</TableCell>
+                <TableCell rowSpan={2} align="center" sx={{ color: 'white', fontWeight: 700 }}>Acciones</TableCell>
+              </TableRow>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Fabric PO', 'FGPO', 'Component', 'Lot', 'Received', 'Approved', 'Rejected', 'Hold', 'Reserved', 'Issued', 'Returned', 'Available', 'Shortage', 'Status', 'Actions'].map(h =>
-                  <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Fabric PO</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>FGPO</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Component</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Lot</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Received</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Approved</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Rejected</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Hold</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Reserved</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Issued</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Returned</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Available</TableCell>
+                <TableCell align="right" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Shortage</TableCell>
+                <TableCell align="center" sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -238,21 +257,21 @@ const FabricInventoryPage: React.FC = () => {
                 </TableCell></TableRow>
               ) : items.map((i) => (
                 <TableRow key={i.id} hover>
-                  <TableCell>{i.fabricPONumber || '-'}</TableCell>
-                  <TableCell>{i.fgpoNumber || '-'}</TableCell>
-                  <TableCell>{i.componentCode || '-'}</TableCell>
-                  <TableCell>{i.lotNumber || '-'}</TableCell>
-                  <TableCell>{i.receivedQuantity}</TableCell>
-                  <TableCell>{i.approvedQuantity}</TableCell>
-                  <TableCell>{i.rejectedQuantity}</TableCell>
-                  <TableCell>{i.holdQuantity}</TableCell>
-                  <TableCell>{i.reservedQuantity}</TableCell>
-                  <TableCell>{i.issuedQuantity}</TableCell>
-                  <TableCell>{i.returnedQuantity}</TableCell>
-                  <TableCell><Typography color="success.main" sx={{ fontWeight: 600 }}>{i.availableQuantity}</Typography></TableCell>
-                  <TableCell><Typography color={i.shortageQuantity > 0 ? 'error.main' : 'text.secondary'}>{i.shortageQuantity}</Typography></TableCell>
-                  <TableCell><Chip label={i.inventoryStatus || 'N/A'} size="small" color={sc(i.inventoryStatus ?? '')} /></TableCell>
-                  <TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{i.fabricPONumber || '-'}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{i.fgpoNumber || '-'}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{i.componentCode || '-'}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{i.lotNumber || '-'}</TableCell>
+                  <TableCell align="right">{i.receivedQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right">{i.approvedQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right">{i.rejectedQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right">{i.holdQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right">{i.reservedQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right">{i.issuedQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right">{i.returnedQuantity.toLocaleString()}</TableCell>
+                  <TableCell align="right"><Typography color="success.main" sx={{ fontWeight: 600 }}>{i.availableQuantity.toLocaleString()}</Typography></TableCell>
+                  <TableCell align="right"><Typography color={i.shortageQuantity > 0 ? 'error.main' : 'text.secondary'}>{i.shortageQuantity.toLocaleString()}</Typography></TableCell>
+                  <TableCell align="center"><Chip label={i.inventoryStatus || 'N/A'} size="small" color={sc(i.inventoryStatus ?? '')} /></TableCell>
+                  <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(i); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(i)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(i.id)}><DeleteIcon fontSize="small" /></IconButton>

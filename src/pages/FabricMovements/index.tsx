@@ -8,6 +8,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { fabricMovementsApi, rollReceivingsApi } from '../../utils/api';
+import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import { FabricMovement, RollReceiving } from '../../types';
 
 // Tipos permitidos por el negocio. Receipt y Consumption están bloqueados en el backend.
@@ -59,7 +60,26 @@ const FabricMovementsPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadMovTotals(); }, []);
+
+  const [movTotals, setMovTotals] = useState({ adjIn: 0, adjOut: 0, returnIn: 0, count: 0 });
+  const [totalsError, setTotalsError] = useState('');
+  const loadMovTotals = async () => {
+    setTotalsError('');
+    try {
+      const res = await fabricMovementsApi.getTotals();
+      const t = res.data ?? {};
+      setMovTotals({
+        adjIn: t.adjustmentIn ?? t.AdjustmentIn ?? 0,
+        adjOut: t.adjustmentOut ?? t.AdjustmentOut ?? 0,
+        returnIn: t.returnIn ?? t.ReturnIn ?? 0,
+        count: t.movementsCount ?? t.MovementsCount ?? 0,
+      });
+    } catch (err: any) {
+      const status = err?.response?.status;
+      setTotalsError(status ? `Error ${status} al cargar los totales de movimientos.` : 'No se pudieron cargar los totales de movimientos.');
+    }
+  };
 
   const setF = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -137,6 +157,17 @@ const FabricMovementsPage: React.FC = () => {
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Movement</Button>
         </Box>
       </Box>
+
+      {totalsError && <Alert severity="warning" sx={{ mb: 1 }}>{totalsError}</Alert>}
+      <ModuleTotalsBar
+        suffix="yd"
+        items={[
+          { label: 'Ajustes positivos', value: movTotals.adjIn.toLocaleString(), color: 'success.main' },
+          { label: 'Ajustes negativos', value: movTotals.adjOut.toLocaleString(), color: 'error.main' },
+          { label: 'Devoluciones', value: movTotals.returnIn.toLocaleString(), color: 'info.main' },
+          { label: 'Movimientos', value: movTotals.count.toLocaleString(), color: 'text.disabled' },
+        ]}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}

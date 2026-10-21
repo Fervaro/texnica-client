@@ -3,7 +3,7 @@
 export interface Lot {
   id: number;
   lotNumber: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;
   fgpoNumber: string;
