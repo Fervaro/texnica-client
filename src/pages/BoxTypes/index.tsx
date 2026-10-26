@@ -22,13 +22,17 @@ const mapBoxType = (raw: any): BoxType => ({
   width: raw.width ?? raw.Width,
   height: raw.height ?? raw.Height,
   emptyCartonWeight: raw.emptyCartonWeight ?? raw.EmptyCartonWeight,
+  style: raw.style ?? raw.Style ?? '',
+  color: raw.color ?? raw.Color ?? '',
+  size: raw.size ?? raw.Size ?? '',
+  qtyPerBox: raw.qtyPerBox ?? raw.QtyPerBox ?? 0,
   comments: raw.comments ?? raw.Comments ?? '',
   active: raw.active ?? raw.Active ?? true,
   createdAt: raw.createdAt ?? raw.CreatedAt ?? '',
   updatedAt: raw.updatedAt ?? raw.UpdatedAt,
 });
 
-const emptyForm = { BoxCode: '', Length: '', Width: '', Height: '', EmptyCartonWeight: '', Comments: '' };
+const emptyForm = { BoxCode: '', Length: '', Width: '', Height: '', EmptyCartonWeight: '', Style: '', Color: '', Size: '', QtyPerBox: '', Comments: '' };
 
 const BoxTypesPage: React.FC = () => {
   const [items, setItems] = useState<BoxType[]>([]);
@@ -58,8 +62,10 @@ const BoxTypesPage: React.FC = () => {
       { name: 'Width', value: form.Width },
       { name: 'Height', value: form.Height },
       { name: 'Empty Carton Weight', value: form.EmptyCartonWeight },
+      { name: 'Qty por box', value: form.QtyPerBox },
     ]);
     if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (!form.QtyPerBox || Number(form.QtyPerBox) <= 0) { setFormError('Qty por box debe ser mayor que 0 (cantidad de prendas por caja).'); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = {
@@ -68,6 +74,7 @@ const BoxTypesPage: React.FC = () => {
         Width: form.Width === '' ? null : Number(form.Width),
         Height: form.Height === '' ? null : Number(form.Height),
         EmptyCartonWeight: form.EmptyCartonWeight === '' ? null : Number(form.EmptyCartonWeight),
+        QtyPerBox: Number(form.QtyPerBox || 0),
       };
       if (editingId) await boxTypesApi.update(editingId, payload); else await boxTypesApi.create(payload);
       setDialogOpen(false); await load();
@@ -83,7 +90,7 @@ const BoxTypesPage: React.FC = () => {
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
   const openEdit = (b: BoxType) => {
     setEditingId(b.id);
-    setForm({ BoxCode: b.boxCode, Length: b.length?.toString() ?? '', Width: b.width?.toString() ?? '', Height: b.height?.toString() ?? '', EmptyCartonWeight: b.emptyCartonWeight?.toString() ?? '', Comments: b.comments ?? '' });
+    setForm({ BoxCode: b.boxCode, Length: b.length?.toString() ?? '', Width: b.width?.toString() ?? '', Height: b.height?.toString() ?? '', EmptyCartonWeight: b.emptyCartonWeight?.toString() ?? '', Style: b.style ?? '', Color: b.color ?? '', Size: b.size ?? '', QtyPerBox: b.qtyPerBox?.toString() ?? '', Comments: b.comments ?? '' });
     setFormError(''); setDialogOpen(true);
   };
 
@@ -115,18 +122,22 @@ const BoxTypesPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Box', 'Length', 'Width', 'Height', 'Empty Wt (kg)', 'Comments', 'Actions'].map(h =>
+                {['Box', 'Style', 'Color', 'Size', 'Qty/Box', 'Length', 'Width', 'Height', 'Empty Wt (kg)', 'Comments', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>No box types found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6, color: 'text.secondary' }}>No box types found</TableCell></TableRow>
               ) : filtered.map((b) => (
                 <TableRow key={b.id} hover>
                   <TableCell sx={{ fontWeight: 600 }}>{b.boxCode}</TableCell>
+                  <TableCell>{b.style || '-'}</TableCell>
+                  <TableCell>{b.color || '-'}</TableCell>
+                  <TableCell>{b.size || '-'}</TableCell>
+                  <TableCell>{b.qtyPerBox ?? '-'}</TableCell>
                   <TableCell>{b.length ?? '-'}</TableCell>
                   <TableCell>{b.width ?? '-'}</TableCell>
                   <TableCell>{b.height ?? '-'}</TableCell>
@@ -156,6 +167,14 @@ const BoxTypesPage: React.FC = () => {
                 <TextField fullWidth size="small" label="Height" type="number" value={form.Height} onChange={e => setForm({ ...form, Height: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
               </Box>
               <TextField fullWidth size="small" label="Empty Carton Weight (kg)" type="number" value={form.EmptyCartonWeight} onChange={e => setForm({ ...form, EmptyCartonWeight: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField fullWidth size="small" label="Style" value={form.Style} onChange={e => setForm({ ...form, Style: e.target.value })} />
+                <TextField fullWidth size="small" label="Color" value={form.Color} onChange={e => setForm({ ...form, Color: e.target.value })} />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField fullWidth size="small" label="Size" value={form.Size} onChange={e => setForm({ ...form, Size: e.target.value })} />
+                <TextField fullWidth size="small" label="Qty por box *" type="number" value={form.QtyPerBox} onChange={e => setForm({ ...form, QtyPerBox: e.target.value })} required onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Box>
               <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setForm({ ...form, Comments: e.target.value })} multiline rows={2} />
             </Box>
           </DialogContent>

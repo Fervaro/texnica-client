@@ -7,6 +7,10 @@ export interface BoxType {
   width?: number;
   height?: number;
   emptyCartonWeight?: number;
+  style?: string;
+  color?: string;
+  size?: string;
+  qtyPerBox: number;
   comments?: string;
   active: boolean;
   createdAt: string;
@@ -19,5 +23,9 @@ export interface CreateBoxTypeInput {
   width?: number;
   height?: number;
   emptyCartonWeight?: number;
+  style?: string;
+  color?: string;
+  size?: string;
+  qtyPerBox?: number;
   comments?: string;
 }

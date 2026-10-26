@@ -16,8 +16,6 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import AllInboxIcon from '@mui/icons-material/AllInbox';
 import { useFabricShipments } from '../../hooks/fabricShipments/useFabricShipments';
-import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
-import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
@@ -47,7 +45,7 @@ const errMsg = (err: any, fallback: string): string =>
   || fallback;
 
 const emptyForm = {
-  ShipmentNumber: '', FabricPOId: 0, FGPOId: 0, Supplier: '', LotNumber: '',
+  ShipmentNumber: '', FabricPONumber: '', FGPONumber: '', Supplier: '',
   RollQty: 0, UOM: 'Yards', ShippedWeight: 0,
   PackingList: '', InvoiceNumber: '', ContainerAWB: '', ShippingMethod: '',
   ETD: new Date().toISOString().split('T')[0], ETA: new Date().toISOString().split('T')[0],
@@ -73,8 +71,6 @@ const FabricShipmentPage: React.FC = () => {
   const [viewItem, setViewItem] = useState<FabricShipment | null>(null);
   const [formError, setFormError] = useState('');
 
-  const { options: poList } = useFabricPOOptions();
-  const { options: fgpoList } = useFgpoOptions();
   const { options: userList } = useUserOptions();
   const { catalogs } = useCatalogs();
   const STATUS_OPTIONS = catalogs['ShipmentStatus']?.length ? catalogs['ShipmentStatus'] : DEFAULT_SHIPMENT_STATUSES;
@@ -109,8 +105,9 @@ const FabricShipmentPage: React.FC = () => {
   const openEdit = (item: FabricShipment) => {
     setEditingId(item.id);
     setForm({
-      ShipmentNumber: item.shipmentNumber, FabricPOId: item.fabricPOId ?? 0, FGPOId: item.fgpoId,
-      Supplier: item.supplier ?? '', LotNumber: item.lotNumber ?? '',
+      ShipmentNumber: item.shipmentNumber,
+      FabricPONumber: item.fabricPONumber ?? '', FGPONumber: item.fgpoNumber ?? '',
+      Supplier: item.supplier ?? '',
       RollQty: item.rollQty,
       UOM: item.uom || 'Yards', ShippedWeight: item.shippedWeight,
       PackingList: item.packingList ?? '', InvoiceNumber: item.invoiceNumber ?? '',
@@ -132,8 +129,6 @@ const FabricShipmentPage: React.FC = () => {
   const handleSave = async () => {
     setFormError('');
     if (!form.ShipmentNumber) { setFormError('Shipment Number is required.'); return; }
-    if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
-    if (!form.LotNumber) { setFormError('Lot Number is required.'); return; }
     const negField = firstNegativeField([
       { name: 'Roll Quantity', value: form.RollQty },
       { name: 'Shipped Weight', value: form.ShippedWeight },
@@ -142,7 +137,9 @@ const FabricShipmentPage: React.FC = () => {
     try {
       const payload = {
         ...form,
-        FabricPOId: form.FabricPOId || null,
+        FabricPONumber: form.FabricPONumber.trim() || null,
+        FGPONumber: form.FGPONumber.trim() || null,
+        Supplier: form.Supplier.trim() || null,
         DataOwnerId: form.DataOwnerId || null,
         ETD: form.ETD ? new Date(form.ETD).toISOString() : new Date().toISOString(),
         ETA: form.ETA ? new Date(form.ETA).toISOString() : new Date().toISOString(),
@@ -418,16 +415,16 @@ const FabricShipmentPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Shipment #', 'Fabric PO', 'FGPO', 'Lot', 'Shipped Qty', 'In Transit', 'Remaining', 'ETD', 'Status', 'Actions'].map(h =>
+                {['Shipment #', 'Fabric PO', 'FGPO', 'Shipped Qty', 'In Transit', 'Remaining', 'ETD', 'Status', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No shipments found</Typography>
                   <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first shipment</Button>
                 </TableCell></TableRow>
@@ -436,7 +433,6 @@ const FabricShipmentPage: React.FC = () => {
                   <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{item.shipmentNumber}</Typography></TableCell>
                   <TableCell>{item.fabricPONumber}</TableCell>
                   <TableCell>{item.fgpoNumber}</TableCell>
-                  <TableCell><Chip label={item.lotNumber || '-'} size="small" variant="outlined" /></TableCell>
                   <TableCell>{Number(item.shippedQuantity).toLocaleString()} {item.uom}</TableCell>
                   <TableCell>
                     <Chip label={Number(item.inTransitQuantity).toLocaleString()} size="small"
@@ -478,30 +474,14 @@ const FabricShipmentPage: React.FC = () => {
               <TextField fullWidth size="small" label="Shipment Number *" value={form.ShipmentNumber} onChange={e => setF('ShipmentNumber', e.target.value)} required placeholder="SHP-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Fabric PO (opcional)</InputLabel>
-                <Select value={form.FabricPOId || ''} label="Fabric PO (opcional)" onChange={e => {
-                  const v = Number(e.target.value);
-                  const po = poList.find((p: any) => (p.id ?? p.ID) === v);
-                  setF('FabricPOId', v);
-                  setF('Supplier', (po as any)?.sub || '');
-                }}>
-                  <MenuItem value=""><em>Sin Fabric PO (tela del cliente)</em></MenuItem>
-                  {poList.map((p: any) => <MenuItem key={p.id ?? p.ID} value={p.id ?? p.ID}>{p.label || (p.fabricPONumber ?? p.FabricPONumber)}{(p as any)?.sub ? ` — ${(p as any).sub}` : ''}</MenuItem>)}
-                </Select>
-              </FormControl>
+              <TextField fullWidth size="small" label="Fabric PO (opcional)" value={form.FabricPONumber}
+                onChange={e => setF('FabricPONumber', e.target.value)} placeholder="PO-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>FGPO *</InputLabel>
-                <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => setF('FGPOId', Number(e.target.value))}>
-                  <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
-                  {fgpoList.map((f: any) => <MenuItem key={f.id ?? f.ID} value={f.id ?? f.ID}>{f.label || (f.fgpoNumber ?? f.FGPONumber)}{(f as any)?.sub ? ` — ${(f as any).sub}` : ''}</MenuItem>)}
-                </Select>
-              </FormControl>
+              <TextField fullWidth size="small" label="FGPO (opcional)" value={form.FGPONumber}
+                onChange={e => setF('FGPONumber', e.target.value)} placeholder="FGPO-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Supplier" value={form.Supplier} onChange={e => setF('Supplier', e.target.value)} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Lot Number *" value={form.LotNumber} onChange={e => setF('LotNumber', e.target.value)} required /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small"><InputLabel>UOM</InputLabel>
                 <Select value={form.UOM} label="UOM" onChange={e => setF('UOM', e.target.value)}>
@@ -558,10 +538,9 @@ const FabricShipmentPage: React.FC = () => {
           {viewItem && (
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Shipment Number</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.shipmentNumber}</Typography></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Fabric PO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fabricPONumber}</Typography></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">FGPO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fgpoNumber} ({viewItem.customerName})</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Fabric PO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fabricPONumber || '-'}</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">FGPO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fgpoNumber || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Supplier</Typography><Typography>{viewItem.supplier || '-'}</Typography></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Lot Number</Typography><Chip label={viewItem.lotNumber} size="small" variant="outlined" /></Grid>
               <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Roll Qty</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.rollQty}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Shipped Qty</Typography><Typography sx={{ fontWeight: 600 }}>{Number(viewItem.shippedQuantity).toLocaleString()} {viewItem.uom}</Typography></Grid>
