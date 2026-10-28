@@ -1,118 +1,104 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Chip, CircularProgress, Alert, Select, MenuItem, FormControl, InputLabel
+  CircularProgress, Alert
 } from '@mui/material';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import { finishedGoodsApi, fabricInventoriesApi } from '../../utils/api';
+import { packingControlsApi } from '../../utils/api';
 
-interface FgRow {
+interface PkRow {
   id: number;
+  packingDate: string;
   fgpoNumber: string;
-  customerName: string;
   style?: string;
   color?: string;
+  size?: string;
+  qcPassedQty: number;
+  receivedByPackingQty: number;
+  foldedQty: number;
+  polybaggedQty: number;
   packedQty: number;
-  warehouseReceived: number;
-  reservedForShipment: number;
+  fullCartons: number;
+  partialCartons: number;
+  pcsPerCarton: number;
   readyToShipQty: number;
-  warehouseBalance: number;
-  totalShippedQty: number;
-  overShippedQty: number;
-  warehouseLocation?: string;
-  status?: string;
+  packingVariance: number;
+  pendingPacking: number;
+  overpackedQty: number;
 }
-
-interface InvRow {
-  id: number;
-  fabricPONumber: string;
-  fgpoNumber: string;
-  componentCode?: string;
-  lotNumber?: string;
-  uom?: string;
-  availableQuantity: number;
-  warehouseLocation?: string;
-  inventoryStatus?: string;
-}
-
-const sc = (s: string) => {
-  const m: Record<string, any> = {
-    Shipped: 'success', 'Ready to Ship': 'success', 'In Stock': 'success', Available: 'success',
-    'Partially Shipped': 'info', Received: 'info', Reserved: 'primary', 'Low Stock': 'warning',
-    Pending: 'warning', 'On Hold': 'warning', 'Out of Stock': 'error', Cancelled: 'error', Shortage: 'error',
-  };
-  return m[s] ?? 'default';
-};
 
 const Warehouse: React.FC = () => {
-  const [fgItems, setFgItems] = useState<FgRow[]>([]);
-  const [invItems, setInvItems] = useState<InvRow[]>([]);
+  const [packingItems, setPackingItems] = useState<PkRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedUom, setSelectedUom] = useState<string>('');
 
   useEffect(() => {
     const load = async () => {
       setLoading(true); setError('');
       try {
-        const [fg, inv] = await Promise.all([
-          finishedGoodsApi.getAll(),
-          fabricInventoriesApi.getAll(),
-        ]);
-        setFgItems((fg.data ?? []).map((f: any) => ({
-          id: f.id ?? f.ID,
-          fgpoNumber: f.fgpoNumber ?? f.FGPONumber ?? '',
-          customerName: f.customerName ?? f.CustomerName ?? '',
-          style: f.style ?? f.Style ?? '',
-          color: f.color ?? f.Color ?? '',
-          packedQty: f.packedQty ?? f.PackedQty ?? 0,
-          warehouseReceived: f.warehouseReceived ?? f.WarehouseReceived ?? 0,
-          reservedForShipment: f.reservedForShipment ?? f.ReservedForShipment ?? 0,
-          readyToShipQty: f.readyToShipQty ?? f.ReadyToShipQty ?? 0,
-          warehouseBalance: f.warehouseBalance ?? f.WarehouseBalance ?? 0,
-          totalShippedQty: f.totalShippedQty ?? f.TotalShippedQty ?? 0,
-          overShippedQty: f.overShippedQty ?? f.OverShippedQty ?? 0,
-          warehouseLocation: f.warehouseLocation ?? f.WarehouseLocation ?? '',
-          status: f.status ?? f.Status ?? '',
+        const res = await packingControlsApi.getAll();
+        setPackingItems((res.data ?? []).map((p: any) => ({
+          id: p.id ?? p.ID ?? 0,
+          packingDate: p.packingDate ?? p.PackingDate ?? '',
+          fgpoNumber: p.fgpoNumber ?? p.FGPONumber ?? '',
+          style: p.style ?? p.Style ?? '',
+          color: p.color ?? p.Color ?? '',
+          size: p.size ?? p.Size ?? '',
+          qcPassedQty: p.qcPassedQty ?? p.QcPassedQty ?? 0,
+          receivedByPackingQty: p.receivedByPackingQty ?? p.ReceivedByPackingQty ?? 0,
+          foldedQty: p.foldedQty ?? p.FoldedQty ?? 0,
+          polybaggedQty: p.polybaggedQty ?? p.PolybaggedQty ?? 0,
+          packedQty: p.packedQty ?? p.PackedQty ?? 0,
+          fullCartons: p.fullCartons ?? p.FullCartons ?? 0,
+          partialCartons: p.partialCartons ?? p.PartialCartons ?? 0,
+          pcsPerCarton: p.pcsPerCarton ?? p.PcsPerCarton ?? 0,
+          readyToShipQty: p.readyToShipQty ?? p.ReadyToShipQty ?? 0,
+          packingVariance: p.packingVariance ?? p.PackingVariance ?? 0,
+          pendingPacking: p.pendingPacking ?? p.PendingPacking ?? 0,
+          overpackedQty: p.overpackedQty ?? p.OverpackedQty ?? 0,
         })));
-        setInvItems((inv.data ?? []).map((i: any) => ({
-          id: i.id ?? i.ID,
-          fabricPONumber: i.fabricPONumber ?? i.FabricPONumber ?? '',
-          fgpoNumber: i.fgpoNumber ?? i.FGPONumber ?? '',
-          componentCode: i.componentCode ?? i.ComponentCode ?? '',
-          lotNumber: i.lotNumber ?? i.LotNumber ?? '',
-          uom: i.uom ?? i.UOM ?? '',
-          availableQuantity: i.availableQuantity ?? i.AvailableQuantity ?? 0,
-          warehouseLocation: i.warehouseLocation ?? i.WarehouseLocation ?? '',
-          inventoryStatus: i.inventoryStatus ?? i.InventoryStatus ?? '',
-        })));
-      } catch (err: any) { setError(err?.response?.data?.message || 'Failed to load warehouse data.'); }
+      } catch (err: any) { setError(err?.response?.data?.message || 'Failed to load packing data.'); }
       finally { setLoading(false); }
     };
     load();
   }, []);
 
-  const totalBalance = fgItems.reduce((s, f) => s + f.warehouseBalance, 0);
-  const totalReady = fgItems.reduce((s, f) => s + f.readyToShipQty, 0);
+  const totalPacked = packingItems.reduce((s, p) => s + p.packedQty, 0);
+  const totalReady = packingItems.reduce((s, p) => s + p.readyToShipQty, 0);
+  const totalPending = packingItems.reduce((s, p) => s + p.pendingPacking, 0);
 
-  // Unidades presentes en los datos (sin duplicados ni vacías).
-  const fabricUoms = useMemo(() => {
-    const set = new Set<string>();
-    invItems.forEach(i => {
-      const u = (i.uom || '').trim();
-      if (u) set.add(u);
+  // Agrupación por estilo+color+talla: piezas totales, cantidad por caja y
+  // cantidad de cajas derivada (piezas / piezas por caja).
+  const boxRows = useMemo(() => {
+    const map = new Map<string, { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number }>();
+    packingItems.forEach(p => {
+      const key = `${p.style || ''}|${p.color || ''}|${p.size || ''}`;
+      const cur = map.get(key);
+      if (cur) {
+        cur.pieces += p.packedQty;
+        cur.unpacked += p.pendingPacking;
+        if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
+      } else {
+        map.set(key, {
+          style: p.style || '',
+          color: p.color || '',
+          size: p.size || '',
+          pieces: p.packedQty,
+          perBox: p.pcsPerCarton || 0,
+          unpacked: p.pendingPacking,
+        });
+      }
     });
-    return Array.from(set).sort();
-  }, [invItems]);
+    return Array.from(map.values()).map(r => ({
+      ...r,
+      boxes: r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0,
+    }));
+  }, [packingItems]);
 
-  // Nunca se mantiene una selección inválida: si la unidad elegida deja de
-  // existir, se cae a la primera unidad disponible.
-  const effectiveUom = fabricUoms.includes(selectedUom) ? selectedUom : (fabricUoms[0] ?? '');
-  const totalFabric = invItems
-    .filter(i => (i.uom || '').trim() === effectiveUom)
-    .reduce((s, i) => s + i.availableQuantity, 0);
+  const totalBoxes = boxRows.reduce((s, r) => s + r.boxes, 0);
 
   return (
     <Box>
@@ -121,7 +107,7 @@ const Warehouse: React.FC = () => {
         Warehouse Overview
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Estado real del almacén — mercancía terminada e inventario de tela
+        Control de empaque — estado de empaque y listo para embarque
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -131,10 +117,10 @@ const Warehouse: React.FC = () => {
           <Box sx={{ display: 'flex', gap: 3, mb: 3, flexWrap: 'wrap' }}>
             <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'primary.main', flex: 1, minWidth: 240 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <WarehouseIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Warehouse Balance</Typography>
-                  <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{totalBalance.toLocaleString()}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Packed</Typography>
+                  <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{totalPacked.toLocaleString()}</Typography>
                 </Box>
               </Box>
             </Paper>
@@ -149,75 +135,54 @@ const Warehouse: React.FC = () => {
             </Paper>
             <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'warning.main', flex: 1, minWidth: 240 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <InventoryIcon sx={{ fontSize: 40, color: 'warning.main' }} />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Fabric Available</Typography>
-                  <Typography variant="h4" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
-                    {totalFabric.toLocaleString()}{effectiveUom ? ` ${effectiveUom}` : ''}
-                  </Typography>
-                  <FormControl size="small" sx={{ mt: 1, minWidth: 140 }}>
-                    <InputLabel id="fabric-uom-label">Unit</InputLabel>
-                    <Select
-                      labelId="fabric-uom-label"
-                      label="Unit"
-                      value={effectiveUom}
-                      onChange={e => setSelectedUom(e.target.value as string)}
-                      disabled={fabricUoms.length === 0}
-                    >
-                      {fabricUoms.map(u => <MenuItem key={u} value={u}>{u}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-                  {fabricUoms.length === 0 && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                      Sin registros de tela
-                    </Typography>
-                  )}
+                <WarehouseIcon sx={{ fontSize: 40, color: 'warning.main' }} />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending Packing</Typography>
+                  <Typography variant="h4" sx={{ color: 'warning.main', fontWeight: 'bold' }}>{totalPending.toLocaleString()}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+            <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'info.main', flex: 1, minWidth: 240 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Inventory2Icon sx={{ fontSize: 40, color: 'info.main' }} />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total de cajas</Typography>
+                  <Typography variant="h4" sx={{ color: 'info.main', fontWeight: 'bold' }}>{totalBoxes.toLocaleString()}</Typography>
                 </Box>
               </Box>
             </Paper>
           </Box>
 
-          {/* Finished Goods */}
-          <Paper elevation={2} sx={{ p: 2, mb: 3, borderTop: 4, borderColor: 'primary.main' }}>
+          {/* Packing Control */}
+          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
             <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold', mb: 2 }}>
-              <WarehouseIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Finished Goods
+              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control
             </Typography>
-            {fgItems.some(f => f.overShippedQty > 0) && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                Discrepancia: hay FGPO con envíos que superan la cantidad recibida (ver columna Over-shipped).
-              </Alert>
-            )}
             <TableContainer>
               <Table size="small">
                 <TableHead sx={{ backgroundColor: 'primary.light' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>FGPO</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Style / Color</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Received</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Packed</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Reserved</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Ready to Ship</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Balance</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Over-shipped</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Location</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Estilo</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Color</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Talla</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Piezas totales</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Cant. por caja</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Cant. de cajas</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Sin empacar</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {fgItems.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} align="center" sx={{ color: 'text.secondary', py: 3 }}>No finished goods yet.</TableCell></TableRow>
-                  ) : fgItems.map(f => (
-                    <TableRow key={f.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{f.fgpoNumber}</TableCell>
-                      <TableCell>{f.style || '-'} / {f.color || '-'}</TableCell>
-                      <TableCell>{f.warehouseReceived}</TableCell>
-                      <TableCell>{f.packedQty}</TableCell>
-                      <TableCell>{f.reservedForShipment}</TableCell>
-                      <TableCell sx={{ color: 'success.main', fontWeight: 600 }}>{f.readyToShipQty}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{f.warehouseBalance}</TableCell>
-                      <TableCell sx={{ color: 'error.main', fontWeight: 600 }}>{f.overShippedQty > 0 ? f.overShippedQty : '-'}</TableCell>
-                      <TableCell>{f.warehouseLocation || '-'}</TableCell>
-                      <TableCell><Chip label={f.status || 'N/A'} size="small" color={sc(f.status ?? '')} /></TableCell>
+                  {boxRows.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ color: 'text.secondary', py: 3 }}>No packing records yet.</TableCell></TableRow>
+                  ) : boxRows.map(r => (
+                    <TableRow key={`${r.style}|${r.color}|${r.size}`} hover>
+                      <TableCell sx={{ fontWeight: 600 }}>{r.style || '-'}</TableCell>
+                      <TableCell>{r.color || '-'}</TableCell>
+                      <TableCell>{r.size || '-'}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{r.pieces.toLocaleString()}</TableCell>
+                      <TableCell>{r.perBox || '-'}</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>{r.boxes.toLocaleString()}</TableCell>
+                      <TableCell sx={{ color: 'warning.main', fontWeight: 600 }}>{r.unpacked.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -225,44 +190,6 @@ const Warehouse: React.FC = () => {
             </TableContainer>
           </Paper>
 
-          {/* Fabric Inventory */}
-          <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'warning.main' }}>
-            <Typography variant="h6" sx={{ color: 'warning.main', fontWeight: 'bold', mb: 2 }}>
-              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Fabric Inventory
-            </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead sx={{ backgroundColor: 'warning.light' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>Fabric PO</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>FGPO</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>Component</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>Lot</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>UOM</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>Available</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>Location</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'warning.main' }}>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {invItems.length === 0 ? (
-                    <TableRow><TableCell colSpan={8} align="center" sx={{ color: 'text.secondary', py: 3 }}>No fabric inventory yet.</TableCell></TableRow>
-                  ) : invItems.map(i => (
-                    <TableRow key={i.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{i.fabricPONumber}</TableCell>
-                      <TableCell>{i.fgpoNumber}</TableCell>
-                      <TableCell>{i.componentCode || '-'}</TableCell>
-                      <TableCell>{i.lotNumber || '-'}</TableCell>
-                      <TableCell>{i.uom || '-'}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{i.availableQuantity}</TableCell>
-                      <TableCell>{i.warehouseLocation || '-'}</TableCell>
-                      <TableCell><Chip label={i.inventoryStatus || 'N/A'} size="small" color={sc(i.inventoryStatus ?? '')} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
         </>
       )}
     </Box>

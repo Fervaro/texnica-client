@@ -75,6 +75,7 @@ const mapFabricPO = (raw: any): FabricPO => ({
     quantity: l.quantity ?? l.Quantity ?? 0,
     unitPrice: l.unitPrice ?? l.UnitPrice ?? 0,
     amount: l.amount ?? l.Amount ?? 0,
+    allowOverPurchase: l.allowOverPurchase ?? l.AllowOverPurchase ?? false,
     approval: l.approval ?? l.Approval,
     remarks: l.remarks ?? l.Remarks,
     uom: l.uom ?? l.UOM,
@@ -604,7 +605,14 @@ const FabricPO: React.FC = () => {
                         <TableCell>{l.composition || '-'}</TableCell>
                         <TableCell>{l.requiredWidth || '-'}</TableCell>
                         <TableCell align="right">{l.gsm || '-'}</TableCell>
-                        <TableCell align="right">{fmtQty(l.quantity)}</TableCell>
+                        <TableCell align="right">
+                          {l.allowOverPurchase && (
+                            <Tooltip title="Sobrecompra">
+                              <Box component="span" sx={{ display: 'inline-block', width: 7, height: 7, mr: 0.5, borderRadius: '50%', bgcolor: 'error.main', verticalAlign: 'middle' }} />
+                            </Tooltip>
+                          )}
+                          {fmtQty(l.quantity)}
+                        </TableCell>
                         <TableCell align="right">{fmtMoney(l.unitPrice)}</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>{fmtMoney(l.amount)}</TableCell>
                         <TableCell>

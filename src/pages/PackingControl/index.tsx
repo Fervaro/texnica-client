@@ -22,7 +22,7 @@ const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],
   FGPOId: 0,
   QcPassedQty: 0, ReceivedByPackingQty: 0, FoldedQty: 0, PolybaggedQty: 0, PackedQty: 0,
-  FullCartons: 0, PartialCartons: 0, PcsPerCarton: 0,
+  PcsPerCarton: 0,
   ResponsiblePersonId: 0, Remarks: '',
 };
 
@@ -58,7 +58,7 @@ const PackingControlPage: React.FC = () => {
       FGPOId: item.fgpoId,
       QcPassedQty: item.qcPassedQty, ReceivedByPackingQty: item.receivedByPackingQty,
       FoldedQty: item.foldedQty, PolybaggedQty: item.polybaggedQty, PackedQty: item.packedQty,
-      FullCartons: item.fullCartons, PartialCartons: item.partialCartons, PcsPerCarton: item.pcsPerCarton,
+      PcsPerCarton: item.pcsPerCarton,
       ResponsiblePersonId: userList.find(o => o.label === item.responsiblePersonName)?.id ?? 0,
       Remarks: item.remarks ?? '',
     });
@@ -75,6 +75,7 @@ const PackingControlPage: React.FC = () => {
     setFormError('');
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
     if (form.PackedQty < 0 || form.QcPassedQty < 0) { setFormError('Quantities cannot be negative.'); return; }
+    if (!form.PcsPerCarton || Number(form.PcsPerCarton) <= 0) { setFormError('Pcs per Carton must be greater than 0.'); return; }
     try {
       const payload = {
         ...form,
@@ -212,13 +213,7 @@ const PackingControlPage: React.FC = () => {
               <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} onChange={e => setF('PackedQty', Number(e.target.value))} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Full Cartons" type="number" value={form.FullCartons} onChange={e => setF('FullCartons', Number(e.target.value))} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Partial Cartons" type="number" value={form.PartialCartons} onChange={e => setF('PartialCartons', Number(e.target.value))} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Pcs per Carton" type="number" value={form.PcsPerCarton} onChange={e => setF('PcsPerCarton', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Pcs per Carton *" type="number" value={form.PcsPerCarton} onChange={e => setF('PcsPerCarton', Number(e.target.value))} required />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -83,6 +84,20 @@ const FabricReceivingPage: React.FC = () => {
   };
   useEffect(() => { loadRecTotals(); }, []);
 
+  // Prellenar Shipment Number si venimos redirigidos desde Embarques (rollos).
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const sn = searchParams.get('shipmentNumber');
+    if (sn) {
+      setEditingId(null);
+      setForm({ ...emptyForm, ShipmentNumber: sn });
+      setFormError('');
+      setDialogOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
@@ -163,7 +178,7 @@ const FabricReceivingPage: React.FC = () => {
           { label: 'Declarado', value: recTotals.declared.toLocaleString(), color: 'primary.main' },
           { label: 'Recibido (reportado)', value: recTotals.received.toLocaleString(), color: 'info.main' },
           { label: 'Diferencia', value: recTotals.variance.toLocaleString(), color: 'warning.main' },
-          { label: 'Recepciones', value: recTotals.count.toLocaleString(), color: 'text.disabled' },
+          { label: 'Recepciones', value: recTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 

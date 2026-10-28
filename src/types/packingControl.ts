@@ -38,8 +38,6 @@ export interface CreatePackingControlInput {
   foldedQty: number;
   polybaggedQty: number;
   packedQty: number;
-  fullCartons: number;
-  partialCartons: number;
   pcsPerCarton: number;
   responsiblePersonId?: number | null;
   lastUpdated?: string | null;

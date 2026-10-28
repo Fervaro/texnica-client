@@ -33,6 +33,8 @@ export interface FabricPOLine {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** Línea emitida en modo sobrecompra (supera el pendiente del requerimiento). */
+  allowOverPurchase?: boolean;
   approval?: string;
   remarks?: string;
   uom?: string;
@@ -139,6 +141,8 @@ export interface FabricPOLineInput {
   gsm?: number | null;
   quantity: number;
   unitPrice: number;
+  /** Caso especial: permite comprar más que el Remaining (sobrecompra). */
+  allowOverPurchase?: boolean;
   approval?: string | null;
   remarks?: string | null;
 }

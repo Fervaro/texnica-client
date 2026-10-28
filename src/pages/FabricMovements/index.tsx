@@ -165,7 +165,7 @@ const FabricMovementsPage: React.FC = () => {
           { label: 'Ajustes positivos', value: movTotals.adjIn.toLocaleString(), color: 'success.main' },
           { label: 'Ajustes negativos', value: movTotals.adjOut.toLocaleString(), color: 'error.main' },
           { label: 'Devoluciones', value: movTotals.returnIn.toLocaleString(), color: 'info.main' },
-          { label: 'Movimientos', value: movTotals.count.toLocaleString(), color: 'text.disabled' },
+          { label: 'Movimientos', value: movTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 

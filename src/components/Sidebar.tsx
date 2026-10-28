@@ -118,8 +118,8 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
       title: 'Shipping & Warehouse',
       icon: <LocalShippingIcon />,
       subItems: [
-        { text: 'Packing Control',    icon: <InventoryIcon fontSize="small" />,        path: '/packing-control' },
         { text: 'Finished Goods',     icon: <WarehouseIcon fontSize="small" />,        path: '/finished-goods' },
+        { text: 'Packing Control',    icon: <InventoryIcon fontSize="small" />,        path: '/packing-control' },
         { text: 'Shipment Control',   icon: <FlightTakeoffIcon fontSize="small" />,    path: '/shipment-control' },
         { text: 'Warehouse',          icon: <WarehouseIcon fontSize="small" />,        path: '/warehouse' },
       ],

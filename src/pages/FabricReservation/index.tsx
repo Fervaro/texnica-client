@@ -200,7 +200,7 @@ const FabricReservationPage: React.FC = () => {
           { label: 'Reservado', value: resTotals.reserved.toLocaleString(), color: 'warning.main' },
           { label: 'Liberado', value: resTotals.released.toLocaleString(), color: 'info.main' },
           { label: 'Pendiente activo', value: resTotals.pending.toLocaleString(), color: 'primary.main' },
-          { label: 'Reservas activas', value: resTotals.count.toLocaleString(), color: 'text.disabled' },
+          { label: 'Reservas activas', value: resTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 

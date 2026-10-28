@@ -13,7 +13,7 @@ import type { FabricRequirementAvailability } from '../../types/fabricPO';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onAdd: (items: FabricRequirementAvailability[]) => void;
+  onAdd: (items: FabricRequirementAvailability[], allowOverPurchase: boolean) => void;
   /** Al EDITAR una PO: excluye sus propias líneas del cálculo de Remaining. */
   excludeFabricPOId?: number | null;
   /** FabricRequirements ya agregados al formulario (no se pueden repetir). */
@@ -107,7 +107,7 @@ const FabricRequirementPicker: React.FC<Props> = ({
   const handleAdd = () => {
     const chosen = items.filter(i => selected[i.fabricRequirementId]);
     if (chosen.length === 0) return;
-    onAdd(chosen);
+    onAdd(chosen, !onlyWithRemaining);
     setSelected({});
     onClose();
   };

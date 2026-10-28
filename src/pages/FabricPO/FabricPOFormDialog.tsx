@@ -47,6 +47,8 @@ export interface FormLine {
    * esta misma PO, de modo que sus cantidades pueden reasignarse.
    */
   maxQuantity: number;
+  /** Caso especial (Only with remaining OFF): permite comprar más que el Remaining. */
+  allowOverPurchase: boolean;
 }
 
 interface FormState {
@@ -179,6 +181,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
         // Provisional: mientras no llegue la disponibilidad, la propia cantidad
         // es el máximo razonable (evita bloquear la edición si el FR ya no existe).
         maxQuantity: l.quantity,
+        allowOverPurchase: l.allowOverPurchase ?? false,
       })),
     });
 
@@ -240,7 +243,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
   const setField = <K extends keyof FormState>(field: K, value: FormState[K]) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
-  const addRequirements = (items: FabricRequirementAvailability[]) => {
+  const addRequirements = (items: FabricRequirementAvailability[], allowOverPurchase: boolean) => {
     setForm(prev => {
       const existing = new Set(prev.lines.map(l => l.fabricRequirementId));
       const added: FormLine[] = items
@@ -259,8 +262,9 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
           composition: i.composition || '',
           requiredWidth: i.requiredWidth || '',
           gsm: i.gsm ?? 0,
-          // #13 y #18: inicia en Remaining y el usuario puede reducirlo
-          quantity: i.remainingToPurchase,
+          // #13 y #18: inicia en Remaining y el usuario puede reducirlo.
+          // En modo sobrecompra (Only with remaining OFF) inicia en 0 si no hay pendiente.
+          quantity: Math.max(i.remainingToPurchase, 0),
           // Precio inicial por defecto de una línea NUEVA. Sigue siendo visible,
           // editable e independiente por línea; Amount = Qty x USD/Yd se recalcula
           // solo. No afecta a líneas ya guardadas: al editar se carga el UnitPrice
@@ -270,6 +274,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
           remarks: '',
           customerName: i.customerName,
           maxQuantity: i.remainingToPurchase,
+          allowOverPurchase,
         }));
       return { ...prev, lines: [...prev.lines, ...added] };
     });
@@ -300,6 +305,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
       gsm: l.gsm,
       quantity: Number(l.quantity),
       unitPrice: Number(l.unitPrice),
+      allowOverPurchase: l.allowOverPurchase,
       approval: l.approval || null,
       remarks: l.remarks || null,
     })),
@@ -329,7 +335,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
     for (const l of form.lines) {
       const label = `${l.fgpoNumber} / ${l.style || '-'} / ${l.color || '-'} / ${l.componentCode || '-'}`;
       if (!(Number(l.quantity) > 0)) return `La cantidad de la línea ${label} debe ser mayor que 0.`;
-      if (Number(l.quantity) > l.maxQuantity) {
+      if (!l.allowOverPurchase && Number(l.quantity) > l.maxQuantity) {
         return `La cantidad excede el requerimiento pendiente. Disponible para ordenar: ${fmtQty(l.maxQuantity)} ${form.uom} (${label}).`;
       }
       if (!(Number(l.unitPrice) > 0)) return `El USD/Yd de la línea ${label} debe ser mayor que 0.`;
@@ -519,7 +525,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                 <TableBody>
                   {form.lines.map((line, idx) => {
                     const amount = (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0);
-                    const exceeds = Number(line.quantity) > line.maxQuantity;
+                    const exceeds = !line.allowOverPurchase && Number(line.quantity) > line.maxQuantity;
                     return (
                       <TableRow key={line.key} hover>
                         <TableCell>{idx + 1}</TableCell>
@@ -534,14 +540,21 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                         <TableCell align="right">{line.gsm || '-'}</TableCell>
 
                         <TableCell>
-                          <TextField
-                            size="small" type="number" value={line.quantity}
-                            onChange={e => updateLine(line.key, { quantity: Number(e.target.value) })}
-                            error={exceeds || !(Number(line.quantity) > 0)}
-                            sx={{ width: 130 }}
-                            slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                            helperText={`Máx: ${fmtQty(line.maxQuantity)}`}
-                          />
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+                            {line.allowOverPurchase && (
+                              <Tooltip title="Sobrecompra (supera el requerimiento pendiente)">
+                                <Box sx={{ width: 8, height: 8, mt: 1.5, borderRadius: '50%', bgcolor: 'error.main', flexShrink: 0 }} />
+                              </Tooltip>
+                            )}
+                            <TextField
+                              size="small" type="number" value={line.quantity}
+                              onChange={e => updateLine(line.key, { quantity: Number(e.target.value) })}
+                              error={exceeds || !(Number(line.quantity) > 0)}
+                              sx={{ width: 130 }}
+                              slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                              helperText={line.allowOverPurchase ? 'Sobrecompra permitida' : `Máx: ${fmtQty(line.maxQuantity)}`}
+                            />
+                          </Box>
                         </TableCell>
                         <TableCell>
                           <TextField

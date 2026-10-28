@@ -20,6 +20,8 @@ import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
 import { useColorOptions } from '../../hooks/colors/useColorOptions';
+import { useFabricReceivingOptions } from '../../hooks/fabricReceivings/useFabricReceivingOptions';
+import { useNavigate } from 'react-router-dom';
 import { FabricShipment, FabricShipmentLot } from '../../types';
 import { fabricShipmentLotsApi, fabricShipmentsApi, rollReceivingsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
@@ -28,6 +30,8 @@ import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../
 
 const DEFAULT_SHIPMENT_STATUSES = ['Planned', 'Booking Confirmed', 'Exported', 'In Transit', 'Delivered', 'Cancelled'];
 const DEFAULT_UOMS = ['Yards', 'Meters', 'Kilograms', 'Pounds', 'Rolls', 'Pieces'];
+const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
+const DEFAULT_SHADE_GROUPS = ['A', 'B', 'C', 'D'];
 
 const sc = (s: string) => {
   const m: Record<string, any> = {
@@ -155,8 +159,10 @@ const FabricShipmentPage: React.FC = () => {
   const setF = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
   // ── Lotes del embarque ──
+  const navigate = useNavigate();
   const { options: styleOptions } = useStyleOptions();
   const { options: colorOptions } = useColorOptions();
+  const { options: receivingList } = useFabricReceivingOptions();
   const emptyLotForm = {
     LineNumber: '', LotNumber: '', StyleId: 0, ColorId: 0,
     FabricDescription: '', Width: '', GSM: '', ShippedRolls: '', ShippedYards: '',
@@ -180,6 +186,18 @@ const FabricShipmentPage: React.FC = () => {
   const [allRolls, setAllRolls] = useState<RollRow[]>([]);
   const [associateRollId, setAssociateRollId] = useState(0);
   const [associateSaving, setAssociateSaving] = useState(false);
+
+  // ── Creación de rollo desde el lote (Recepción editable, preseleccionada) ──
+  const emptyRollForm = {
+    ReceivingId: 0, RollNumber: '', SupplierRollNumber: '',
+    GrossWeight: 0, NetWeight: 0, ActualYardage: 0, ActualWidth: 0, ActualGSM: 0,
+    ShadeGroup: '', DamagedQty: 0, Condition: 'Good',
+    WarehouseLocation: '', ReceivedDate: new Date().toISOString().split('T')[0], Comments: '',
+  };
+  const [newRollOpen, setNewRollOpen] = useState(false);
+  const [newRollForm, setNewRollForm] = useState(emptyRollForm);
+  const [newRollError, setNewRollError] = useState('');
+  const [newRollSaving, setNewRollSaving] = useState(false);
 
   const mapLot = (raw: any): FabricShipmentLot => ({
     id: raw.id ?? raw.ID,
@@ -363,6 +381,66 @@ const FabricShipmentPage: React.FC = () => {
     }
   };
 
+  // ── Crear rollo desde el lote (Recepción editable, preseleccionada) ──
+  const openNewRoll = () => {
+    if (!rollsLot || !lotsShipment) return;
+    const match = receivingList.find(r =>
+      (lotsShipment.fgpoNumber && r.fgpoNumber && r.fgpoNumber === lotsShipment.fgpoNumber) ||
+      (lotsShipment.fabricPONumber && r.fabricPONumber && r.fabricPONumber === lotsShipment.fabricPONumber)
+    );
+    setNewRollError('');
+    setNewRollForm({ ...emptyRollForm, ReceivingId: match?.id ?? 0 });
+    setNewRollOpen(true);
+  };
+
+  const goToReceiving = () => {
+    const sn = lotsShipment?.shipmentNumber || '';
+    setNewRollOpen(false);
+    setRollsOpen(false);
+    setLotsOpen(false);
+    navigate(`/fabric-receiving?shipmentNumber=${encodeURIComponent(sn)}`);
+  };
+
+  const handleNewRollSave = async () => {
+    setNewRollError('');
+    if (!newRollForm.ReceivingId) { setNewRollError('Seleccione la Recepción de tela.'); return; }
+    if (!newRollForm.RollNumber.trim()) { setNewRollError('Roll Number es obligatorio.'); return; }
+    const negField = firstNegativeField([
+      { name: 'Gross Weight', value: newRollForm.GrossWeight },
+      { name: 'Net Weight', value: newRollForm.NetWeight },
+      { name: 'Actual Yardage', value: newRollForm.ActualYardage },
+      { name: 'Actual Width', value: newRollForm.ActualWidth },
+      { name: 'Actual GSM', value: newRollForm.ActualGSM },
+      { name: 'Damaged Qty', value: newRollForm.DamagedQty },
+    ]);
+    if (negField) { setNewRollError(`${negField} no puede ser negativo.`); return; }
+    setNewRollSaving(true);
+    try {
+      const payload = {
+        ...newRollForm,
+        DataOwnerId: null,
+        ReceivedDate: newRollForm.ReceivedDate ? new Date(newRollForm.ReceivedDate).toISOString() : new Date().toISOString(),
+      };
+      const res = await rollReceivingsApi.create(payload);
+      const newId = res.data?.id ?? res.data?.ID;
+      if (rollsLot && newId) {
+        await fabricShipmentLotsApi.associateRoll(rollsLot.id, newId);
+      }
+      setNewRollOpen(false);
+      if (rollsLot) {
+        const r = await fabricShipmentLotsApi.getRolls(rollsLot.id);
+        setLotRolls((r.data ?? []).map(mapRollRow));
+      }
+      const all = await rollReceivingsApi.getAll();
+      setAllRolls((all.data ?? []).map(mapRollRow));
+      if (lotsShipment) await loadLots(lotsShipment.id);
+    } catch (err: any) {
+      setNewRollError(errMsg(err, 'Error al crear el rollo.'));
+    } finally {
+      setNewRollSaving(false);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -388,7 +466,7 @@ const FabricShipmentPage: React.FC = () => {
           { label: 'Yardas enviadas', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
           { label: 'Registradas físicamente', value: shipTotals.received.toLocaleString(), color: 'info.main' },
           { label: 'Pendientes de registrar', value: shipTotals.pending.toLocaleString(), color: 'warning.main' },
-          { label: 'Lotes', value: shipTotals.lots.toLocaleString(), color: 'text.disabled' },
+          { label: 'Lotes', value: shipTotals.lots.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 
@@ -644,6 +722,7 @@ const FabricShipmentPage: React.FC = () => {
             <Button variant="contained" size="small" disabled={!associateRollId || associateSaving} onClick={handleAssociateRoll}>
               {associateSaving ? 'Asociando...' : 'Asociar'}
             </Button>
+            <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={openNewRoll}>Nuevo rollo</Button>
           </Box>
           {rollsLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
@@ -682,6 +761,92 @@ const FabricShipmentPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setRollsOpen(false)}>Close</Button></DialogActions>
+      </Dialog>
+
+      {/* Nuevo rollo (desde el lote) */}
+      <Dialog open={newRollOpen} onClose={() => setNewRollOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Nuevo rollo — {rollsLot?.lotNumber || ''}</DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          {newRollError && <Alert severity="error" sx={{ mb: 2 }}>{newRollError}</Alert>}
+          {newRollForm.ReceivingId === 0 ? (
+            <Box sx={{ py: 2 }}>
+              <Typography variant="body1" sx={{ mb: 1 }}>
+                Este embarque aún no tiene una Recepción de tela registrada. Regístrala primero para poder ingresar los rollos.
+              </Typography>
+              <Button variant="contained" onClick={goToReceiving}>Ir a Recepción</Button>
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Recepción de tela *</InputLabel>
+                  <Select value={newRollForm.ReceivingId || ''} label="Recepción de tela *" onChange={e => setNewRollForm(prev => ({ ...prev, ReceivingId: Number(e.target.value) }))}>
+                    {receivingList.map(r => <MenuItem key={r.id} value={r.id}>{r.label}{r.supplier ? ` — ${r.supplier}` : ''}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth size="small" label="Roll Number *" value={newRollForm.RollNumber} onChange={e => setNewRollForm(prev => ({ ...prev, RollNumber: e.target.value }))} required />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth size="small" label="Supplier Roll Number" value={newRollForm.SupplierRollNumber} onChange={e => setNewRollForm(prev => ({ ...prev, SupplierRollNumber: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth size="small" label="Received Date" type="date" value={newRollForm.ReceivedDate} onChange={e => setNewRollForm(prev => ({ ...prev, ReceivedDate: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField fullWidth size="small" label="Gross Weight" type="number" value={newRollForm.GrossWeight || ''} onChange={e => setNewRollForm(prev => ({ ...prev, GrossWeight: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField fullWidth size="small" label="Net Weight" type="number" value={newRollForm.NetWeight || ''} onChange={e => setNewRollForm(prev => ({ ...prev, NetWeight: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField fullWidth size="small" label="Actual Yardage" type="number" value={newRollForm.ActualYardage || ''} onChange={e => setNewRollForm(prev => ({ ...prev, ActualYardage: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField fullWidth size="small" label="Actual Width" type="number" value={newRollForm.ActualWidth || ''} onChange={e => setNewRollForm(prev => ({ ...prev, ActualWidth: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField fullWidth size="small" label="Actual GSM" type="number" value={newRollForm.ActualGSM || ''} onChange={e => setNewRollForm(prev => ({ ...prev, ActualGSM: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Condition</InputLabel>
+                  <Select value={newRollForm.Condition} label="Condition" onChange={e => setNewRollForm(prev => ({ ...prev, Condition: e.target.value }))}>
+                    {DEFAULT_CONDITIONS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Shade Group</InputLabel>
+                  <Select value={newRollForm.ShadeGroup} label="Shade Group" onChange={e => setNewRollForm(prev => ({ ...prev, ShadeGroup: e.target.value }))}>
+                    <MenuItem value=""><em>Sin grupo</em></MenuItem>
+                    {DEFAULT_SHADE_GROUPS.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField fullWidth size="small" label="Damaged Qty" type="number" value={newRollForm.DamagedQty || ''} onChange={e => setNewRollForm(prev => ({ ...prev, DamagedQty: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth size="small" label="Warehouse Location" value={newRollForm.WarehouseLocation} onChange={e => setNewRollForm(prev => ({ ...prev, WarehouseLocation: e.target.value }))} />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField fullWidth size="small" label="Comments" value={newRollForm.Comments} onChange={e => setNewRollForm(prev => ({ ...prev, Comments: e.target.value }))} multiline rows={2} />
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        {newRollForm.ReceivingId !== 0 && (
+          <DialogActions>
+            <Button onClick={() => setNewRollOpen(false)}>Cancel</Button>
+            <Button variant="contained" onClick={handleNewRollSave} disabled={newRollSaving} startIcon={newRollSaving ? <CircularProgress size={18} /> : null}>
+              {newRollSaving ? 'Guardando...' : 'Crear rollo'}
+            </Button>
+          </DialogActions>
+        )}
       </Dialog>
 
       {/* Lot Add/Edit Dialog */}
