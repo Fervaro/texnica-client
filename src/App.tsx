@@ -248,3 +248,5 @@ function App() {
 }
 
 export default App;
+
+// Deployment verification marker - 2026-10-29
