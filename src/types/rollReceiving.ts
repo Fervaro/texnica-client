@@ -52,3 +52,10 @@ export interface CreateRollReceivingInput {
   dataOwner?: string;
   comments?: string;
 }
+
+/** Resultado del alta masiva de rollos (endpoint /roll-receivings/bulk). */
+export interface RollReceivingBulkResult {
+  total: number;
+  created: number;
+  createdIds: number[];
+}

@@ -4,9 +4,10 @@ import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
   DialogContent, DialogActions, IconButton, InputAdornment, MenuItem,
-  FormControl, InputLabel, TablePagination, Grid, Select, Divider
+  FormControl, InputLabel, TablePagination, Grid, Select, Divider, Autocomplete
 } from '@mui/material';
 import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
+import AllInboxIcon from '@mui/icons-material/AllInbox';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -21,11 +22,15 @@ import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { FabricReceiving } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
-import { blockNegativeKey, firstNegativeField, nonNegativeInputProps, nonNegativeIntegerInputProps } from '../../utils/validation';
-import { fabricReceivingsApi } from '../../utils/api';
+import { fabricReceivingsApi, rollReceivingsApi, fabricShipmentsApi, fabricShipmentLotsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
+import ReceivingRollsDialog from '../../components/ReceivingRollsDialog';
+import { RollGridTable, newRollRow, validateRollRows, buildRollsPayload } from '../../components/RollBulkGrid';
+import type { RollRowDraft } from '../../components/RollBulkGrid';
 
 const DEFAULT_STATUSES = ['Pending', 'Partially Received', 'Fully Received', 'Quantity Difference', 'Rejected'];
+const ROLL_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
+const ROLL_SHADES = ['A', 'B', 'C', 'D'];
 
 const sc = (s: string) => {
   const m: Record<string, any> = {
@@ -44,9 +49,9 @@ const emptyForm = {
 
 const FabricReceivingPage: React.FC = () => {
   const {
-    items, loading, saving, error, page, rowsPerPage, totalCount,
+    items, loading, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
-    create, update, remove,
+    remove,
   } = useFabricReceivings();
 
   const [searchInput, setSearchInput] = useState('');
@@ -55,6 +60,9 @@ const FabricReceivingPage: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewItem, setViewItem] = useState<FabricReceiving | null>(null);
   const [formError, setFormError] = useState('');
+  const [formSaving, setFormSaving] = useState(false);
+  const [rollRows, setRollRows] = useState<RollRowDraft[]>([]);
+  const [rollsDialog, setRollsDialog] = useState<{ id: number; number: string } | null>(null);
 
   const { options: poList } = useFabricPOOptions();
   const { options: fgpoList } = useFgpoOptions();
@@ -63,6 +71,53 @@ const FabricReceivingPage: React.FC = () => {
   const STATUS_OPTIONS = catalogs['ReceivingStatus']?.length ? catalogs['ReceivingStatus'] : DEFAULT_STATUSES;
 
   const [form, setForm] = useState(emptyForm);
+
+  const [shipments, setShipments] = useState<any[]>([]);
+  useEffect(() => {
+    const loadShipments = async () => {
+      try {
+        const res = await fabricShipmentsApi.getAll();
+        setShipments(res.data ?? []);
+      } catch { /* silencioso */ }
+    };
+    loadShipments();
+  }, []);
+  const shipmentOptions = Array.from(new Set(shipments.map((s: any) => s.shipmentNumber ?? s.ShipmentNumber ?? '').filter(Boolean)));
+
+  const [shipmentLots, setShipmentLots] = useState<{ id: number; lotNumber: string }[]>([]);
+  const [selectedLotId, setSelectedLotId] = useState<number | null>(null);
+  const shipmentLot = shipmentLots.find(l => l.id === selectedLotId) ?? shipmentLots[0] ?? null;
+
+  // Cargar el lote del embarque seleccionado (ese lote es el mismo para los rollos).
+  useEffect(() => {
+    const num = form.ShipmentNumber;
+    if (!num) { setShipmentLots([]); setSelectedLotId(null); return; }
+    const s = shipments.find((x: any) => (x.shipmentNumber ?? x.ShipmentNumber ?? '') === num);
+    const sid = s ? (s.id ?? s.ID) : 0;
+    if (!sid) { setShipmentLots([]); setSelectedLotId(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fabricShipmentLotsApi.getByShipment(sid);
+        const lots = (res.data ?? [])
+          .filter((l: any) => (l.active ?? l.Active ?? true) !== false)
+          .map((l: any) => ({ id: l.id ?? l.ID, lotNumber: l.lotNumber ?? l.LotNumber ?? '' }))
+          .filter((l: { lotNumber: string }) => !!l.lotNumber);
+        if (cancelled) return;
+        setShipmentLots(lots);
+        setSelectedLotId(lots[0]?.id ?? null);
+      } catch {
+        if (!cancelled) { setShipmentLots([]); setSelectedLotId(null); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [form.ShipmentNumber, shipments]);
+
+  // Al cambiar el lote del embarque, prefill el número de lote en las filas de rollos.
+  useEffect(() => {
+    const lot = shipmentLots.find(l => l.id === selectedLotId) ?? shipmentLots[0] ?? null;
+    setRollRows(prev => prev.map(r => ({ ...r, lotNumber: lot?.lotNumber ?? '' })));
+  }, [shipmentLots, selectedLotId]);
 
   const [recTotals, setRecTotals] = useState({ declared: 0, received: 0, variance: 0, count: 0 });
   const [totalsError, setTotalsError] = useState('');
@@ -84,13 +139,22 @@ const FabricReceivingPage: React.FC = () => {
   };
   useEffect(() => { loadRecTotals(); }, []);
 
-  // Prellenar Shipment Number si venimos redirigidos desde Embarques (rollos).
+  // Prellenar desde Embarques: Shipment Number + Fabric PO / FGPO / Supplier.
   const [searchParams, setSearchParams] = useSearchParams();
+  const [prefill, setPrefill] = useState<{ fabricPONumber: string; fgpoNumber: string } | null>(null);
   useEffect(() => {
     const sn = searchParams.get('shipmentNumber');
     if (sn) {
       setEditingId(null);
-      setForm({ ...emptyForm, ShipmentNumber: sn });
+      setForm({
+        ...emptyForm,
+        ShipmentNumber: sn,
+        Supplier: searchParams.get('supplier') ?? '',
+      });
+      setPrefill({
+        fabricPONumber: searchParams.get('fabricPONumber') ?? '',
+        fgpoNumber: searchParams.get('fgpoNumber') ?? '',
+      });
       setFormError('');
       setDialogOpen(true);
       setSearchParams({}, { replace: true });
@@ -98,12 +162,29 @@ const FabricReceivingPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Resolver Fabric PO / FGPO por número cuando las opciones ya cargaron.
+  useEffect(() => {
+    if (!prefill) return;
+    setForm(prev => {
+      let next = prev;
+      if (prefill.fabricPONumber && !prev.FabricPOId) {
+        const po = poList.find((p: any) => p.label === prefill.fabricPONumber);
+        if (po) next = { ...next, FabricPOId: po.id, Supplier: next.Supplier || po.sub || '' };
+      }
+      if (prefill.fgpoNumber && !prev.FGPOId) {
+        const fgpo = fgpoList.find((f: any) => f.label === prefill.fgpoNumber);
+        if (fgpo) next = { ...next, FGPOId: fgpo.id };
+      }
+      return next;
+    });
+  }, [prefill, poList, fgpoList]);
+
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
   const resetForm = () => setForm(emptyForm);
 
-  const openCreate = () => { setEditingId(null); resetForm(); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => { setEditingId(null); resetForm(); setFormError(''); setPrefill(null); setShipmentLots([]); setSelectedLotId(null); setRollRows([]); setDialogOpen(true); };
   const openEdit = (item: FabricReceiving) => {
     setEditingId(item.id);
     setForm({
@@ -116,7 +197,7 @@ const FabricReceivingPage: React.FC = () => {
       WarehouseLocation: item.warehouseLocation ?? '', ReceivedByUserId: userList.find(o => o.label === item.receivedBy)?.id ?? 0,
       DataOwnerId: userList.find(o => o.label === item.dataOwner)?.id ?? 0, Remarks: item.remarks ?? '',
     });
-    setFormError(''); setDialogOpen(true);
+    setFormError(''); setPrefill(null); setShipmentLots([]); setSelectedLotId(null); setRollRows([]); setDialogOpen(true);
   };
 
   const handleDelete = async (id: number) => {
@@ -129,13 +210,13 @@ const FabricReceivingPage: React.FC = () => {
     setFormError('');
     if (!form.ReceivingNumber) { setFormError('Receiving Number is required.'); return; }
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
-    const negField = firstNegativeField([
-      { name: 'Packing List Qty', value: form.PackingListQty },
-      { name: 'Actual Received Qty', value: form.ActualReceivedQty },
-      { name: 'Expected Rolls', value: form.ExpectedRolls },
-      { name: 'Received Rolls', value: form.ReceivedRolls },
-    ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+
+    if (!editingId) {
+      const vErr = validateRollRows(rollRows);
+      if (vErr) { setFormError(vErr); return; }
+    }
+
+    setFormSaving(true);
     try {
       const payload = {
         ...form,
@@ -144,10 +225,24 @@ const FabricReceivingPage: React.FC = () => {
         DataOwnerId: form.DataOwnerId || null,
         ReceivingDate: form.ReceivingDate ? new Date(form.ReceivingDate).toISOString() : new Date().toISOString(),
       };
-      if (editingId) await update(editingId, payload);
-      else await create(payload);
+      if (editingId) {
+        await fabricReceivingsApi.update(editingId, payload);
+      } else {
+        const res = await fabricReceivingsApi.create(payload);
+        const newId = res.data?.id ?? res.data?.ID;
+        if (newId && rollRows.length) {
+          await rollReceivingsApi.createBulk(buildRollsPayload(newId, rollRows, form.ReceivingDate, shipmentLot?.id ?? null));
+        }
+      }
       setDialogOpen(false);
-    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
+      setRollRows([]);
+      await refresh();
+      await loadRecTotals();
+    } catch (err: any) {
+      setFormError(err?.response?.data?.message || err?.response?.data || 'Error saving.');
+    } finally {
+      setFormSaving(false);
+    }
   };
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
@@ -175,9 +270,7 @@ const FabricReceivingPage: React.FC = () => {
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Declarado', value: recTotals.declared.toLocaleString(), color: 'primary.main' },
           { label: 'Recibido (reportado)', value: recTotals.received.toLocaleString(), color: 'info.main' },
-          { label: 'Diferencia', value: recTotals.variance.toLocaleString(), color: 'warning.main' },
           { label: 'Recepciones', value: recTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
@@ -205,16 +298,16 @@ const FabricReceivingPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Receiving #', 'Shipment', 'Fabric PO', 'FGPO', 'Packing Qty', 'Received', 'Variance', 'Rolls', 'Status', 'Date', 'Actions'].map(h =>
+                {['Receiving #', 'Shipment', 'Fabric PO', 'FGPO', 'Received', 'Rolls', 'Status', 'Date', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No receiving records found</Typography>
                   <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first receiving</Button>
                 </TableCell></TableRow>
@@ -224,16 +317,12 @@ const FabricReceivingPage: React.FC = () => {
                   <TableCell>{item.shipmentNumber || '-'}</TableCell>
                   <TableCell>{item.fabricPONumber}</TableCell>
                   <TableCell>{item.fgpoNumber}</TableCell>
-                  <TableCell>{Number(item.packingListQty).toLocaleString()}</TableCell>
                   <TableCell>{Number(item.actualReceivedQty).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Chip label={Number(item.receivingVariance).toLocaleString()} size="small"
-                      color={item.receivingVariance < 0 ? 'error' : item.receivingVariance > 0 ? 'warning' : 'success'} />
-                  </TableCell>
                   <TableCell>{item.receivedRolls}/{item.expectedRolls}</TableCell>
                   <TableCell><Chip label={item.receivingStatus || 'N/A'} size="small" color={sc(item.receivingStatus ?? '')} variant="outlined" /></TableCell>
                   <TableCell>{fmt(item.receivingDate)}</TableCell>
                   <TableCell>
+                    <IconButton size="small" color="primary" title="Rollos" onClick={() => setRollsDialog({ id: item.id, number: item.receivingNumber })}><AllInboxIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
@@ -263,7 +352,29 @@ const FabricReceivingPage: React.FC = () => {
               <TextField fullWidth size="small" label="Receiving Number *" value={form.ReceivingNumber} onChange={e => setF('ReceivingNumber', e.target.value)} required placeholder="RCV-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Shipment Number" value={form.ShipmentNumber} onChange={e => setF('ShipmentNumber', e.target.value)} placeholder="SHP-2026-001" />
+              <Autocomplete fullWidth size="small" freeSolo
+                options={shipmentOptions}
+                inputValue={form.ShipmentNumber}
+                onInputChange={(_, v) => setF('ShipmentNumber', v)}
+                onChange={(_, v) => {
+                  const num = typeof v === 'string' ? v : '';
+                  if (!num) return;
+                  const s = shipments.find((x: any) => (x.shipmentNumber ?? x.ShipmentNumber ?? '') === num);
+                  if (!s) return;
+                  const poNum = s.fabricPONumber ?? s.FabricPONumber ?? '';
+                  const fgpoNum = s.fgpoNumber ?? s.FGPONumber ?? '';
+                  const supplier = s.supplier ?? s.Supplier ?? '';
+                  const po = poList.find((p: any) => p.label === poNum);
+                  const fgpo = fgpoList.find((f: any) => f.label === fgpoNum);
+                  setForm(prev => ({
+                    ...prev,
+                    FabricPOId: po ? po.id : 0,
+                    FGPOId: fgpo ? fgpo.id : 0,
+                    Supplier: supplier || (po ? (po.sub ?? '') : ''),
+                  }));
+                }}
+                renderInput={(params) => <TextField {...params} label="Shipment Number" placeholder="SHP-2026-001" />}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField fullWidth size="small" label="Receiving Date *" type="date" value={form.ReceivingDate} onChange={e => setF('ReceivingDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
@@ -294,10 +405,12 @@ const FabricReceivingPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Supplier" value={form.Supplier} onChange={e => setF('Supplier', e.target.value)} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Packing List Qty *" type="number" value={form.PackingListQty || ''} onChange={e => setF('PackingListQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Received Qty *" type="number" value={form.ActualReceivedQty || ''} onChange={e => setF('ActualReceivedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Expected Rolls" type="number" value={form.ExpectedRolls || ''} onChange={e => setF('ExpectedRolls', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeIntegerInputProps }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Received Rolls" type="number" value={form.ReceivedRolls || ''} onChange={e => setF('ReceivedRolls', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeIntegerInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField fullWidth size="small" label="Actual Received Qty" type="number" value={form.ActualReceivedQty || 0} disabled helperText="Auto: suma de yardas de los rollos" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField fullWidth size="small" label="Received Rolls" type="number" value={form.ReceivedRolls || 0} disabled helperText="Auto: nº de rollos registrados" />
+            </Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Estado & Ubicación</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -323,11 +436,51 @@ const FabricReceivingPage: React.FC = () => {
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Remarks / Notes" value={form.Remarks} onChange={e => setF('Remarks', e.target.value)} multiline rows={2} /></Grid>
+
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Rollos</Typography></Divider></Grid>
+            {!editingId ? (
+              <>
+                {shipmentLots.length > 0 && (
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    {shipmentLots.length === 1 ? (
+                      <TextField fullWidth size="small" label="Lote del embarque" value={shipmentLot?.lotNumber ?? ''} slotProps={{ input: { readOnly: true } }} helperText="Los rollos se registran en este lote." />
+                    ) : (
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Lote del embarque</InputLabel>
+                        <Select value={selectedLotId ?? ''} label="Lote del embarque" onChange={e => setSelectedLotId(Number(e.target.value))}>
+                          {shipmentLots.map(l => <MenuItem key={l.id} value={l.id}>{l.lotNumber}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    )}
+                  </Grid>
+                )}
+                <Grid size={{ xs: 12 }}>
+                  <RollGridTable
+                    rows={rollRows}
+                    onChange={setRollRows}
+                    shadeOptions={ROLL_SHADES}
+                    conditionOptions={ROLL_CONDITIONS}
+                    autoRollNumber
+                    lockLot={!!shipmentLot}
+                    makeRow={() => newRollRow({ lotNumber: shipmentLot?.lotNumber ?? '', warehouseLocation: form.WarehouseLocation })}
+                  />
+                </Grid>
+              </>
+            ) : (
+              <Grid size={{ xs: 12 }}>
+                <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Typography variant="body2">{form.ReceivedRolls} rollo(s) registrados. Los rollos se gestionan desde el botón "Rollos" de la lista.</Typography>
+                  <Button size="small" variant="outlined" onClick={() => setRollsDialog({ id: editingId, number: form.ReceivingNumber })}>
+                    Gestionar rollos
+                  </Button>
+                </Paper>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
+          <Button variant="contained" onClick={handleSave} disabled={formSaving} startIcon={formSaving ? <CircularProgress size={18} /> : null}>
             {editingId ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
@@ -346,12 +499,7 @@ const FabricReceivingPage: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Supplier</Typography><Typography>{viewItem.supplier || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Receiving Date</Typography><Typography>{fmt(viewItem.receivingDate)}</Typography></Grid>
               <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Packing List Qty</Typography><Typography sx={{ fontWeight: 600 }}>{Number(viewItem.packingListQty).toLocaleString()}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Received Qty</Typography><Typography sx={{ fontWeight: 600 }}>{Number(viewItem.actualReceivedQty).toLocaleString()}</Typography></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Variance</Typography><Chip label={Number(viewItem.receivingVariance).toLocaleString()} size="small" color={viewItem.receivingVariance < 0 ? 'error' : viewItem.receivingVariance > 0 ? 'warning' : 'success'} /></Grid>
-              <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Shortage</Typography><Chip label={Number(viewItem.receivingShortage).toLocaleString()} size="small" color={viewItem.receivingShortage > 0 ? 'error' : 'success'} /></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Over Qty</Typography><Chip label={Number(viewItem.receivingOverQty).toLocaleString()} size="small" color={viewItem.receivingOverQty > 0 ? 'warning' : 'success'} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Rolls (received/expected)</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.receivedRolls}/{viewItem.expectedRolls}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Missing Rolls</Typography><Chip label={viewItem.missingRolls} size="small" color={viewItem.missingRolls > 0 ? 'error' : 'success'} /></Grid>
               <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /></Grid>
@@ -364,6 +512,13 @@ const FabricReceivingPage: React.FC = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setViewOpen(false)}>Close</Button></DialogActions>
       </Dialog>
+
+      <ReceivingRollsDialog
+        open={!!rollsDialog}
+        onClose={() => setRollsDialog(null)}
+        receivingId={rollsDialog?.id ?? 0}
+        receivingNumber={rollsDialog?.number ?? ''}
+      />
     </Box>
   );
 };

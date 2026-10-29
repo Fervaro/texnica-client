@@ -28,7 +28,6 @@ import MillProduction from './pages/MillProduction';
 import MillTest from './pages/MillTest';
 import FabricShipment from './pages/FabricShipment';
 import FabricReceiving from './pages/FabricReceiving';
-import RollReceiving from './pages/RollReceiving';
 import FourPoint from './pages/FourPoint';
 import InternalTest from './pages/InternalTest';
 import ShadeMatch from './pages/ShadeMatch';
@@ -209,7 +208,6 @@ function App() {
                   <Route path="mill-test" element={<MillTest />} />
                   <Route path="fabric-shipment" element={<FabricShipment />} />
                   <Route path="fabric-receiving" element={<FabricReceiving />} />
-                  <Route path="roll-receiving" element={<RollReceiving />} />
                   <Route path="fabric-movements" element={<FabricMovements />} />
                   <Route path="four-point" element={<FourPoint />} />
                   <Route path="internal-test" element={<InternalTest />} />

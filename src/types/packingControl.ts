@@ -4,6 +4,8 @@ export interface PackingControl {
   id: number;
   packingDate: string;
   fgpoId: number;
+  boxTypeId?: number | null;
+  boxCode?: string;
   fgpoNumber: string;
   customerName: string;
   style?: string;
@@ -33,6 +35,7 @@ export interface PackingControl {
 export interface CreatePackingControlInput {
   packingDate: string;
   fgpoId: number;
+  boxTypeId?: number | null;
   qcPassedQty: number;
   receivedByPackingQty: number;
   foldedQty: number;

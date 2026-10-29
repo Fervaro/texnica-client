@@ -6,6 +6,8 @@ const mapPackingControl = (raw: any): PackingControl => ({
   id: raw.id ?? raw.ID ?? 0,
   packingDate: raw.packingDate ?? raw.PackingDate ?? '',
   fgpoId: raw.fgpoId ?? raw.FGPOId ?? 0,
+  boxTypeId: raw.boxTypeId ?? raw.BoxTypeId ?? undefined,
+  boxCode: raw.boxCode ?? raw.BoxCode ?? '',
   fgpoNumber: raw.fgpoNumber ?? raw.FGPONumber ?? '',
   customerName: raw.customerName ?? raw.CustomerName ?? '',
   style: raw.style ?? raw.Style ?? '',

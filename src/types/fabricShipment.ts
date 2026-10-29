@@ -8,6 +8,7 @@ export interface FabricShipment {
   supplier?: string | null;
   rollQty: number;
   shippedQuantity: number;
+  shippedRolls: number;
   uom?: string;
   shippedWeight: number;
   packingList?: string;

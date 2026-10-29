@@ -23,6 +23,7 @@ import { RollReceiving, RollBalance } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
 import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
+import RollBulkGrid from '../../components/RollBulkGrid';
 
 const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
 const DEFAULT_SHADE_GROUPS = ['A', 'B', 'C', 'D'];
@@ -52,6 +53,7 @@ const RollReceivingPage: React.FC = () => {
 
   const [searchInput, setSearchInput] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewItem, setViewItem] = useState<RollReceiving | null>(null);
@@ -88,9 +90,7 @@ const RollReceivingPage: React.FC = () => {
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
-  const resetForm = () => setForm(emptyForm);
-
-  const openCreate = () => { setEditingId(null); resetForm(); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => { setBulkOpen(true); };
   const openEdit = (item: RollReceiving) => {
     setEditingId(item.id);
     setForm({
@@ -375,6 +375,18 @@ const RollReceivingPage: React.FC = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setViewOpen(false)}>Close</Button></DialogActions>
       </Dialog>
+
+      {/* Alta masiva de rollos (grid) */}
+      <RollBulkGrid
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        title="Registrar rollos"
+        receivingId={0}
+        receivingList={receivingList}
+        conditionOptions={CONDITION_OPTIONS}
+        shadeOptions={SHADE_OPTIONS}
+        onSaved={async () => { setBulkOpen(false); refresh(); }}
+      />
     </Box>
   );
 };

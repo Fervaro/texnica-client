@@ -2,7 +2,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, CircularProgress, Alert, Dialog, DialogTitle,
-  DialogContent, DialogActions, IconButton, InputAdornment, Tooltip
+  DialogContent, DialogActions, IconButton, InputAdornment, Tooltip, Autocomplete
 } from '@mui/material';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import AddIcon from '@mui/icons-material/Add';
@@ -13,6 +13,9 @@ import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { boxTypesApi } from '../../utils/api';
 import { BoxType } from '../../types';
+import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
+import { useColorOptions } from '../../hooks/colors/useColorOptions';
+import { useSizeOptions } from '../../hooks/sizes/useSizeOptions';
 import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const mapBoxType = (raw: any): BoxType => ({
@@ -54,6 +57,13 @@ const BoxTypesPage: React.FC = () => {
   useEffect(() => { load(); }, []);
 
   const filtered = items.filter(i => !search || i.boxCode.toLowerCase().includes(search.toLowerCase()));
+
+  const { options: styleMaster } = useStyleOptions();
+  const { options: colorMaster } = useColorOptions();
+  const { options: sizeMaster } = useSizeOptions();
+  const styleOptions = styleMaster.map(o => o.label).filter(Boolean);
+  const colorOptions = colorMaster.map(o => o.label).filter(Boolean);
+  const sizeOptions = sizeMaster.map(o => o.label).filter(Boolean);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -168,11 +178,17 @@ const BoxTypesPage: React.FC = () => {
               </Box>
               <TextField fullWidth size="small" label="Empty Carton Weight (kg)" type="number" value={form.EmptyCartonWeight} onChange={e => setForm({ ...form, EmptyCartonWeight: e.target.value })} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth size="small" label="Style" value={form.Style} onChange={e => setForm({ ...form, Style: e.target.value })} />
-                <TextField fullWidth size="small" label="Color" value={form.Color} onChange={e => setForm({ ...form, Color: e.target.value })} />
+                <Autocomplete fullWidth size="small" freeSolo options={styleOptions}
+                  inputValue={form.Style} onInputChange={(_, v) => setForm({ ...form, Style: v })}
+                  renderInput={(params) => <TextField {...params} label="Style" />} />
+                <Autocomplete fullWidth size="small" freeSolo options={colorOptions}
+                  inputValue={form.Color} onInputChange={(_, v) => setForm({ ...form, Color: v })}
+                  renderInput={(params) => <TextField {...params} label="Color" />} />
               </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField fullWidth size="small" label="Size" value={form.Size} onChange={e => setForm({ ...form, Size: e.target.value })} />
+                <Autocomplete fullWidth size="small" freeSolo options={sizeOptions}
+                  inputValue={form.Size} onInputChange={(_, v) => setForm({ ...form, Size: v })}
+                  renderInput={(params) => <TextField {...params} label="Size" />} />
                 <TextField fullWidth size="small" label="Qty por box *" type="number" value={form.QtyPerBox} onChange={e => setForm({ ...form, QtyPerBox: e.target.value })} required onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
               </Box>
               <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setForm({ ...form, Comments: e.target.value })} multiline rows={2} />

@@ -14,24 +14,20 @@ import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import AllInboxIcon from '@mui/icons-material/AllInbox';
 import { useFabricShipments } from '../../hooks/fabricShipments/useFabricShipments';
 import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
 import { useColorOptions } from '../../hooks/colors/useColorOptions';
-import { useFabricReceivingOptions } from '../../hooks/fabricReceivings/useFabricReceivingOptions';
 import { useNavigate } from 'react-router-dom';
 import { FabricShipment, FabricShipmentLot } from '../../types';
-import { fabricShipmentLotsApi, fabricShipmentsApi, rollReceivingsApi } from '../../utils/api';
+import { fabricShipmentLotsApi, fabricShipmentsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import { getCurrentUserName } from '../../utils/session';
 import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../../utils/validation';
 
 const DEFAULT_SHIPMENT_STATUSES = ['Planned', 'Booking Confirmed', 'Exported', 'In Transit', 'Delivered', 'Cancelled'];
 const DEFAULT_UOMS = ['Yards', 'Meters', 'Kilograms', 'Pounds', 'Rolls', 'Pieces'];
-const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
-const DEFAULT_SHADE_GROUPS = ['A', 'B', 'C', 'D'];
 
 const sc = (s: string) => {
   const m: Record<string, any> = {
@@ -50,15 +46,10 @@ const errMsg = (err: any, fallback: string): string =>
 
 const emptyForm = {
   ShipmentNumber: '', FabricPONumber: '', FGPONumber: '', Supplier: '',
-  RollQty: 0, UOM: 'Yards', ShippedWeight: 0,
+    RollQty: 0, ShippedQuantity: 0, ShippedRolls: 0, UOM: 'Yards', ShippedWeight: 0,
   PackingList: '', InvoiceNumber: '', ContainerAWB: '', ShippingMethod: '',
   ETD: new Date().toISOString().split('T')[0], ETA: new Date().toISOString().split('T')[0],
   ShipmentStatus: 'Planned', DeliveredToTexnicaDate: '', DataOwnerId: 0, Remarks: '',
-};
-
-type RollRow = {
-  id: number; rollNumber: string; supplierRollNumber: string; receivingNumber: string;
-  actualYardage: number; actualWidth: number; netWeight: number; condition: string; receivedDate: string;
 };
 
 const FabricShipmentPage: React.FC = () => {
@@ -74,6 +65,7 @@ const FabricShipmentPage: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewItem, setViewItem] = useState<FabricShipment | null>(null);
   const [formError, setFormError] = useState('');
+  const [receivingPrompt, setReceivingPrompt] = useState<{ shipmentNumber: string; fabricPONumber: string; fgpoNumber: string; supplier: string } | null>(null);
 
   const { options: userList } = useUserOptions();
   const { catalogs } = useCatalogs();
@@ -113,6 +105,7 @@ const FabricShipmentPage: React.FC = () => {
       FabricPONumber: item.fabricPONumber ?? '', FGPONumber: item.fgpoNumber ?? '',
       Supplier: item.supplier ?? '',
       RollQty: item.rollQty,
+      ShippedQuantity: item.shippedQuantity, ShippedRolls: item.shippedRolls,
       UOM: item.uom || 'Yards', ShippedWeight: item.shippedWeight,
       PackingList: item.packingList ?? '', InvoiceNumber: item.invoiceNumber ?? '',
       ContainerAWB: item.containerAWB ?? '', ShippingMethod: item.shippingMethod ?? '',
@@ -149,9 +142,19 @@ const FabricShipmentPage: React.FC = () => {
         ETA: form.ETA ? new Date(form.ETA).toISOString() : new Date().toISOString(),
         DeliveredToTexnicaDate: form.DeliveredToTexnicaDate ? new Date(form.DeliveredToTexnicaDate).toISOString() : null,
       };
-      if (editingId) await update(editingId, payload);
-      else await create(payload);
-      setDialogOpen(false);
+      if (editingId) {
+        await update(editingId, payload);
+        setDialogOpen(false);
+      } else {
+        await create(payload);
+        setDialogOpen(false);
+        setReceivingPrompt({
+          shipmentNumber: form.ShipmentNumber.trim(),
+          fabricPONumber: form.FabricPONumber.trim(),
+          fgpoNumber: form.FGPONumber.trim(),
+          supplier: form.Supplier.trim(),
+        });
+      }
     } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
   };
 
@@ -162,7 +165,6 @@ const FabricShipmentPage: React.FC = () => {
   const navigate = useNavigate();
   const { options: styleOptions } = useStyleOptions();
   const { options: colorOptions } = useColorOptions();
-  const { options: receivingList } = useFabricReceivingOptions();
   const emptyLotForm = {
     LineNumber: '', LotNumber: '', StyleId: 0, ColorId: 0,
     FabricDescription: '', Width: '', GSM: '', ShippedRolls: '', ShippedYards: '',
@@ -177,27 +179,6 @@ const FabricShipmentPage: React.FC = () => {
   const [editingLotId, setEditingLotId] = useState<number | null>(null);
   const [lotSaving, setLotSaving] = useState(false);
   const [lotFormError, setLotFormError] = useState('');
-
-  const [rollsOpen, setRollsOpen] = useState(false);
-  const [rollsLot, setRollsLot] = useState<FabricShipmentLot | null>(null);
-  const [lotRolls, setLotRolls] = useState<RollRow[]>([]);
-  const [rollsLoading, setRollsLoading] = useState(false);
-  const [rollsError, setRollsError] = useState('');
-  const [allRolls, setAllRolls] = useState<RollRow[]>([]);
-  const [associateRollId, setAssociateRollId] = useState(0);
-  const [associateSaving, setAssociateSaving] = useState(false);
-
-  // ── Creación de rollo desde el lote (Recepción editable, preseleccionada) ──
-  const emptyRollForm = {
-    ReceivingId: 0, RollNumber: '', SupplierRollNumber: '',
-    GrossWeight: 0, NetWeight: 0, ActualYardage: 0, ActualWidth: 0, ActualGSM: 0,
-    ShadeGroup: '', DamagedQty: 0, Condition: 'Good',
-    WarehouseLocation: '', ReceivedDate: new Date().toISOString().split('T')[0], Comments: '',
-  };
-  const [newRollOpen, setNewRollOpen] = useState(false);
-  const [newRollForm, setNewRollForm] = useState(emptyRollForm);
-  const [newRollError, setNewRollError] = useState('');
-  const [newRollSaving, setNewRollSaving] = useState(false);
 
   const mapLot = (raw: any): FabricShipmentLot => ({
     id: raw.id ?? raw.ID,
@@ -320,125 +301,16 @@ const FabricShipmentPage: React.FC = () => {
     }
   };
 
-  const mapRollRow = (raw: any): RollRow => ({
-    id: raw.id ?? raw.ID ?? 0,
-    rollNumber: raw.rollNumber ?? raw.RollNumber ?? '',
-    supplierRollNumber: raw.supplierRollNumber ?? raw.SupplierRollNumber ?? '',
-    receivingNumber: raw.receivingNumber ?? raw.ReceivingNumber ?? '',
-    actualYardage: raw.actualYardage ?? raw.ActualYardage ?? 0,
-    actualWidth: raw.actualWidth ?? raw.ActualWidth ?? 0,
-    netWeight: raw.netWeight ?? raw.NetWeight ?? 0,
-    condition: raw.condition ?? raw.Condition ?? '',
-    receivedDate: raw.receivedDate ?? raw.ReceivedDate ?? '',
-  });
-
-  const openLotRolls = async (lot: FabricShipmentLot) => {
-    setRollsLot(lot);
-    setRollsError('');
-    setAssociateRollId(0);
-    setRollsOpen(true);
-    setRollsLoading(true);
-    try {
-      const [lotRes, allRes] = await Promise.all([
-        fabricShipmentLotsApi.getRolls(lot.id),
-        rollReceivingsApi.getAll(),
-      ]);
-      setLotRolls((lotRes.data ?? []).map(mapRollRow));
-      setAllRolls((allRes.data ?? []).map(mapRollRow));
-    } catch (err: any) {
-      setRollsError(errMsg(err, 'No se pudieron cargar los rollos.'));
-    } finally {
-      setRollsLoading(false);
-    }
-  };
-
-  const handleAssociateRoll = async () => {
-    if (!rollsLot || !associateRollId) return;
-    setAssociateSaving(true);
-    setRollsError('');
-    try {
-      await fabricShipmentLotsApi.associateRoll(rollsLot.id, associateRollId);
-      setAssociateRollId(0);
-      const res = await fabricShipmentLotsApi.getRolls(rollsLot.id);
-      setLotRolls((res.data ?? []).map(mapRollRow));
-      if (lotsShipment) await loadLots(lotsShipment.id);
-    } catch (err: any) {
-      setRollsError(errMsg(err, 'No se pudo asociar el rollo.'));
-    } finally {
-      setAssociateSaving(false);
-    }
-  };
-
-  const handleUnlinkRoll = async (rollId: number) => {
-    if (!rollsLot) return;
-    try {
-      await fabricShipmentLotsApi.unlinkRoll(rollsLot.id, rollId);
-      const res = await fabricShipmentLotsApi.getRolls(rollsLot.id);
-      setLotRolls((res.data ?? []).map(mapRollRow));
-      if (lotsShipment) await loadLots(lotsShipment.id);
-    } catch (err: any) {
-      setRollsError(errMsg(err, 'No se pudo retirar el rollo.'));
-    }
-  };
-
-  // ── Crear rollo desde el lote (Recepción editable, preseleccionada) ──
-  const openNewRoll = () => {
-    if (!rollsLot || !lotsShipment) return;
-    const match = receivingList.find(r =>
-      (lotsShipment.fgpoNumber && r.fgpoNumber && r.fgpoNumber === lotsShipment.fgpoNumber) ||
-      (lotsShipment.fabricPONumber && r.fabricPONumber && r.fabricPONumber === lotsShipment.fabricPONumber)
-    );
-    setNewRollError('');
-    setNewRollForm({ ...emptyRollForm, ReceivingId: match?.id ?? 0 });
-    setNewRollOpen(true);
-  };
-
-  const goToReceiving = () => {
-    const sn = lotsShipment?.shipmentNumber || '';
-    setNewRollOpen(false);
-    setRollsOpen(false);
-    setLotsOpen(false);
-    navigate(`/fabric-receiving?shipmentNumber=${encodeURIComponent(sn)}`);
-  };
-
-  const handleNewRollSave = async () => {
-    setNewRollError('');
-    if (!newRollForm.ReceivingId) { setNewRollError('Seleccione la Recepción de tela.'); return; }
-    if (!newRollForm.RollNumber.trim()) { setNewRollError('Roll Number es obligatorio.'); return; }
-    const negField = firstNegativeField([
-      { name: 'Gross Weight', value: newRollForm.GrossWeight },
-      { name: 'Net Weight', value: newRollForm.NetWeight },
-      { name: 'Actual Yardage', value: newRollForm.ActualYardage },
-      { name: 'Actual Width', value: newRollForm.ActualWidth },
-      { name: 'Actual GSM', value: newRollForm.ActualGSM },
-      { name: 'Damaged Qty', value: newRollForm.DamagedQty },
-    ]);
-    if (negField) { setNewRollError(`${negField} no puede ser negativo.`); return; }
-    setNewRollSaving(true);
-    try {
-      const payload = {
-        ...newRollForm,
-        DataOwnerId: null,
-        ReceivedDate: newRollForm.ReceivedDate ? new Date(newRollForm.ReceivedDate).toISOString() : new Date().toISOString(),
-      };
-      const res = await rollReceivingsApi.create(payload);
-      const newId = res.data?.id ?? res.data?.ID;
-      if (rollsLot && newId) {
-        await fabricShipmentLotsApi.associateRoll(rollsLot.id, newId);
-      }
-      setNewRollOpen(false);
-      if (rollsLot) {
-        const r = await fabricShipmentLotsApi.getRolls(rollsLot.id);
-        setLotRolls((r.data ?? []).map(mapRollRow));
-      }
-      const all = await rollReceivingsApi.getAll();
-      setAllRolls((all.data ?? []).map(mapRollRow));
-      if (lotsShipment) await loadLots(lotsShipment.id);
-    } catch (err: any) {
-      setNewRollError(errMsg(err, 'Error al crear el rollo.'));
-    } finally {
-      setNewRollSaving(false);
-    }
+  const goToReceivingFromPrompt = () => {
+    if (!receivingPrompt) return;
+    const params = new URLSearchParams({
+      shipmentNumber: receivingPrompt.shipmentNumber,
+      supplier: receivingPrompt.supplier,
+      fabricPONumber: receivingPrompt.fabricPONumber,
+      fgpoNumber: receivingPrompt.fgpoNumber,
+    });
+    setReceivingPrompt(null);
+    navigate(`/fabric-receiving?${params.toString()}`);
   };
 
   return (
@@ -493,16 +365,16 @@ const FabricShipmentPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Shipment #', 'Fabric PO', 'FGPO', 'Shipped Qty', 'In Transit', 'Remaining', 'ETD', 'Status', 'Actions'].map(h =>
+                {['Shipment #', 'Fabric PO', 'FGPO', 'Shipped Qty', 'Shipped Rolls', 'In Transit', 'Remaining', 'ETD', 'Status', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No shipments found</Typography>
                   <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first shipment</Button>
                 </TableCell></TableRow>
@@ -512,6 +384,7 @@ const FabricShipmentPage: React.FC = () => {
                   <TableCell>{item.fabricPONumber}</TableCell>
                   <TableCell>{item.fgpoNumber}</TableCell>
                   <TableCell>{Number(item.shippedQuantity).toLocaleString()} {item.uom}</TableCell>
+                  <TableCell>{Number(item.shippedRolls).toLocaleString()}</TableCell>
                   <TableCell>
                     <Chip label={Number(item.inTransitQuantity).toLocaleString()} size="small"
                       color={item.inTransitQuantity > 0 ? 'warning' : 'success'}
@@ -571,13 +444,13 @@ const FabricShipmentPage: React.FC = () => {
 
             {/* ── Shipment Quantities ── */}
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Shipment Quantities</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Roll Quantity" type="number" value={form.RollQty || ''} onChange={e => setF('RollQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Quantity (auto)" value="" disabled helperText="Calculado desde los lotes" /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Rolls" type="number" value={form.RollQty || ''} onChange={e => setF('RollQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Quantity (auto)" value={form.ShippedQuantity || 0} disabled helperText="Calculado desde los lotes" /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Rolls (auto)" value={form.ShippedRolls || 0} disabled helperText="Calculado desde los lotes" /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Weight" type="number" value={form.ShippedWeight || ''} onChange={e => setF('ShippedWeight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
 
             {/* ── Documents & Container ── */}
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Documents & Container</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Packing List" value={form.PackingList} onChange={e => setF('PackingList', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Invoice Number" value={form.InvoiceNumber} onChange={e => setF('InvoiceNumber', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Container / AWB" value={form.ContainerAWB} onChange={e => setF('ContainerAWB', e.target.value)} /></Grid>
 
@@ -689,7 +562,6 @@ const FabricShipmentPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" color="primary" title="Rollos" onClick={() => openLotRolls(lot)}><AllInboxIcon fontSize="small" /></IconButton>
                         <IconButton size="small" color="info" onClick={() => openLotEdit(lot)}><EditIcon fontSize="small" /></IconButton>
                         <IconButton size="small" color="error" onClick={() => handleLotDelete(lot)}><DeleteIcon fontSize="small" /></IconButton>
                       </TableCell>
@@ -701,152 +573,6 @@ const FabricShipmentPage: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setLotsOpen(false)}>Close</Button></DialogActions>
-      </Dialog>
-
-      {/* Rolls Dialog */}
-      <Dialog open={rollsOpen} onClose={() => setRollsOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Rollos del lote — {rollsLot?.lotNumber || ''}</DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          {rollsError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRollsError('')}>{rollsError}</Alert>}
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
-            <FormControl size="small" sx={{ minWidth: 280, flex: 1 }}>
-              <InputLabel>Asociar rollo existente</InputLabel>
-              <Select value={associateRollId || ''} label="Asociar rollo existente" onChange={e => setAssociateRollId(Number(e.target.value))}>
-                <MenuItem value=""><em>Seleccione un rollo...</em></MenuItem>
-                {allRolls.filter(r => !lotRolls.some(lr => lr.id === r.id)).map(r => (
-                  <MenuItem key={r.id} value={r.id}>{r.rollNumber || `Rollo ${r.id}`} — {r.receivingNumber}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button variant="contained" size="small" disabled={!associateRollId || associateSaving} onClick={handleAssociateRoll}>
-              {associateSaving ? 'Asociando...' : 'Asociar'}
-            </Button>
-            <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={openNewRoll}>Nuevo rollo</Button>
-          </Box>
-          {rollsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
-          ) : lotRolls.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              Este lote no tiene rollos asociados todavía.
-            </Typography>
-          ) : (
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                    {['Roll #', 'Supplier Roll #', 'Receiving', 'Yardage', 'Width', 'Net Wt', 'Condition', 'Received', 'Actions'].map(h =>
-                      <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1 }}>{h}</TableCell>)}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {lotRolls.map(r => (
-                    <TableRow key={r.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{r.rollNumber || '-'}</TableCell>
-                      <TableCell>{r.supplierRollNumber || '-'}</TableCell>
-                      <TableCell>{r.receivingNumber || '-'}</TableCell>
-                      <TableCell>{Number(r.actualYardage).toLocaleString()}</TableCell>
-                      <TableCell>{Number(r.actualWidth).toLocaleString()}</TableCell>
-                      <TableCell>{Number(r.netWeight).toLocaleString()}</TableCell>
-                      <TableCell><Chip label={r.condition || 'N/A'} size="small" color={sc(r.condition ?? '')} variant="outlined" /></TableCell>
-                      <TableCell>{fmt(r.receivedDate)}</TableCell>
-                      <TableCell>
-                        <IconButton size="small" color="error" title="Retirar del lote" onClick={() => handleUnlinkRoll(r.id)}><DeleteIcon fontSize="small" /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-        <DialogActions><Button onClick={() => setRollsOpen(false)}>Close</Button></DialogActions>
-      </Dialog>
-
-      {/* Nuevo rollo (desde el lote) */}
-      <Dialog open={newRollOpen} onClose={() => setNewRollOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Nuevo rollo — {rollsLot?.lotNumber || ''}</DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          {newRollError && <Alert severity="error" sx={{ mb: 2 }}>{newRollError}</Alert>}
-          {newRollForm.ReceivingId === 0 ? (
-            <Box sx={{ py: 2 }}>
-              <Typography variant="body1" sx={{ mb: 1 }}>
-                Este embarque aún no tiene una Recepción de tela registrada. Regístrala primero para poder ingresar los rollos.
-              </Typography>
-              <Button variant="contained" onClick={goToReceiving}>Ir a Recepción</Button>
-            </Box>
-          ) : (
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Recepción de tela *</InputLabel>
-                  <Select value={newRollForm.ReceivingId || ''} label="Recepción de tela *" onChange={e => setNewRollForm(prev => ({ ...prev, ReceivingId: Number(e.target.value) }))}>
-                    {receivingList.map(r => <MenuItem key={r.id} value={r.id}>{r.label}{r.supplier ? ` — ${r.supplier}` : ''}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField fullWidth size="small" label="Roll Number *" value={newRollForm.RollNumber} onChange={e => setNewRollForm(prev => ({ ...prev, RollNumber: e.target.value }))} required />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField fullWidth size="small" label="Supplier Roll Number" value={newRollForm.SupplierRollNumber} onChange={e => setNewRollForm(prev => ({ ...prev, SupplierRollNumber: e.target.value }))} />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField fullWidth size="small" label="Received Date" type="date" value={newRollForm.ReceivedDate} onChange={e => setNewRollForm(prev => ({ ...prev, ReceivedDate: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField fullWidth size="small" label="Gross Weight" type="number" value={newRollForm.GrossWeight || ''} onChange={e => setNewRollForm(prev => ({ ...prev, GrossWeight: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField fullWidth size="small" label="Net Weight" type="number" value={newRollForm.NetWeight || ''} onChange={e => setNewRollForm(prev => ({ ...prev, NetWeight: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField fullWidth size="small" label="Actual Yardage" type="number" value={newRollForm.ActualYardage || ''} onChange={e => setNewRollForm(prev => ({ ...prev, ActualYardage: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField fullWidth size="small" label="Actual Width" type="number" value={newRollForm.ActualWidth || ''} onChange={e => setNewRollForm(prev => ({ ...prev, ActualWidth: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField fullWidth size="small" label="Actual GSM" type="number" value={newRollForm.ActualGSM || ''} onChange={e => setNewRollForm(prev => ({ ...prev, ActualGSM: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Condition</InputLabel>
-                  <Select value={newRollForm.Condition} label="Condition" onChange={e => setNewRollForm(prev => ({ ...prev, Condition: e.target.value }))}>
-                    {DEFAULT_CONDITIONS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Shade Group</InputLabel>
-                  <Select value={newRollForm.ShadeGroup} label="Shade Group" onChange={e => setNewRollForm(prev => ({ ...prev, ShadeGroup: e.target.value }))}>
-                    <MenuItem value=""><em>Sin grupo</em></MenuItem>
-                    {DEFAULT_SHADE_GROUPS.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
-                <TextField fullWidth size="small" label="Damaged Qty" type="number" value={newRollForm.DamagedQty || ''} onChange={e => setNewRollForm(prev => ({ ...prev, DamagedQty: Number(e.target.value) }))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField fullWidth size="small" label="Warehouse Location" value={newRollForm.WarehouseLocation} onChange={e => setNewRollForm(prev => ({ ...prev, WarehouseLocation: e.target.value }))} />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField fullWidth size="small" label="Comments" value={newRollForm.Comments} onChange={e => setNewRollForm(prev => ({ ...prev, Comments: e.target.value }))} multiline rows={2} />
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        {newRollForm.ReceivingId !== 0 && (
-          <DialogActions>
-            <Button onClick={() => setNewRollOpen(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleNewRollSave} disabled={newRollSaving} startIcon={newRollSaving ? <CircularProgress size={18} /> : null}>
-              {newRollSaving ? 'Guardando...' : 'Crear rollo'}
-            </Button>
-          </DialogActions>
-        )}
       </Dialog>
 
       {/* Lot Add/Edit Dialog */}
@@ -901,6 +627,21 @@ const FabricShipmentPage: React.FC = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Prompt: registrar Recepción tras crear un embarque */}
+      <Dialog open={!!receivingPrompt} onClose={() => setReceivingPrompt(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Registrar Recepción de tela</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            El embarque <strong>{receivingPrompt?.shipmentNumber}</strong> fue creado. ¿Deseas registrar ahora su Recepción de tela?
+            Se prellenará el Shipment Number y los datos del embarque.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReceivingPrompt(null)}>Más tarde</Button>
+          <Button variant="contained" onClick={goToReceivingFromPrompt}>Crear Recepción</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

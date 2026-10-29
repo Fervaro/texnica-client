@@ -14,6 +14,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { usePackingControls } from '../../hooks/packingControls/usePackingControls';
+import PackingBulkGrid from '../../components/PackingBulkGrid';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { PackingControl } from '../../types';
@@ -22,7 +23,7 @@ const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],
   FGPOId: 0,
   QcPassedQty: 0, ReceivedByPackingQty: 0, FoldedQty: 0, PolybaggedQty: 0, PackedQty: 0,
-  PcsPerCarton: 0,
+  PcsPerCarton: 0, Cajas: 0,
   ResponsiblePersonId: 0, Remarks: '',
 };
 
@@ -44,13 +45,12 @@ const PackingControlPage: React.FC = () => {
   const { options: userList } = useUserOptions();
 
   const [form, setForm] = useState(emptyForm);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
-  const resetForm = () => setForm(emptyForm);
-
-  const openCreate = () => { setEditingId(null); resetForm(); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => { setBulkOpen(true); };
   const openEdit = (item: PackingControl) => {
     setEditingId(item.id);
     setForm({
@@ -59,6 +59,7 @@ const PackingControlPage: React.FC = () => {
       QcPassedQty: item.qcPassedQty, ReceivedByPackingQty: item.receivedByPackingQty,
       FoldedQty: item.foldedQty, PolybaggedQty: item.polybaggedQty, PackedQty: item.packedQty,
       PcsPerCarton: item.pcsPerCarton,
+      Cajas: item.pcsPerCarton > 0 ? item.packedQty / item.pcsPerCarton : 0,
       ResponsiblePersonId: userList.find(o => o.label === item.responsiblePersonName)?.id ?? 0,
       Remarks: item.remarks ?? '',
     });
@@ -198,22 +199,33 @@ const PackingControlPage: React.FC = () => {
               <TextField fullWidth size="small" label="Packing Date *" type="date" value={form.PackingDate} onChange={e => setF('PackingDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="QC Passed Qty" type="number" value={form.QcPassedQty} onChange={e => setF('QcPassedQty', Number(e.target.value))} />
+              <TextField
+                fullWidth size="small" label="Cajas *" type="number"
+                value={form.Cajas || ''}
+                onChange={e => {
+                  const cajas = Number(e.target.value);
+                  setForm(prev => ({ ...prev, Cajas: cajas, PackedQty: cajas * Number(prev.PcsPerCarton) }));
+                }}
+                slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Received by Packing" type="number" value={form.ReceivedByPackingQty} onChange={e => setF('ReceivedByPackingQty', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="QC Passed Qty" type="number" value={form.QcPassedQty} disabled helperText="Deshabilitado" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Folded Qty" type="number" value={form.FoldedQty} onChange={e => setF('FoldedQty', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Received by Packing" type="number" value={form.ReceivedByPackingQty} disabled helperText="Deshabilitado" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Polybagged Qty" type="number" value={form.PolybaggedQty} onChange={e => setF('PolybaggedQty', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Folded Qty" type="number" value={form.FoldedQty} disabled helperText="Deshabilitado" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} onChange={e => setF('PackedQty', Number(e.target.value))} />
+              <TextField fullWidth size="small" label="Polybagged Qty" type="number" value={form.PolybaggedQty} disabled helperText="Deshabilitado" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Pcs per Carton *" type="number" value={form.PcsPerCarton} onChange={e => setF('PcsPerCarton', Number(e.target.value))} required />
+              <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} disabled helperText="Auto: Qty/Box × cajas" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <TextField fullWidth size="small" label="Pcs per Carton *" type="number" value={form.PcsPerCarton} disabled helperText="Auto: Qty/Box" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
@@ -272,6 +284,15 @@ const PackingControlPage: React.FC = () => {
         </DialogContent>
         <DialogActions><Button onClick={() => setViewOpen(false)}>Close</Button></DialogActions>
       </Dialog>
+
+      <PackingBulkGrid
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        title="Nuevo registro de empaque"
+        fgpoOptions={fgpoList.map((f: any) => ({ id: f.id, label: f.label, style: f.meta?.style, color: f.meta?.color }))}
+        userOptions={userList}
+        onSaved={async () => { setBulkOpen(false); refresh(); }}
+      />
     </Box>
   );
 };

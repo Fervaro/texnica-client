@@ -10,6 +10,7 @@ const mapFabricShipment = (raw: any): FabricShipment => ({
   supplier: raw.supplier ?? raw.Supplier ?? null,
   rollQty: raw.rollQty ?? raw.RollQty ?? 0,
   shippedQuantity: raw.shippedQuantity ?? raw.ShippedQuantity ?? 0,
+  shippedRolls: raw.shippedRolls ?? raw.ShippedRolls ?? 0,
   uom: raw.uom ?? raw.UOM ?? '',
   shippedWeight: raw.shippedWeight ?? raw.ShippedWeight ?? 0,
   packingList: raw.packingList ?? raw.PackingList ?? '',

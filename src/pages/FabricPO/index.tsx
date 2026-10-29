@@ -437,7 +437,20 @@ const FabricPO: React.FC = () => {
               {items.map(item => (
                 <TableRow key={item.id} hover>
                   <TableCell>{item.id}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{item.fabricPONumber}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    {item.lines.some(l => l.allowOverPurchase) && (
+                      <Tooltip title="Tiene líneas con sobrecompra">
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'inline-block', width: 8, height: 8, mr: 0.75,
+                            borderRadius: '50%', bgcolor: 'error.main', verticalAlign: 'middle',
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                    {item.fabricPONumber}
+                  </TableCell>
                   <TableCell>{renderFgpos(item)}</TableCell>
                   <TableCell>{item.supplierName || '-'}</TableCell>
                   <TableCell>{item.componentSummary || '-'}</TableCell>
