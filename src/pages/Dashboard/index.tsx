@@ -207,7 +207,7 @@ const Dashboard: React.FC = () => {
           {tab === 0 ? 'TEXNICA PRODUCTION CONTROL SYSTEM - MASTER DASHBOARD' : 'TEXNICA TPCS 1.0 - FGPO & FABRIC CONTROL DASHBOARD'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Visibilidad de órdenes de cliente desde desarrollo de material hasta embarque. Resumen automático por FGPO.
+          Visibilidad de órdenes de cliente desde desarrollo de material hasta embarque. Resumen automático por FGPO. · v0.0.3-test
         </Typography>
       </Box>
 
