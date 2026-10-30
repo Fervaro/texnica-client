@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, FormControl, InputLabel, MenuItem, Paper, Select,
@@ -25,6 +25,7 @@ export interface RollRowDraft {
   rollNumber: string;
   supplierRollNumber: string;
   lotNumber: string;
+  shipmentLotId: number | null;
   grossWeight: string;
   netWeight: string;
   actualYardage: string;
@@ -49,6 +50,8 @@ interface RollBulkGridProps {
   defaultCondition?: string;
   /** Lote predefinido para cada fila nueva (p. ej. al crear desde un lote de embarque). */
   lotNumberPreset?: string;
+  /** Número inicial sugerido para Roll Number (continúa la numeración existente). */
+  rollNumberStart?: number;
   /** Callback mostrado cuando no hay ninguna Recepción disponible. */
   onGoToReceiving?: () => void;
   onSaved: (createdIds: number[]) => void | Promise<void>;
@@ -68,11 +71,12 @@ const NEGATIVE_FIELDS: { key: keyof RollRowDraft; name: string }[] = [
 ];
 
 /** Crea una fila de rollo vacía (para grids embebidas). */
-export const newRollRow = (opts: { lotNumber?: string; condition?: string; warehouseLocation?: string } = {}): RollRowDraft => ({
+export const newRollRow = (opts: { lotNumber?: string; shipmentLotId?: number | null; condition?: string; warehouseLocation?: string } = {}): RollRowDraft => ({
   key: newKey(),
   rollNumber: '',
   supplierRollNumber: '',
   lotNumber: opts.lotNumber ?? '',
+  shipmentLotId: opts.shipmentLotId ?? null,
   grossWeight: '',
   netWeight: '',
   actualYardage: '',
@@ -107,7 +111,7 @@ export const validateRollRows = (rows: RollRowDraft[]): string => {
 export const buildRollsPayload = (receivingId: number, rows: RollRowDraft[], receivedDate: string, shipmentLotId?: number | null) => ({
   rolls: rows.map(r => ({
     receivingId,
-    shipmentLotId: shipmentLotId ?? null,
+    shipmentLotId: r.shipmentLotId ?? shipmentLotId ?? null,
     lotNumber: r.lotNumber || null,
     rollNumber: r.rollNumber.trim(),
     supplierRollNumber: r.supplierRollNumber || null,
@@ -148,6 +152,8 @@ interface RollGridRowProps {
   isOnlyRow: boolean;
   lockLot: boolean;
   lockRollNumber: boolean;
+  lotOptions?: { id: number; lotNumber: string }[];
+  onLotChange: (key: string, lotId: number) => void;
   shadeOptions: string[];
   conditionOptions: string[];
   onChange: (key: string, patch: Partial<RollRowDraft>) => void;
@@ -160,7 +166,7 @@ interface RollGridRowProps {
  * cuando cambia su propia fila (o su flag de duplicado).
  */
 const RollGridRow = React.memo(function RollGridRow({
-  row, index, duplicate, isOnlyRow, lockLot, lockRollNumber, shadeOptions, conditionOptions, onChange, onRemove,
+  row, index, duplicate, isOnlyRow, lockLot, lockRollNumber, lotOptions, onLotChange, shadeOptions, conditionOptions, onChange, onRemove,
 }: RollGridRowProps) {
   const rollErr = !row.rollNumber.trim() || duplicate;
   const set = (patch: Partial<RollRowDraft>) => onChange(row.key, patch);
@@ -184,7 +190,12 @@ const RollGridRow = React.memo(function RollGridRow({
         <input style={cellStyle} value={row.supplierRollNumber} onChange={e => set({ supplierRollNumber: e.target.value })} />
       </TableCell>
       <TableCell sx={{ p: 0.5 }}>
-        {lockLot ? (
+        {lotOptions && lotOptions.length > 0 ? (
+          <select style={cellStyle} value={row.shipmentLotId ?? ''} onChange={e => onLotChange(row.key, Number(e.target.value) || 0)}>
+            <option value="">—</option>
+            {lotOptions.map(l => <option key={l.id} value={l.id}>{l.lotNumber}</option>)}
+          </select>
+        ) : lockLot ? (
           <Typography variant="body2" sx={{ px: 1, fontWeight: 600 }}>{row.lotNumber || '-'}</Typography>
         ) : (
           <input style={cellStyle} value={row.lotNumber} onChange={e => set({ lotNumber: e.target.value })} />
@@ -249,11 +260,13 @@ interface RollGridTableProps {
   autoRollNumber?: boolean;
   /** Si es true, la columna de Lote es de solo lectura (lote fijo desde el embarque). */
   lockLot?: boolean;
+  /** Lotes disponibles del embarque para asignar uno distinto por fila. */
+  lotOptions?: { id: number; lotNumber: string }[];
 }
 
 /** Grid de rollos reutilizable (controlada): filas nativas + controles de agregar. */
 export const RollGridTable: React.FC<RollGridTableProps> = ({
-  rows, onChange, shadeOptions, conditionOptions, makeRow, maxHeight = 420, autoRollNumber = false, lockLot = false,
+  rows, onChange, shadeOptions, conditionOptions, makeRow, maxHeight = 420, autoRollNumber = false, lockLot = false, lotOptions,
 }) => {
   const [addCount, setAddCount] = useState(1);
 
@@ -264,6 +277,13 @@ export const RollGridTable: React.FC<RollGridTableProps> = ({
   const handleRowChange = useCallback((key: string, patch: Partial<RollRowDraft>) => {
     onChange(rows.map(r => (r.key === key ? { ...r, ...patch } : r)));
   }, [rows, onChange]);
+
+  const handleLotChange = useCallback((key: string, lotId: number) => {
+    const lot = lotId ? lotOptions?.find(l => l.id === lotId) : undefined;
+    onChange(rows.map(r => (r.key === key
+      ? { ...r, shipmentLotId: lotId || null, lotNumber: lot?.lotNumber ?? '' }
+      : r)));
+  }, [rows, onChange, lotOptions]);
 
   const handleRowRemove = useCallback((key: string) => {
     if (rows.length > 1) onChange(renumber(rows.filter(r => r.key !== key)));
@@ -313,6 +333,8 @@ export const RollGridTable: React.FC<RollGridTableProps> = ({
                 isOnlyRow={rows.length <= 1}
                 lockLot={lockLot}
                 lockRollNumber={autoRollNumber}
+                lotOptions={lotOptions}
+                onLotChange={handleLotChange}
                 shadeOptions={shadeOptions}
                 conditionOptions={conditionOptions}
                 onChange={handleRowChange}
@@ -331,13 +353,16 @@ export const RollGridTable: React.FC<RollGridTableProps> = ({
 
 const RollBulkGrid: React.FC<RollBulkGridProps> = ({
   open, onClose, title, receivingId = 0, receivingList, conditionOptions, shadeOptions,
-  defaultCondition = 'Good', lotNumberPreset = '', onGoToReceiving, onSaved,
+  defaultCondition = 'Good', lotNumberPreset = '', rollNumberStart, onGoToReceiving, onSaved,
 }) => {
   const [receivingIdState, setReceivingIdState] = useState(receivingId);
   const [receivedDate, setReceivedDate] = useState(today());
   const [rows, setRows] = useState<RollRowDraft[]>([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Contador de Roll Number para continuar la numeración existente.
+  const rollSeqRef = useRef(rollNumberStart ?? 1);
 
   const selectedReceiving = useMemo(
     () => receivingList.find(r => r.id === receivingIdState),
@@ -346,9 +371,10 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
 
   const makeRow = (warehouse?: string): RollRowDraft => ({
     key: newKey(),
-    rollNumber: '',
+    rollNumber: rollNumberStart != null ? String(rollSeqRef.current++) : '',
     supplierRollNumber: '',
     lotNumber: lotNumberPreset,
+    shipmentLotId: null,
     grossWeight: '',
     netWeight: '',
     actualYardage: '',
@@ -368,6 +394,7 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
       setReceivedDate(today());
       setError('');
       setSaving(false);
+      rollSeqRef.current = rollNumberStart ?? 1;
       const rec = receivingList.find(r => r.id === receivingId);
       setRows([makeRow(rec?.warehouseLocation)]);
     }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select,
@@ -7,9 +7,9 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { rollReceivingsApi } from '../utils/api';
+import { rollReceivingsApi, fabricReceivingsApi } from '../utils/api';
 import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../utils/validation';
-import RollBulkGrid from './RollBulkGrid';
+import RollBulkGrid, { type RollBulkReceivingOption } from './RollBulkGrid';
 import type { RollReceiving } from '../types';
 
 const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
@@ -41,6 +41,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
   const [error, setError] = useState('');
 
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [receivingMeta, setReceivingMeta] = useState<RollBulkReceivingOption | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -52,19 +53,43 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
     setLoading(true);
     setError('');
     try {
-      const res = await rollReceivingsApi.getByReceiving(receivingId);
-      setRolls(res.data ?? []);
+      const [rollsRes, metaRes] = await Promise.all([
+        rollReceivingsApi.getByReceiving(receivingId),
+        fabricReceivingsApi.getById(receivingId).catch(() => null),
+      ]);
+      setRolls(rollsRes.data ?? []);
+      const m = metaRes?.data ?? {};
+      setReceivingMeta({
+        id: receivingId,
+        label: receivingNumber,
+        supplier: m.supplierName ?? m.SupplierName ?? m.supplier ?? m.Supplier ?? '',
+        warehouseLocation: m.warehouseLocation ?? m.WarehouseLocation ?? '',
+        fabricPONumber: m.fabricPONumber ?? m.FabricPONumber ?? '',
+        fgpoNumber: m.fgpoNumber ?? m.FGPONumber ?? '',
+        customerName: m.customerName ?? m.CustomerName ?? '',
+      });
     } catch (err: any) {
       setError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los rollos.');
     } finally {
       setLoading(false);
     }
-  }, [receivingId]);
+  }, [receivingId, receivingNumber]);
 
   useEffect(() => {
     if (open) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, receivingId]);
+
+  // Lote existente y siguiente número de rollo para prellenar el alta masiva.
+  const existingLot = useMemo(() => rolls.find(r => r.lotNumber)?.lotNumber ?? '', [rolls]);
+  const nextRollNumber = useMemo(() => {
+    let max = 0;
+    for (const r of rolls) {
+      const n = Number(r.rollNumber);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return max + 1;
+  }, [rolls]);
 
   const openEdit = (r: RollReceiving) => {
     setEditId(r.id);
@@ -199,9 +224,11 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
         onClose={() => setBulkOpen(false)}
         title={`Agregar rollos — ${receivingNumber}`}
         receivingId={receivingId}
-        receivingList={[{ id: receivingId, label: receivingNumber }]}
+        receivingList={receivingMeta ? [receivingMeta] : [{ id: receivingId, label: receivingNumber }]}
         conditionOptions={DEFAULT_CONDITIONS}
         shadeOptions={DEFAULT_SHADE_GROUPS}
+        lotNumberPreset={existingLot}
+        rollNumberStart={nextRollNumber}
         onSaved={async () => { setBulkOpen(false); await load(); }}
       />
 

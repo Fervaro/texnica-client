@@ -47,3 +47,16 @@ export interface CreateFabricShipmentInput {
   dataOwner?: string;
   remarks?: string;
 }
+
+// Fila de la vista "Control de Tela" (mezcla embarque + recepción por FGPO)
+export interface FabricControlTela {
+  fgpoNumber: string;
+  color?: string | null;
+  fabricDescription?: string | null;
+  shippedYards: number;
+  receivedYards: number;
+  pendingYards: number;
+  receivedRolls: number;
+  status?: string | null;
+  date: string;
+}

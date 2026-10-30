@@ -14,6 +14,9 @@ export interface RollReceiving {
   lotId?: number;
   shipmentLotId?: number;
   shipmentLotNumber?: string;
+  fabricDescription?: string;
+  shippedYards?: number;
+  receivingStatus?: string;
   rollNumber?: string;
   supplierRollNumber?: string;
   color?: string;

@@ -195,6 +195,7 @@ export const millTestsApi = {
 export const fabricShipmentsApi = {
   getAll: () => api.get('/fabric-shipments'),
   getTotals: () => api.get('/fabric-shipments/totals'),
+  getControlTela: () => api.get('/fabric-shipments/control-tela'),
   getById: (id: number) => api.get(`/fabric-shipments/${id}`),
   getByFabricPO: (fabricPONumber: string) => api.get(`/fabric-shipments/fabric-po/${encodeURIComponent(fabricPONumber)}`),
   getByFgpo: (fgpoNumber: string) => api.get(`/fabric-shipments/fgpo/${encodeURIComponent(fgpoNumber)}`),
@@ -206,6 +207,7 @@ export const fabricShipmentsApi = {
 
 // Fabric Shipment Lots API
 export const fabricShipmentLotsApi = {
+  getAll: () => api.get('/fabric-shipment-lots'),
   getByShipment: (shipmentId: number) => api.get(`/fabric-shipments/${shipmentId}/lots`),
   getById: (id: number) => api.get(`/fabric-shipment-lots/${id}`),
   create: (data: any) => api.post('/fabric-shipment-lots', data),

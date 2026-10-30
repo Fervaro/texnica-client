@@ -1,70 +1,87 @@
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent, useMemo } from 'react';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, TextField, Paper, Chip, CircularProgress, Alert,
-  IconButton, InputAdornment, TablePagination, Grid
+  Box, Typography, Button, TextField, Paper, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, IconButton, InputAdornment,
+  CircularProgress, Alert, Chip
 } from '@mui/material';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useFabricReceivings } from '../../hooks/fabricReceivings/useFabricReceivings';
-import { FabricReceiving } from '../../types';
-import { fabricInventoriesApi } from '../../utils/api';
+import { fabricShipmentsApi } from '../../utils/api';
+import ModuleTotalsBar from '../../components/ModuleTotalsBar';
+import { FabricControlTela } from '../../types';
 
-const sc = (s: string) => {
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
+const fmtNum = (v: number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const fmtDate = (v?: string) => v?.split('T')[0] || '-';
+
+const statusColor = (s: string) => {
   const m: Record<string, any> = {
-    'Fully Received': 'success', 'Partially Received': 'warning',
-    Pending: 'default', 'Quantity Difference': 'error', Rejected: 'error',
+    'Fully Received': 'success',
+    'Partially Received': 'warning',
+    'Pending': 'info',
+    'In Transit': 'primary',
   };
   return m[s] ?? 'default';
 };
 
-const fmt = (d?: string) => (d ? new Date(d).toLocaleDateString('es-MX') : '-');
-
 const FabricInventoryPage: React.FC = () => {
-  const {
-    items, loading, error, page, rowsPerPage, totalCount,
-    setPage, setRowsPerPage, setSearchQuery, setError, refresh,
-  } = useFabricReceivings();
-
   const [searchInput, setSearchInput] = useState('');
+  const [rows, setRows] = useState<FabricControlTela[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
-  const [totals, setTotals] = useState({ received: 0, physical: 0, pendingTransit: 0, totalControlled: 0, available: 0, reserved: 0, damaged: 0, rolls: 0 });
-  const [totalsError, setTotalsError] = useState('');
+  const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0 });
 
-  // Totales consolidados desde el backend (rollos + movimientos + reservas + lotes),
-  // no desde la tabla manual de FabricInventory.
-  const loadTotals = async () => {
-    setTotalsError('');
+  const loadShipTotals = async () => {
     try {
-      const res = await fabricInventoriesApi.getTotals();
+      const res = await fabricShipmentsApi.getTotals();
       const t = res.data ?? {};
-      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
-      setTotals({
+      setShipTotals({
+        shipped: num(t.shippedYards ?? t.ShippedYards),
         received: num(t.receivedYards ?? t.ReceivedYards),
-        physical: num(t.physicalYards ?? t.PhysicalYards),
-        pendingTransit: num(t.pendingTransitYards ?? t.PendingTransitYards),
-        totalControlled: num(t.totalControlledYards ?? t.TotalControlledYards),
-        available: num(t.availableYards ?? t.AvailableYards),
-        reserved: num(t.reservedYards ?? t.ReservedYards),
-        damaged: num(t.damagedYards ?? t.DamagedYards),
-        rolls: num(t.rollsCount ?? t.RollsCount),
+        pending: num(t.pendingYards ?? t.PendingYards),
       });
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const detail = typeof err?.response?.data === 'string' ? err.response.data : (err?.response?.data?.message);
-      setTotalsError(
-        (status ? `Error ${status} al cargar los totales` : 'No se pudieron cargar los totales')
-        + (detail ? `: ${detail}` : '')
-      );
-    }
+    } catch { /* silencioso */ }
   };
 
-  useEffect(() => { loadTotals(); }, []);
+  const loadRows = async () => {
+    setLoading(true); setLoadError('');
+    try {
+      const res = await fabricShipmentsApi.getControlTela();
+      const list = (res.data ?? []) as any[];
+      setRows(list.map((r: any) => ({
+        fgpoNumber: r.fgpoNumber ?? r.FGPONumber ?? '',
+        color: r.color ?? r.Color ?? '',
+        fabricDescription: r.fabricDescription ?? r.FabricDescription ?? '',
+        shippedYards: num(r.shippedYards ?? r.ShippedYards),
+        receivedYards: num(r.receivedYards ?? r.ReceivedYards),
+        pendingYards: num(r.pendingYards ?? r.PendingYards),
+        receivedRolls: num(r.receivedRolls ?? r.ReceivedRolls),
+        status: r.status ?? r.Status ?? '',
+        date: r.date ?? r.Date ?? '',
+      })));
+    } catch (err: any) {
+      setLoadError(err?.response?.data?.message || err?.message || 'No se pudo cargar el control de tela.');
+    } finally { setLoading(false); }
+  };
 
-  const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
+  useEffect(() => { loadShipTotals(); loadRows(); }, []);
+
+  const handleSearch = (e: FormEvent) => { e.preventDefault(); };
   const handleClearSearch = () => setSearchInput('');
+
+  const filtered = useMemo(() => {
+    const q = searchInput.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r =>
+      (r.fgpoNumber?.toLowerCase().includes(q)) ||
+      (r.color?.toLowerCase().includes(q)) ||
+      (r.fabricDescription?.toLowerCase().includes(q)) ||
+      (r.status?.toLowerCase().includes(q))
+    );
+  }, [rows, searchInput]);
 
   return (
     <Box>
@@ -76,60 +93,22 @@ const FabricInventoryPage: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Entradas a bodega según las recepciones de tela registradas</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { refresh(); loadTotals(); }}>Refresh</Button>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { loadShipTotals(); loadRows(); }}>Refresh</Button>
         </Box>
       </Box>
 
-      {/* Resumen global de tela (totales consolidados desde el backend) */}
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Resumen global de tela</Typography>
-      {totalsError && <Alert severity="warning" sx={{ mb: 1 }}>{totalsError}</Alert>}
-      <Grid container spacing={1.5} sx={{ mb: 1 }}>
-        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'primary.main' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Total recibido (histórico)</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.received.toLocaleString()} yd</Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'info.main' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Existencia física</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2, color: 'info.main' }}>{totals.physical.toLocaleString()} yd</Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'warning.main' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Tránsito pendiente</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.pendingTransit.toLocaleString()} yd</Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'primary.main' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Total controlado</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.totalControlled.toLocaleString()} yd</Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'warning.main' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Reservado</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{totals.reserved.toLocaleString()} yd</Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
-          <Paper elevation={1} sx={{ p: 1, borderTop: 3, borderColor: 'success.main' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Disponible</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2, color: 'success.main' }}>{totals.available.toLocaleString()} yd</Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        Existencia física = metraje de rollos + entradas − salidas. Tránsito pendiente = enviado − registrado físicamente (por lote). Total controlado = existencia física + tránsito. Disponible = existencia física − reservas activas. La cantidad enviada, la declarada en recepción y el metraje de los rollos pueden diferir sin que el cálculo esté equivocado.
-      </Typography>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      <ModuleTotalsBar
+        suffix="yd"
+        items={[
+          { label: 'Yardas en Tránsito', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
+          { label: 'Inventario Físico', value: shipTotals.received.toLocaleString(), color: 'info.main' },
+          { label: 'Pendiente de registrar', value: shipTotals.pending.toLocaleString(), color: 'warning.main' },
+        ]}
+      />
 
       <Paper sx={{ mb: 2, p: 1.5, display: 'flex', gap: 1 }}>
         <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, flex: 1 }}>
-          <TextField size="small" placeholder="Search by Receiving #, Shipment, Fabric PO, FGPO, Status..."
+          <TextField size="small" placeholder="Buscar por FGPO, color, descripción..."
             value={searchInput} onChange={e => setSearchInput(e.target.value)}
             slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: searchInput ? <InputAdornment position="end"><IconButton size="small" onClick={handleClearSearch}><ClearIcon /></IconButton></InputAdornment> : null } }}
             sx={{ flex: 1, maxWidth: 500 }} />
@@ -137,43 +116,42 @@ const FabricInventoryPage: React.FC = () => {
         </Box>
       </Paper>
 
+      {loadError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLoadError('')}>{loadError}</Alert>}
+
       <Paper sx={{ overflow: 'hidden' }}>
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Shipment', 'FGPO', 'Supplier', 'Customer', 'Recibido', 'Status', 'Fecha'].map(h =>
-                  <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                {['FGPO', 'Color', 'Descripción', 'Enviado (yd)', 'Recibido (yd)', 'Pendiente (yd)', 'Rollos', 'Estatus', 'Fecha'].map(h =>
+                  <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
-              ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                  <Typography variant="body1">No receiving records found</Typography>
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <Typography variant="body1">Sin registros de control de tela</Typography>
                 </TableCell></TableRow>
-              ) : items.map((item: FabricReceiving) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>{item.shipmentNumber || '-'}</TableCell>
-                  <TableCell>{item.fgpoNumber || '-'}</TableCell>
-                  <TableCell>{item.supplier || '-'}</TableCell>
-                  <TableCell>{item.customerName || '-'}</TableCell>
-                  <TableCell align="right">{Number(item.actualReceivedQty).toLocaleString()}</TableCell>
-                  <TableCell><Chip label={item.receivingStatus || 'N/A'} size="small" color={sc(item.receivingStatus ?? '')} variant="outlined" /></TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{fmt(item.receivingDate)}</TableCell>
+              ) : filtered.map((r, i) => (
+                <TableRow key={i} hover>
+                  <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{r.fgpoNumber || '-'}</Typography></TableCell>
+                  <TableCell>{r.color || '-'}</TableCell>
+                  <TableCell>{r.fabricDescription || '-'}</TableCell>
+                  <TableCell>{fmtNum(r.shippedYards)}</TableCell>
+                  <TableCell>{fmtNum(r.receivedYards)}</TableCell>
+                  <TableCell><Typography sx={{ fontWeight: 600 }}>{fmtNum(r.pendingYards)}</Typography></TableCell>
+                  <TableCell>{r.receivedRolls}</TableCell>
+                  <TableCell><Chip label={r.status || 'N/A'} size="small" color={statusColor(r.status ?? '')} variant="outlined" /></TableCell>
+                  <TableCell>{fmtDate(r.date)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination component="div" count={totalCount} page={page}
-          onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-          rowsPerPageOptions={[5, 10, 25, 50]} labelRowsPerPage="Rows:" />
       </Paper>
-
     </Box>
   );
 };

@@ -4,6 +4,9 @@ export interface FabricShipmentLot {
   id: number;
   fabricShipmentId: number;
   shipmentNumber: string;
+  fgpoNumber?: string;
+  shipmentStatus?: string;
+  etd?: string | null;
   lineNumber?: number | null;
   lotNumber: string;
   styleId?: number | null;

@@ -74,7 +74,7 @@ const FabricShipmentPage: React.FC = () => {
 
   const [form, setForm] = useState(emptyForm);
 
-  const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0, lots: 0 });
+  const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0, lots: 0, shipments: 0 });
   const [totalsError, setTotalsError] = useState('');
   const loadShipTotals = async () => {
     setTotalsError('');
@@ -86,6 +86,7 @@ const FabricShipmentPage: React.FC = () => {
         received: t.receivedYards ?? t.ReceivedYards ?? 0,
         pending: t.pendingYards ?? t.PendingYards ?? 0,
         lots: t.lotsCount ?? t.LotsCount ?? 0,
+        shipments: t.shipmentsCount ?? t.ShipmentsCount ?? 0,
       });
     } catch (err: any) {
       const status = err?.response?.status;
@@ -336,9 +337,8 @@ const FabricShipmentPage: React.FC = () => {
         suffix="yd"
         items={[
           { label: 'Yardas enviadas', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
-          { label: 'Registradas físicamente', value: shipTotals.received.toLocaleString(), color: 'info.main' },
-          { label: 'Pendientes de registrar', value: shipTotals.pending.toLocaleString(), color: 'warning.main' },
           { label: 'Lotes', value: shipTotals.lots.toLocaleString(), color: 'text.disabled', suffix: '' },
+          { label: 'Embarques', value: shipTotals.shipments.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 

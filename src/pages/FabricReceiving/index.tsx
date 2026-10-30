@@ -113,10 +113,12 @@ const FabricReceivingPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [form.ShipmentNumber, shipments]);
 
-  // Al cambiar el lote del embarque, prefill el número de lote en las filas de rollos.
+  // Al cargar los lotes del embarque, prefill el lote (solo en filas sin lote elegido).
   useEffect(() => {
     const lot = shipmentLots.find(l => l.id === selectedLotId) ?? shipmentLots[0] ?? null;
-    setRollRows(prev => prev.map(r => ({ ...r, lotNumber: lot?.lotNumber ?? '' })));
+    setRollRows(prev => prev.map(r => (r.shipmentLotId
+      ? r
+      : { ...r, shipmentLotId: lot?.id ?? null, lotNumber: lot?.lotNumber ?? '' })));
   }, [shipmentLots, selectedLotId]);
 
   const [recTotals, setRecTotals] = useState({ declared: 0, received: 0, variance: 0, count: 0 });
@@ -440,20 +442,6 @@ const FabricReceivingPage: React.FC = () => {
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Rollos</Typography></Divider></Grid>
             {!editingId ? (
               <>
-                {shipmentLots.length > 0 && (
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    {shipmentLots.length === 1 ? (
-                      <TextField fullWidth size="small" label="Lote del embarque" value={shipmentLot?.lotNumber ?? ''} slotProps={{ input: { readOnly: true } }} helperText="Los rollos se registran en este lote." />
-                    ) : (
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Lote del embarque</InputLabel>
-                        <Select value={selectedLotId ?? ''} label="Lote del embarque" onChange={e => setSelectedLotId(Number(e.target.value))}>
-                          {shipmentLots.map(l => <MenuItem key={l.id} value={l.id}>{l.lotNumber}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Grid>
-                )}
                 <Grid size={{ xs: 12 }}>
                   <RollGridTable
                     rows={rollRows}
@@ -461,8 +449,8 @@ const FabricReceivingPage: React.FC = () => {
                     shadeOptions={ROLL_SHADES}
                     conditionOptions={ROLL_CONDITIONS}
                     autoRollNumber
-                    lockLot={!!shipmentLot}
-                    makeRow={() => newRollRow({ lotNumber: shipmentLot?.lotNumber ?? '', warehouseLocation: form.WarehouseLocation })}
+                    lotOptions={shipmentLots}
+                    makeRow={() => newRollRow({ shipmentLotId: shipmentLot?.id ?? null, lotNumber: shipmentLot?.lotNumber ?? '', warehouseLocation: form.WarehouseLocation })}
                   />
                 </Grid>
               </>
