@@ -7,6 +7,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import { packingControlsApi, boxTypesApi } from '../utils/api';
 import { blockNegativeKey } from '../utils/validation';
+import { PackingFieldConfig } from '../types';
+import { PACKING_FIELD_PROP, visiblePackingFields } from '../utils/packingFields';
 
 export interface PackingFgpoOption {
   id: number;
@@ -34,7 +36,9 @@ interface PackingRowDraft {
   fgpoId: number;
   boxTypeId: number;
   boxes: string;
+  pendingPacking: string;
   remarks: string;
+  qty: Record<number, string>;
 }
 
 interface PackingBulkGridProps {
@@ -43,6 +47,7 @@ interface PackingBulkGridProps {
   title: string;
   fgpoOptions: PackingFgpoOption[];
   userOptions: PackingUserOption[];
+  fieldConfigs: PackingFieldConfig[];
   onSaved: () => void | Promise<void>;
 }
 
@@ -65,7 +70,7 @@ const cellStyle: React.CSSProperties = {
 const cellErrStyle: React.CSSProperties = { ...cellStyle, borderColor: '#d32f2f', backgroundColor: '#fff7f7' };
 const cellReadonlyStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f1f5f9', color: '#64748b' };
 
-const makeRow = (): PackingRowDraft => ({ key: newKey(), fgpoId: 0, boxTypeId: 0, boxes: '', remarks: '' });
+const makeRow = (): PackingRowDraft => ({ key: newKey(), fgpoId: 0, boxTypeId: 0, boxes: '', pendingPacking: '', remarks: '', qty: {} });
 
 const fmtNum = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -75,12 +80,13 @@ interface RowProps {
   isOnlyRow: boolean;
   fgpoOptions: PackingFgpoOption[];
   boxOptions: PackingBoxOption[];
+  fields: PackingFieldConfig[];
   onChange: (key: string, patch: Partial<PackingRowDraft>) => void;
   onRemove: (key: string) => void;
 }
 
 const PackingRow = React.memo(function PackingRow({
-  row, index, isOnlyRow, fgpoOptions, boxOptions, onChange, onRemove,
+  row, index, isOnlyRow, fgpoOptions, boxOptions, fields, onChange, onRemove,
 }: RowProps) {
   const set = (patch: Partial<PackingRowDraft>) => onChange(row.key, patch);
 
@@ -130,10 +136,20 @@ const PackingRow = React.memo(function PackingRow({
         <input style={boxesErr ? cellErrStyle : cellStyle} inputMode="numeric" value={row.boxes} onChange={e => set({ boxes: e.target.value })} onKeyDown={blockNegativeKey} title={boxesErr ? 'Debe ser ≥ 1' : ''} />
       </TableCell>
       <TableCell sx={{ p: 0.5 }}><div style={{ ...cellReadonlyStyle, textAlign: 'right' }}>{fmtNum(packedQty)}</div></TableCell>
-      <TableCell sx={{ p: 0.5 }}><div style={cellReadonlyStyle}>0</div></TableCell>
-      <TableCell sx={{ p: 0.5 }}><div style={cellReadonlyStyle}>0</div></TableCell>
-      <TableCell sx={{ p: 0.5 }}><div style={cellReadonlyStyle}>0</div></TableCell>
-      <TableCell sx={{ p: 0.5 }}><div style={cellReadonlyStyle}>0</div></TableCell>
+      {fields.map(f => (
+        <TableCell key={f.fieldNo} sx={{ p: 0.5 }}>
+          <input
+            style={cellStyle}
+            inputMode="decimal"
+            value={row.qty[f.fieldNo] ?? ''}
+            onChange={e => set({ qty: { ...row.qty, [f.fieldNo]: e.target.value } })}
+            onKeyDown={blockNegativeKey}
+          />
+        </TableCell>
+      ))}
+      <TableCell sx={{ p: 0.5 }}>
+        <input style={cellStyle} inputMode="decimal" value={row.pendingPacking} onChange={e => set({ pendingPacking: e.target.value })} onKeyDown={blockNegativeKey} />
+      </TableCell>
       <TableCell sx={{ p: 0.5 }}><input style={cellStyle} value={row.remarks} onChange={e => set({ remarks: e.target.value })} /></TableCell>
       <TableCell sx={{ p: 0.5 }}>
         <button
@@ -148,7 +164,7 @@ const PackingRow = React.memo(function PackingRow({
   );
 });
 
-const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title, fgpoOptions, userOptions, onSaved }) => {
+const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title, fgpoOptions, userOptions, fieldConfigs, onSaved }) => {
   const [packingDate, setPackingDate] = useState(today());
   const [responsiblePersonId, setResponsiblePersonId] = useState(0);
   const [boxOptions, setBoxOptions] = useState<PackingBoxOption[]>([]);
@@ -156,6 +172,8 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
   const [addCount, setAddCount] = useState(1);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const fields = visiblePackingFields(fieldConfigs);
 
   useEffect(() => {
     if (open) {
@@ -211,14 +229,17 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           const box = boxOptions.find(b => b.id === r.boxTypeId);
           const qpb = box?.qtyPerBox ?? 0;
           const boxes = Number(r.boxes) || 0;
+          const quantities: Record<string, number> = {};
+          fields.forEach(f => { quantities[PACKING_FIELD_PROP[f.fieldNo]] = Number(r.qty[f.fieldNo]) || 0; });
           return {
             packingDate: packingDate ? new Date(packingDate).toISOString() : new Date().toISOString(),
             fgpoId: r.fgpoId,
             boxTypeId: r.boxTypeId || null,
-            qcPassedQty: 0,
-            receivedByPackingQty: 0,
-            foldedQty: 0,
-            polybaggedQty: 0,
+            qcPassedQty: quantities.qcPassedQty ?? 0,
+            receivedByPackingQty: quantities.receivedByPackingQty ?? 0,
+            foldedQty: quantities.foldedQty ?? 0,
+            polybaggedQty: quantities.polybaggedQty ?? 0,
+            pendingPacking: Number(r.pendingPacking) || 0,
             packedQty: qpb * boxes,
             pcsPerCarton: qpb,
             responsiblePersonId: responsiblePersonId || null,
@@ -267,7 +288,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.light' }}>
-                {['#', 'FGPO *', 'Box Type *', 'Cajas *', 'Packed Qty', 'QC Passed', 'Rec. by Packing', 'Folded', 'Polybagged', 'Remarks', ''].map(h => (
+                {['#', 'FGPO *', 'Box Type *', 'Cajas *', 'Packed Qty', ...fields.map(f => f.label), 'Pending Packing', 'Remarks', ''].map(h => (
                   <TableCell key={h} sx={{ fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
@@ -281,6 +302,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
                   isOnlyRow={rows.length <= 1}
                   fgpoOptions={fgpoOptions}
                   boxOptions={boxOptions}
+                  fields={fields}
                   onChange={handleRowChange}
                   onRemove={handleRowRemove}
                 />

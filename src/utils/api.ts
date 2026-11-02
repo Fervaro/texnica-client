@@ -278,6 +278,11 @@ export const fabricMovementsApi = {
   create: (data: any) => api.post('/fabric-movements', data),
 };
 
+// Fabric Inventory Import API (importación desde Excel INGRESOS)
+export const fabricInventoryImportApi = {
+  import: (data: any) => api.post('/fabric-inventory-import', data),
+};
+
 // Packing Control API
 export const packingControlsApi = {
   getAll: () => api.get('/packing-controls'),
@@ -288,6 +293,12 @@ export const packingControlsApi = {
   update: (id: number, data: any) => api.put(`/packing-controls/${id}`, data),
   delete: (id: number) => api.delete(`/packing-controls/${id}`),
   getPaged: (params: any) => api.get('/packing-controls/paged', { params }),
+};
+
+// Packing Field Config API (etiquetas por cliente de los campos de cantidad)
+export const packingFieldConfigsApi = {
+  getAll: () => api.get('/packing-field-configs'),
+  upsert: (data: any) => api.put('/packing-field-configs', data),
 };
 
 // Finished Goods API

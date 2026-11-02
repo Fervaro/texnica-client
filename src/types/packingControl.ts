@@ -40,9 +40,18 @@ export interface CreatePackingControlInput {
   receivedByPackingQty: number;
   foldedQty: number;
   polybaggedQty: number;
+  pendingPacking: number;
   packedQty: number;
   pcsPerCarton: number;
   responsiblePersonId?: number | null;
   lastUpdated?: string | null;
   remarks?: string | null;
+}
+
+/** Configuración por cliente de las etiquetas de los 4 campos de cantidad. */
+export interface PackingFieldConfig {
+  id: number;
+  fieldNo: number;
+  label: string;
+  visible: boolean;
 }

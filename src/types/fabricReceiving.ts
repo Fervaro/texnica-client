@@ -21,6 +21,7 @@ export interface FabricReceiving {
   missingRolls: number;
   receivingStatus?: string;
   warehouseLocation?: string;
+  origin?: string;
   receivedBy?: string;
   dataOwner?: string;
   remarks?: string;
@@ -42,6 +43,7 @@ export interface CreateFabricReceivingInput {
   receivedRolls: number;
   receivingStatus?: string;
   warehouseLocation?: string;
+  origin?: string;
   receivedBy?: string;
   dataOwner?: string;
   remarks?: string;

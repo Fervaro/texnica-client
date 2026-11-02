@@ -14,17 +14,27 @@ import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { usePackingControls } from '../../hooks/packingControls/usePackingControls';
+import { usePackingFieldConfigs } from '../../hooks/packingControls/usePackingFieldConfigs';
 import PackingBulkGrid from '../../components/PackingBulkGrid';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
+import { visiblePackingFields } from '../../utils/packingFields';
 import { PackingControl } from '../../types';
 
 const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],
   FGPOId: 0,
-  QcPassedQty: 0, ReceivedByPackingQty: 0, FoldedQty: 0, PolybaggedQty: 0, PackedQty: 0,
+  QcPassedQty: 0, ReceivedByPackingQty: 0, FoldedQty: 0, PolybaggedQty: 0, PendingPacking: 0, PackedQty: 0,
   PcsPerCarton: 0, Cajas: 0,
   ResponsiblePersonId: 0, Remarks: '',
+};
+
+// FieldNo (1..4) → propiedad del formulario (PascalCase) y del item (camelCase).
+const FIELD_FORM_KEY: Record<number, keyof typeof emptyForm> = {
+  1: 'QcPassedQty', 2: 'ReceivedByPackingQty', 3: 'FoldedQty', 4: 'PolybaggedQty',
+};
+const FIELD_ITEM_KEY: Record<number, keyof PackingControl> = {
+  1: 'qcPassedQty', 2: 'receivedByPackingQty', 3: 'foldedQty', 4: 'polybaggedQty',
 };
 
 const PackingControlPage: React.FC = () => {
@@ -47,6 +57,9 @@ const PackingControlPage: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [bulkOpen, setBulkOpen] = useState(false);
 
+  const { configs: fieldConfigs } = usePackingFieldConfigs();
+  const visibleFields = visiblePackingFields(fieldConfigs);
+
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
@@ -57,7 +70,7 @@ const PackingControlPage: React.FC = () => {
       PackingDate: item.packingDate?.split('T')[0] || '',
       FGPOId: item.fgpoId,
       QcPassedQty: item.qcPassedQty, ReceivedByPackingQty: item.receivedByPackingQty,
-      FoldedQty: item.foldedQty, PolybaggedQty: item.polybaggedQty, PackedQty: item.packedQty,
+      FoldedQty: item.foldedQty, PolybaggedQty: item.polybaggedQty, PendingPacking: item.pendingPacking, PackedQty: item.packedQty,
       PcsPerCarton: item.pcsPerCarton,
       Cajas: item.pcsPerCarton > 0 ? item.packedQty / item.pcsPerCarton : 0,
       ResponsiblePersonId: userList.find(o => o.label === item.responsiblePersonName)?.id ?? 0,
@@ -75,7 +88,7 @@ const PackingControlPage: React.FC = () => {
   const handleSave = async () => {
     setFormError('');
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
-    if (form.PackedQty < 0 || form.QcPassedQty < 0) { setFormError('Quantities cannot be negative.'); return; }
+    if (form.PackedQty < 0 || form.QcPassedQty < 0 || form.PendingPacking < 0) { setFormError('Quantities cannot be negative.'); return; }
     if (!form.PcsPerCarton || Number(form.PcsPerCarton) <= 0) { setFormError('Pcs per Carton must be greater than 0.'); return; }
     try {
       const payload = {
@@ -96,7 +109,7 @@ const PackingControlPage: React.FC = () => {
   // Vistas previas de las columnas calculadas (igual que el Excel)
   const readyToShip = form.PackedQty;
   const packingVariance = form.PackedQty - form.QcPassedQty;
-  const pendingPacking = Math.max(0, form.QcPassedQty - form.PackedQty);
+  const pendingPacking = Number(form.PendingPacking) || 0;
   const overpackedQty = Math.max(0, form.PackedQty - form.QcPassedQty);
 
   return (
@@ -135,26 +148,25 @@ const PackingControlPage: React.FC = () => {
           <Table size="small">
             <TableHead sx={{ bgcolor: 'grey.100' }}>
               <TableRow>
-                {['Date', 'FGPO', 'Style / Color', 'Size', 'QC Passed', 'Received', 'Folded', 'Polybagged', 'Packed', 'Cartons', 'Pcs/Carton', 'Ready', 'Variance', 'Pending', 'Overpacked', 'Responsible', 'Actions'].map(h =>
+                {['Date', 'FGPO', 'Style / Color', 'Size', ...visibleFields.map(f => f.label), 'Packed', 'Cartons', 'Pcs/Carton', 'Ready', 'Variance', 'Pending', 'Overpacked', 'Responsible', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={17} align="center"><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={13 + visibleFields.length} align="center"><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={17} align="center" sx={{ color: 'text.secondary', py: 4 }}>No records found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13 + visibleFields.length} align="center" sx={{ color: 'text.secondary', py: 4 }}>No records found.</TableCell></TableRow>
               ) : items.map((item) => (
                 <TableRow key={item.id} hover>
                   <TableCell>{fmt(item.packingDate)}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{item.fgpoNumber}</TableCell>
                   <TableCell>{item.style || '-'} / {item.color || '-'}</TableCell>
                   <TableCell>{item.size || '-'}</TableCell>
-                  <TableCell>{num(item.qcPassedQty)}</TableCell>
-                  <TableCell>{num(item.receivedByPackingQty)}</TableCell>
-                  <TableCell>{num(item.foldedQty)}</TableCell>
-                  <TableCell>{num(item.polybaggedQty)}</TableCell>
+                  {visibleFields.map(f => (
+                    <TableCell key={f.fieldNo}>{num(item[FIELD_ITEM_KEY[f.fieldNo]] as number)}</TableCell>
+                  ))}
                   <TableCell sx={{ fontWeight: 600 }}>{num(item.packedQty)}</TableCell>
                   <TableCell>{item.fullCartons} + {item.partialCartons}</TableCell>
                   <TableCell>{item.pcsPerCarton}</TableCell>
@@ -209,17 +221,13 @@ const PackingControlPage: React.FC = () => {
                 slotProps={{ htmlInput: { min: 0, step: 1 } }}
               />
             </Grid>
+            {visibleFields.map(f => (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={f.fieldNo}>
+                <TextField fullWidth size="small" label={f.label} type="number" value={form[FIELD_FORM_KEY[f.fieldNo]]} onChange={e => setF(FIELD_FORM_KEY[f.fieldNo], Number(e.target.value))} slotProps={{ htmlInput: { min: 0 } }} />
+              </Grid>
+            ))}
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="QC Passed Qty" type="number" value={form.QcPassedQty} disabled helperText="Deshabilitado" />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Received by Packing" type="number" value={form.ReceivedByPackingQty} disabled helperText="Deshabilitado" />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Folded Qty" type="number" value={form.FoldedQty} disabled helperText="Deshabilitado" />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Polybagged Qty" type="number" value={form.PolybaggedQty} disabled helperText="Deshabilitado" />
+              <TextField fullWidth size="small" label="Pending Packing" type="number" value={form.PendingPacking} onChange={e => setF('PendingPacking', Number(e.target.value))} slotProps={{ htmlInput: { min: 0 } }} helperText="Piezas sin empacar (no completan caja)" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} disabled helperText="Auto: Qty/Box × cajas" />
@@ -268,10 +276,9 @@ const PackingControlPage: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">FGPO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fgpoNumber} ({viewItem.customerName})</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Style / Color / Size</Typography><Typography>{viewItem.style || '-'} / {viewItem.color || '-'} / {viewItem.size || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Responsible</Typography><Typography>{viewItem.responsiblePersonName || '-'}</Typography></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">QC Passed</Typography><Typography>{num(viewItem.qcPassedQty)}</Typography></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Received</Typography><Typography>{num(viewItem.receivedByPackingQty)}</Typography></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Folded</Typography><Typography>{num(viewItem.foldedQty)}</Typography></Grid>
-              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Polybagged</Typography><Typography>{num(viewItem.polybaggedQty)}</Typography></Grid>
+              {visibleFields.map(f => (
+                <Grid size={{ xs: 6, sm: 3 }} key={f.fieldNo}><Typography variant="caption" color="text.secondary">{f.label}</Typography><Typography>{num(viewItem[FIELD_ITEM_KEY[f.fieldNo]] as number)}</Typography></Grid>
+              ))}
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Packed</Typography><Typography sx={{ fontWeight: 600 }}>{num(viewItem.packedQty)}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Cartons</Typography><Typography>{viewItem.fullCartons} + {viewItem.partialCartons} ({viewItem.pcsPerCarton} pcs)</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Ready to Ship</Typography><Typography sx={{ fontWeight: 600, color: 'success.main' }}>{num(viewItem.readyToShipQty)}</Typography></Grid>
@@ -291,6 +298,7 @@ const PackingControlPage: React.FC = () => {
         title="Nuevo registro de empaque"
         fgpoOptions={fgpoList.map((f: any) => ({ id: f.id, label: f.label, style: f.meta?.style, color: f.meta?.color }))}
         userOptions={userList}
+        fieldConfigs={fieldConfigs}
         onSaved={async () => { setBulkOpen(false); refresh(); }}
       />
     </Box>

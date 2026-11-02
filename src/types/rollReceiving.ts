@@ -28,6 +28,12 @@ export interface RollReceiving {
   shadeGroup?: string;
   damagedQty: number;
   condition?: string;
+  ticketWeightKg?: number | null;
+  ticketWeightLb?: number | null;
+  physicalWeightLb?: number | null;
+  ticketWidth?: number | null;
+  orderNumber?: string | null;
+  familyId?: number | null;
   warehouseLocation?: string;
   receivedDate: string;
   dataOwner?: string;
@@ -50,6 +56,12 @@ export interface CreateRollReceivingInput {
   shadeGroup?: string;
   damagedQty: number;
   condition?: string;
+  ticketWeightKg?: number | null;
+  ticketWeightLb?: number | null;
+  physicalWeightLb?: number | null;
+  ticketWidth?: number | null;
+  orderNumber?: string | null;
+  familyId?: number | null;
   warehouseLocation?: string;
   receivedDate: string;
   dataOwner?: string;

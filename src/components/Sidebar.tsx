@@ -27,6 +27,7 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import TuneIcon from '@mui/icons-material/Tune';
 import ChairAltIcon from '@mui/icons-material/ChairAlt';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import PeopleIcon from '@mui/icons-material/People';
@@ -81,6 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
         { text: 'Mill Production',  icon: <PrecisionManufacturingIcon fontSize="small" />, path: '/mill-production' },
         { text: 'Mill Test',        icon: <ScienceIcon fontSize="small" />,                path: '/mill-test' },
         { text: 'Fabric Inventory', icon: <Inventory2Icon fontSize="small" />,             path: '/fabric-inventory' },
+        { text: 'Importar Inventario', icon: <UploadFileIcon fontSize="small" />,           path: '/inventory-import' },
       ],
     },
     {

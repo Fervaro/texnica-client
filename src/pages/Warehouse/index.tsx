@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  CircularProgress, Alert
+  CircularProgress, Alert, Button
 } from '@mui/material';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { packingControlsApi } from '../../utils/api';
 
 interface PkRow {
   id: number;
+  fgpoId: number;
   packingDate: string;
   fgpoNumber: string;
   style?: string;
@@ -34,6 +37,7 @@ const Warehouse: React.FC = () => {
   const [packingItems, setPackingItems] = useState<PkRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [expandedFgpo, setExpandedFgpo] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -42,6 +46,7 @@ const Warehouse: React.FC = () => {
         const res = await packingControlsApi.getAll();
         setPackingItems((res.data ?? []).map((p: any) => ({
           id: p.id ?? p.ID ?? 0,
+          fgpoId: p.fgpoId ?? p.FGPOId ?? 0,
           packingDate: p.packingDate ?? p.PackingDate ?? '',
           fgpoNumber: p.fgpoNumber ?? p.FGPONumber ?? '',
           style: p.style ?? p.Style ?? '',
@@ -70,35 +75,66 @@ const Warehouse: React.FC = () => {
   const totalReady = packingItems.reduce((s, p) => s + p.readyToShipQty, 0);
   const totalPending = packingItems.reduce((s, p) => s + p.pendingPacking, 0);
 
-  // Agrupación por estilo+color+talla: piezas totales, cantidad por caja y
-  // cantidad de cajas derivada (piezas / piezas por caja).
-  const boxRows = useMemo(() => {
-    const map = new Map<string, { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number }>();
+  // Agrupa los registros de empaque por FGPO (una fila por FGPO, expandible),
+  // igual que FGPO Master → FGPO Lines.
+  const fgpoGroups = useMemo(() => {
+    const map = new Map<string, { key: string; fgpoNumber: string; items: PkRow[] }>();
     packingItems.forEach(p => {
-      const key = `${p.style || ''}|${p.color || ''}|${p.size || ''}`;
-      const cur = map.get(key);
-      if (cur) {
-        cur.pieces += p.packedQty;
-        cur.unpacked += p.pendingPacking;
-        if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
-      } else {
-        map.set(key, {
-          style: p.style || '',
-          color: p.color || '',
-          size: p.size || '',
-          pieces: p.packedQty,
-          perBox: p.pcsPerCarton || 0,
-          unpacked: p.pendingPacking,
-        });
+      const key = p.fgpoNumber ? p.fgpoNumber : `FGPO #${p.fgpoId || p.id}`;
+      let g = map.get(key);
+      if (!g) {
+        g = { key, fgpoNumber: p.fgpoNumber || '', items: [] };
+        map.set(key, g);
       }
+      g.items.push(p);
     });
-    return Array.from(map.values()).map(r => ({
-      ...r,
-      boxes: r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0,
-    }));
+    return Array.from(map.values()).sort((a, b) => a.fgpoNumber.localeCompare(b.fgpoNumber));
   }, [packingItems]);
 
-  const totalBoxes = boxRows.reduce((s, r) => s + r.boxes, 0);
+  // Resumen por FGPO: totales y desglose estilo+color+talla (cantidad de cajas).
+  const fgpoSummary = useMemo(() => {
+    return fgpoGroups.map(g => {
+      const totalPacked = g.items.reduce((s, p) => s + p.packedQty, 0);
+      const totalReady = g.items.reduce((s, p) => s + p.readyToShipQty, 0);
+      const totalPending = g.items.reduce((s, p) => s + p.pendingPacking, 0);
+
+      const boxMap = new Map<string, { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number }>();
+      g.items.forEach(p => {
+        const key = `${p.style || ''}|${p.color || ''}|${p.size || ''}`;
+        const cur = boxMap.get(key);
+        if (cur) {
+          cur.pieces += p.packedQty;
+          cur.unpacked += p.pendingPacking;
+          if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
+        } else {
+          boxMap.set(key, {
+            style: p.style || '',
+            color: p.color || '',
+            size: p.size || '',
+            pieces: p.packedQty,
+            perBox: p.pcsPerCarton || 0,
+            unpacked: p.pendingPacking,
+          });
+        }
+      });
+      const boxRows = Array.from(boxMap.values()).map(r => ({
+        ...r,
+        boxes: r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0,
+      }));
+
+      return {
+        key: g.key,
+        fgpoNumber: g.fgpoNumber,
+        totalPacked,
+        totalReady,
+        totalPending,
+        totalBoxes: boxRows.reduce((s, r) => s + r.boxes, 0),
+        boxRows,
+      };
+    });
+  }, [fgpoGroups]);
+
+  const totalBoxes = fgpoSummary.reduce((s, g) => s + g.totalBoxes, 0);
 
   return (
     <Box>
@@ -153,37 +189,79 @@ const Warehouse: React.FC = () => {
             </Paper>
           </Box>
 
-          {/* Packing Control */}
+          {/* Packing Control por FGPO */}
           <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
             <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold', mb: 2 }}>
-              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control
+              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control por FGPO
             </Typography>
             <TableContainer>
               <Table size="small">
                 <TableHead sx={{ backgroundColor: 'primary.light' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Estilo</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Color</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Talla</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Piezas totales</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Cant. por caja</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Cant. de cajas</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>Sin empacar</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>FGPO</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Total Packed</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Ready to Ship</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Pending</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Cajas</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {boxRows.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} align="center" sx={{ color: 'text.secondary', py: 3 }}>No packing records yet.</TableCell></TableRow>
-                  ) : boxRows.map(r => (
-                    <TableRow key={`${r.style}|${r.color}|${r.size}`} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{r.style || '-'}</TableCell>
-                      <TableCell>{r.color || '-'}</TableCell>
-                      <TableCell>{r.size || '-'}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{r.pieces.toLocaleString()}</TableCell>
-                      <TableCell>{r.perBox || '-'}</TableCell>
-                      <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>{r.boxes.toLocaleString()}</TableCell>
-                      <TableCell sx={{ color: 'warning.main', fontWeight: 600 }}>{r.unpacked.toLocaleString()}</TableCell>
-                    </TableRow>
+                  {fgpoSummary.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 3 }}>No packing records yet.</TableCell></TableRow>
+                  ) : fgpoSummary.map(g => (
+                    <React.Fragment key={g.key}>
+                      <TableRow hover>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          <Button
+                            size="small"
+                            onClick={() => setExpandedFgpo(expandedFgpo === g.key ? null : g.key)}
+                            startIcon={expandedFgpo === g.key ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            sx={{ fontWeight: 600, textTransform: 'none' }}
+                          >
+                            {g.fgpoNumber || g.key}
+                          </Button>
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>{g.totalPacked.toLocaleString()}</TableCell>
+                        <TableCell align="right" sx={{ color: 'success.main', fontWeight: 600 }}>{g.totalReady.toLocaleString()}</TableCell>
+                        <TableCell align="right" sx={{ color: 'warning.main', fontWeight: 600 }}>{g.totalPending.toLocaleString()}</TableCell>
+                        <TableCell align="right" sx={{ color: 'primary.main', fontWeight: 600 }}>{g.totalBoxes.toLocaleString()}</TableCell>
+                      </TableRow>
+                      {expandedFgpo === g.key && (
+                        <TableRow>
+                          <TableCell colSpan={5} sx={{ bgcolor: 'grey.50', p: 2 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                              Packing: {g.fgpoNumber || g.key}
+                            </Typography>
+                            {g.boxRows.length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">Sin registros para este FGPO.</Typography>
+                            ) : (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    {['Estilo', 'Color', 'Talla', 'Piezas totales', 'Cant. por caja', 'Cant. de cajas', 'Sin empacar'].map(h => (
+                                      <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
+                                    ))}
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {g.boxRows.map(r => (
+                                    <TableRow key={`${r.style}|${r.color}|${r.size}`} hover>
+                                      <TableCell sx={{ fontWeight: 600 }}>{r.style || '-'}</TableCell>
+                                      <TableCell>{r.color || '-'}</TableCell>
+                                      <TableCell>{r.size || '-'}</TableCell>
+                                      <TableCell sx={{ fontWeight: 600 }}>{r.pieces.toLocaleString()}</TableCell>
+                                      <TableCell>{r.perBox || '-'}</TableCell>
+                                      <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>{r.boxes.toLocaleString()}</TableCell>
+                                      <TableCell sx={{ color: 'warning.main', fontWeight: 600 }}>{r.unpacked.toLocaleString()}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
