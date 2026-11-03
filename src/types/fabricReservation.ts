@@ -3,7 +3,7 @@
 export interface FabricReservation {
   id: number;
   reservationDate: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;
   fgpoNumber: string;
@@ -39,6 +39,7 @@ export interface FabricReservationRoll {
   rollNumber: string;
   supplierRollNumber?: string;
   lotNumber?: string;
+  lotId?: number | null;
   reservedQuantity: number;
   releasedQuantity: number;
   status?: string;
@@ -53,7 +54,7 @@ export interface ReservationRollInput {
 
 export interface CreateFabricReservationInput {
   reservationDate: string;
-  fabricPOId: number;
+  fabricPOId: number | null;
   fgpoId: number;
   lotId?: number | null;
   reservedQuantity: number;

@@ -36,6 +36,7 @@ export interface RollBalance {
   rollNumber: string;
   supplierRollNumber?: string;
   lotNumber?: string;
+  lotId?: number | null;
   fabricPOId: number | null;
   fabricPONumber: string;
   fgpoId: number;

@@ -11,6 +11,8 @@ export interface User {
   customerId?: number;
   customerName?: string;
   userType?: 'Employee' | 'Client';
+  roleId?: number | null;
+  roleName?: string;
 }
 
 

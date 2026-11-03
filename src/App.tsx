@@ -2,13 +2,15 @@ import  { useState, useContext, useEffect } from 'react';
 
 import { HashRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Box, AppBar, Toolbar, Typography, IconButton } from '@mui/material';
+import { CssBaseline, Box, AppBar, Toolbar, Typography, IconButton, Menu, MenuItem, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import Sidebar from './components/Sidebar';
 import ProtectedRoute from './components/ProtectedRoute';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import { authApi } from './utils/api';
 
 import Admin from './pages/Admin';
 import AdminUsuarios from './pages/AdminUsuarios';
@@ -95,8 +97,27 @@ const theme = createTheme({
 const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const { user, selectedCustomer } = useContext(AuthContext);
+  const [customerMenuAnchor, setCustomerMenuAnchor] = useState<null | HTMLElement>(null);
+  const [customers, setCustomers] = useState<{ id: number; name: string }[]>([]);
+  const { user, selectedCustomer, login } = useContext(AuthContext);
   const drawerWidth = 240;
+
+  useEffect(() => {
+    authApi.getLoginCustomers()
+      .then((res) => setCustomers(res.data ?? []))
+      .catch(() => {});
+  }, []);
+
+  const handleSwitchCustomer = async (customerId: number) => {
+    setCustomerMenuAnchor(null);
+    if (selectedCustomer && selectedCustomer.id === customerId) return;
+    try {
+      const res = await authApi.switchCustomer(customerId);
+      login(res.data.token, res.data.user);
+    } catch {
+      /* el backend rechaza el cambio; se conserva la sesión actual */
+    }
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -141,10 +162,37 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
             TPCS Texnica Production Control System
           </Typography>
-          {selectedCustomer && (
+          {selectedCustomer && user?.userType === 'Client' && (
             <Typography variant="body2" sx={{ mr: 2, fontWeight: 600 }}>
               Cliente: {selectedCustomer.name}
             </Typography>
+          )}
+          {selectedCustomer && user?.userType !== 'Client' && (
+            <>
+              <Button
+                color="inherit"
+                onClick={(e) => setCustomerMenuAnchor(e.currentTarget)}
+                endIcon={<ExpandMoreIcon />}
+                sx={{ mr: 1, fontWeight: 600, textTransform: 'none' }}
+              >
+                Cliente: {selectedCustomer.name}
+              </Button>
+              <Menu
+                anchorEl={customerMenuAnchor}
+                open={!!customerMenuAnchor}
+                onClose={() => setCustomerMenuAnchor(null)}
+              >
+                {customers.map((c) => (
+                  <MenuItem
+                    key={c.id}
+                    selected={c.id === selectedCustomer.id}
+                    onClick={() => handleSwitchCustomer(c.id)}
+                  >
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
           )}
           <IconButton color="primary">
             <NotificationsIcon />
@@ -160,6 +208,7 @@ const Layout = () => {
       </Box>
 
       <Box
+        key={selectedCustomer?.id ?? 'none'}
         component="main"
         sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
       >

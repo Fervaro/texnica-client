@@ -8,7 +8,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { fabricShipmentsApi } from '../../utils/api';
+import { fabricShipmentsApi, fabricInventoriesApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import { FabricControlTela } from '../../types';
 
@@ -33,6 +33,7 @@ const FabricInventoryPage: React.FC = () => {
   const [loadError, setLoadError] = useState('');
 
   const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0 });
+  const [invTotals, setInvTotals] = useState({ physical: 0, reserved: 0, available: 0 });
 
   const loadShipTotals = async () => {
     try {
@@ -42,6 +43,18 @@ const FabricInventoryPage: React.FC = () => {
         shipped: num(t.shippedYards ?? t.ShippedYards),
         received: num(t.receivedYards ?? t.ReceivedYards),
         pending: num(t.pendingYards ?? t.PendingYards),
+      });
+    } catch { /* silencioso */ }
+  };
+
+  const loadInventoryTotals = async () => {
+    try {
+      const res = await fabricInventoriesApi.getTotals();
+      const t = res.data ?? {};
+      setInvTotals({
+        physical: num(t.physicalYards ?? t.PhysicalYards),
+        reserved: num(t.reservedYards ?? t.ReservedYards),
+        available: num(t.availableYards ?? t.AvailableYards),
       });
     } catch { /* silencioso */ }
   };
@@ -67,7 +80,7 @@ const FabricInventoryPage: React.FC = () => {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { loadShipTotals(); loadRows(); }, []);
+  useEffect(() => { loadShipTotals(); loadInventoryTotals(); loadRows(); }, []);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); };
   const handleClearSearch = () => setSearchInput('');
@@ -93,7 +106,7 @@ const FabricInventoryPage: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Entradas a bodega según las recepciones de tela registradas</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { loadShipTotals(); loadRows(); }}>Refresh</Button>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { loadShipTotals(); loadInventoryTotals(); loadRows(); }}>Refresh</Button>
         </Box>
       </Box>
 
@@ -101,8 +114,10 @@ const FabricInventoryPage: React.FC = () => {
         suffix="yd"
         items={[
           { label: 'Yardas en Tránsito', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
-          { label: 'Inventario Físico', value: shipTotals.received.toLocaleString(), color: 'info.main' },
-          { label: 'Pendiente de registrar', value: shipTotals.pending.toLocaleString(), color: 'warning.main' },
+          { label: 'Inventario Físico', value: invTotals.physical.toLocaleString(), color: 'info.main' },
+          { label: 'Reservado', value: invTotals.reserved.toLocaleString(), color: 'warning.main' },
+          { label: 'Disponible', value: invTotals.available.toLocaleString(), color: 'success.main' },
+          { label: 'Pendiente de registrar', value: shipTotals.pending.toLocaleString(), color: 'text.disabled' },
         ]}
       />
 

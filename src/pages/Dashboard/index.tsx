@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Tabs, Tab, Chip, CircularProgress, Alert
@@ -11,6 +11,8 @@ import {
   fabricReceivingsApi, fourPointApi, internalTestsApi, shadeMatchesApi,
   fabricInventoriesApi, fabricReservationsApi,
 } from '../../utils/api';
+import { AuthContext } from '../../context/AuthContext';
+import AdminDashboard from './AdminDashboard';
 
 // ── helpers ────────────────────────────────────────────────
 const pick = (o: any, camel: string, pascal: string) => o?.[camel] ?? o?.[pascal];
@@ -51,7 +53,7 @@ const riskOf = (f: any, lateBy: number) => {
 };
 
 // ── componente ─────────────────────────────────────────────
-const Dashboard: React.FC = () => {
+const MasterDashboard: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -304,6 +306,15 @@ const Dashboard: React.FC = () => {
       </Paper>
     </Box>
   );
+};
+
+const Dashboard: React.FC = () => {
+  const { user } = useContext(AuthContext);
+  const role = (user?.roleName ?? '').trim().toLowerCase();
+  if (role === 'super admin' || role === 'administrador tpcs') {
+    return <AdminDashboard />;
+  }
+  return <MasterDashboard />;
 };
 
 export default Dashboard;

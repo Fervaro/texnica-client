@@ -274,7 +274,7 @@ export const fabricMovementsApi = {
   getTotals: () => api.get('/fabric-movements/totals'),
   getById: (id: number) => api.get(`/fabric-movements/${id}`),
   getByRoll: (rollReceivingId: number) => api.get(`/fabric-movements/roll/${rollReceivingId}`),
-  getBalances: () => api.get('/fabric-movements/balances'),
+  getBalances: (fgpoId?: number) => api.get('/fabric-movements/balances', { params: fgpoId ? { fgpoId } : undefined }),
   create: (data: any) => api.post('/fabric-movements', data),
 };
 
@@ -625,6 +625,8 @@ export const authApi = {
     api.post('/auth/change-password', { currentPassword, newPassword }),
   changePasswordFirstLogin: (newPassword: string) => 
     api.post('/auth/change-password', { currentPassword: '', newPassword }),
+  switchCustomer: (customerId: number) =>
+    api.post('/auth/switch-customer', { customerId }),
 
 };
 

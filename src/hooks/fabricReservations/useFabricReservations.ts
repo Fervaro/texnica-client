@@ -37,6 +37,7 @@ const mapFabricReservation = (raw: any): FabricReservation => ({
     rollNumber: l.rollNumber ?? l.RollNumber ?? '',
     supplierRollNumber: l.supplierRollNumber ?? l.SupplierRollNumber,
     lotNumber: l.lotNumber ?? l.LotNumber,
+    lotId: l.lotId ?? l.LotId,
     reservedQuantity: l.reservedQuantity ?? l.ReservedQuantity ?? 0,
     releasedQuantity: l.releasedQuantity ?? l.ReleasedQuantity ?? 0,
     status: l.status ?? l.Status,

@@ -16,6 +16,7 @@ import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useFabricReservations } from '../../hooks/fabricReservations/useFabricReservations';
 import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
+import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useLotOptions } from '../../hooks/lots/useLotOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { fabricMovementsApi, fabricReservationsApi } from '../../utils/api';
@@ -31,7 +32,7 @@ const sc = (s: string) => {
 
 const emptyForm = {
   ReservationDate: new Date().toISOString().split('T')[0],
-  FabricPOId: 0, FGPOId: 0, LotId: 0,
+  FabricPOId: 0, FGPOId: 0, LotIds: [] as number[],
   ReservedQuantity: '', ReleasedQuantity: '',
   Status: 'Pending', ReservedByUserId: 0, ApprovedByUserId: 0,
   LastUpdated: '', Comments: '',
@@ -52,12 +53,17 @@ const FabricReservationPage: React.FC = () => {
   const [formError, setFormError] = useState('');
 
   const { options: fabricPOList } = useFabricPOOptions();
+  const { options: fgpoList } = useFgpoOptions();
   const { options: lotList } = useLotOptions();
   const { options: userList } = useUserOptions();
   const [form, setForm] = useState(emptyForm);
   const [balances, setBalances] = useState<RollBalance[]>([]);
   const [balancesError, setBalancesError] = useState('');
+  const [loadingBalances, setLoadingBalances] = useState(false);
   const [rollInputs, setRollInputs] = useState<Record<number, string>>({});
+  const [rollSearch, setRollSearch] = useState('');
+  const ROLLS_PER_PAGE = 30;
+  const [rollVisible, setRollVisible] = useState(ROLLS_PER_PAGE);
 
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseItem, setReleaseItem] = useState<FabricReservation | null>(null);
@@ -65,9 +71,11 @@ const FabricReservationPage: React.FC = () => {
   const [releaseError, setReleaseError] = useState('');
   const [releasing, setReleasing] = useState(false);
 
-  const loadBalances = async () => {
-    try { const res = await fabricMovementsApi.getBalances(); setBalances(res.data ?? []); setBalancesError(''); }
+  const loadBalances = async (fgpoId?: number) => {
+    setLoadingBalances(true); setBalancesError('');
+    try { const res = await fabricMovementsApi.getBalances(fgpoId); setBalances(res.data ?? []); }
     catch (err: any) { setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'); }
+    finally { setLoadingBalances(false); }
   };
 
   const [resTotals, setResTotals] = useState({ reserved: 0, released: 0, pending: 0, count: 0 });
@@ -91,18 +99,37 @@ const FabricReservationPage: React.FC = () => {
 
   useEffect(() => { loadResTotals(); }, []);
 
-  // Rollos compatibles con la Fabric PO/FGPO seleccionada (regla del backend)
-  const availableRolls = balances.filter(b => b.fabricPOId === form.FabricPOId && b.fgpoId === form.FGPOId);
+  // Rollos compatibles con la FGPO seleccionada (Fabric PO y Lote opcionales)
+  const availableRolls = balances.filter(b =>
+    b.fgpoId === form.FGPOId &&
+    (!form.FabricPOId || b.fabricPOId === form.FabricPOId) &&
+    (!form.LotIds.length || (b.lotId != null && form.LotIds.includes(b.lotId))));
+  const filteredRolls = availableRolls.filter(r =>
+    !rollSearch.trim() || r.rollNumber.toLowerCase().includes(rollSearch.trim().toLowerCase()));
+  const visibleRolls = filteredRolls.slice(0, rollVisible);
   const setRollQty = (rollId: number, value: string) => setRollInputs(prev => ({ ...prev, [rollId]: value }));
+
+  useEffect(() => { setRollVisible(ROLLS_PER_PAGE); setRollSearch(''); }, [form.FGPOId, form.FabricPOId, form.LotIds]);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
-  const openCreate = () => { setEditingId(null); setForm(emptyForm); setRollInputs({}); setFormError(''); setDialogOpen(true); loadBalances(); };
+  const openCreate = () => { setEditingId(null); setForm(emptyForm); setRollInputs({}); setRollSearch(''); setFormError(''); setBalances([]); setDialogOpen(true); };
   const openEdit = (r: FabricReservation) => {
     setEditingId(r.id);
+    // Lotes derivados de los rollos asignados (lotId) o, como respaldo, del número de lote
+    // (datos antiguos donde el rollo tenía LotNumber pero no LotId).
+    const lotIds = Array.from(new Set((r.rolls ?? []).flatMap(l => {
+      if (l.lotId) return [l.lotId];
+      if (l.lotNumber) {
+        const opt = lotList.find(o => o.label === l.lotNumber);
+        return opt ? [opt.id] : [];
+      }
+      return [];
+    })));
     setForm({
-      ReservationDate: r.reservationDate?.split('T')[0] || '', FabricPOId: r.fabricPOId, FGPOId: r.fgpoId, LotId: r.lotId ?? 0,
+      ReservationDate: r.reservationDate?.split('T')[0] || '', FabricPOId: r.fabricPOId ?? 0, FGPOId: r.fgpoId,
+      LotIds: lotIds.length > 0 ? lotIds : (r.lotId ? [r.lotId] : []),
       ReservedQuantity: r.reservedQuantity?.toString() ?? '', ReleasedQuantity: r.releasedQuantity?.toString() ?? '',
       Status: r.status || 'Pending', ReservedByUserId: r.reservedByUserId ?? 0, ApprovedByUserId: r.approvedByUserId ?? 0,
       LastUpdated: r.lastUpdated?.split('T')[0] || '', Comments: r.comments ?? '',
@@ -110,8 +137,9 @@ const FabricReservationPage: React.FC = () => {
     const initRollInputs: Record<number, string> = {};
     (r.rolls ?? []).forEach(l => { initRollInputs[l.rollReceivingId] = l.reservedQuantity.toString(); });
     setRollInputs(initRollInputs);
+    setRollSearch('');
     setFormError(''); setDialogOpen(true);
-    loadBalances();
+    loadBalances(r.fgpoId);
   };
 
   const handleDelete = async (id: number) => {
@@ -131,7 +159,7 @@ const FabricReservationPage: React.FC = () => {
     try {
       await fabricReservationsApi.release(releaseItem!.id, { quantity: q });
       setReleaseOpen(false);
-      await Promise.all([refresh(), loadBalances()]);
+      await refresh();
     } catch (err: any) {
       setReleaseError(err?.response?.data?.message || err?.response?.data || 'Error liberando la reserva.');
     } finally { setReleasing(false); }
@@ -139,7 +167,6 @@ const FabricReservationPage: React.FC = () => {
 
   const handleSave = async () => {
     setFormError('');
-    if (!form.FabricPOId) { setFormError('Fabric PO is required.'); return; }
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
     try {
       const num = (v: string) => v === '' ? 0 : Number(v);
@@ -148,7 +175,8 @@ const FabricReservationPage: React.FC = () => {
         .filter(l => l.reservedQuantity > 0);
       const payload = {
         ...form,
-        LotId: form.LotId || null,
+        FabricPOId: form.FabricPOId || null,
+        LotId: form.LotIds.length === 1 ? form.LotIds[0] : null,
         ReservedByUserId: form.ReservedByUserId || null, ApprovedByUserId: form.ApprovedByUserId || null,
         ReservedQuantity: num(form.ReservedQuantity), ReleasedQuantity: num(form.ReleasedQuantity),
         ReservationDate: form.ReservationDate ? new Date(form.ReservationDate).toISOString() : new Date().toISOString(),
@@ -164,15 +192,10 @@ const FabricReservationPage: React.FC = () => {
   const fmt = (v?: string) => v?.split('T')[0] || '-';
   const setF = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
-  // Datos derivados del Fabric PO seleccionado (componente, UOM, FGPOs cubiertos)
+  // Datos derivados del Fabric PO seleccionado (componente, UOM)
   const selectedPo = fabricPOList.find((f: any) => f.id === form.FabricPOId) as any;
   const derivedComponent = selectedPo?.meta?.fabricComponent || '';
   const derivedUom = selectedPo?.meta?.uom || '';
-  const fgpoOptions: { id: number; label: string; sub: string }[] = (selectedPo?.meta?.fgpos ?? []).map((fg: any) => ({
-    id: fg.fgpoId,
-    label: fg.fgpoNumber,
-    sub: fg.style || fg.color || '',
-  }));
 
   // Vistas previas de columnas calculadas (fórmula del Excel)
   const n = (s: string) => s === '' ? 0 : Number(s);
@@ -280,9 +303,9 @@ const FabricReservationPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Reservation Date *" type="date" value={form.ReservationDate} onChange={e => setF('ReservationDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Fabric PO *</InputLabel>
-                <Select value={form.FabricPOId || ''} label="Fabric PO *" onChange={e => { setF('FabricPOId', Number(e.target.value)); setF('FGPOId', 0); }}>
-                  <MenuItem value=""><em>Select a Fabric PO...</em></MenuItem>
+                <InputLabel>Fabric PO</InputLabel>
+                <Select value={form.FabricPOId || ''} label="Fabric PO" onChange={e => setF('FabricPOId', Number(e.target.value))}>
+                  <MenuItem value=""><em>Sin Fabric PO (tela del cliente)</em></MenuItem>
                   {fabricPOList.map((f: any) => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -290,17 +313,33 @@ const FabricReservationPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
-                <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => setF('FGPOId', Number(e.target.value))} disabled={!form.FabricPOId}>
-                  <MenuItem value=""><em>{form.FabricPOId ? 'Select a FGPO...' : 'Select a Fabric PO first'}</em></MenuItem>
-                  {fgpoOptions.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
+                <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => {
+                  const id = Number(e.target.value);
+                  setF('FGPOId', id);
+                  if (id) loadBalances(id); else setBalances([]);
+                }}>
+                  <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
+                  {fgpoList.map((o: any) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Lot</InputLabel>
-                <Select value={form.LotId || ''} label="Lot" onChange={e => setF('LotId', Number(e.target.value))}>
-                  <MenuItem value=""><em>No lot</em></MenuItem>
+                <InputLabel>Lots</InputLabel>
+                <Select multiple value={form.LotIds} label="Lots"
+                  onChange={e => setF('LotIds', e.target.value as number[])}
+                  renderValue={(sel) => {
+                    const ids = sel as number[];
+                    if (ids.length === 0) return <em>No lot</em>;
+                    return (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {ids.map(id => {
+                          const opt = lotList.find(o => o.id === id);
+                          return <Chip key={id} label={opt?.label ?? id} size="small" />;
+                        })}
+                      </Box>
+                    );
+                  }}>
                   {lotList.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -313,19 +352,41 @@ const FabricReservationPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Released Quantity" type="number" value={form.ReleasedQuantity} onChange={e => setF('ReleasedQuantity', e.target.value)} /></Grid>
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Asignación por rollo (opcional)</Typography></Divider></Grid>
-            {availableRolls.length === 0 ? (
+            {loadingBalances ? (
+              <Grid size={{ xs: 12 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={16} /><Typography variant="caption" color="text.secondary">Cargando rollos...</Typography></Box></Grid>
+            ) : availableRolls.length === 0 ? (
               <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">
-                {form.FabricPOId && form.FGPOId ? 'Sin rollos disponibles para esta Fabric PO/FGPO (sin saldo físico o sin movimientos).' : 'Seleccione Fabric PO y FGPO para ver los rollos disponibles.'}
+                {form.FGPOId ? 'Sin rollos disponibles para los filtros seleccionados (FGPO/Fabric PO/Lotes).' : 'Seleccione FGPO para ver los rollos disponibles.'}
               </Typography></Grid>
             ) : (
-              availableRolls.map(r => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={r.rollReceivingId}>
-                  <TextField fullWidth size="small"
-                    label={`${r.rollNumber} — disp. ${r.availableQuantity} / reservado ${r.reservedQuantity} / físico ${r.physicalQuantity}`}
-                    type="number" value={rollInputs[r.rollReceivingId] ?? ''}
-                    onChange={e => setRollQty(r.rollReceivingId, e.target.value)} />
+              <>
+                <Grid size={{ xs: 12 }}>
+                  <TextField fullWidth size="small" placeholder={`Buscar rollo (${availableRolls.length} disponibles)...`}
+                    value={rollSearch}
+                    onChange={e => { setRollSearch(e.target.value); setRollVisible(ROLLS_PER_PAGE); }}
+                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> } }} />
                 </Grid>
-              ))
+                {visibleRolls.map(r => (
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={r.rollReceivingId}>
+                    <TextField fullWidth size="small"
+                      label={`${r.rollNumber}${r.lotNumber ? ` · lote ${r.lotNumber}` : ''} — disp. ${r.availableQuantity} / reservado ${r.reservedQuantity} / físico ${r.physicalQuantity}`}
+                      type="number" value={rollInputs[r.rollReceivingId] ?? ''}
+                      onChange={e => setRollQty(r.rollReceivingId, e.target.value)} />
+                  </Grid>
+                ))}
+                {visibleRolls.length < filteredRolls.length && (
+                  <Grid size={{ xs: 12 }}>
+                    <Button variant="text" size="small" onClick={() => setRollVisible(v => v + ROLLS_PER_PAGE)}>
+                      Mostrar más ({filteredRolls.length - visibleRolls.length} restantes)
+                    </Button>
+                  </Grid>
+                )}
+                {filteredRolls.length === 0 && (
+                  <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">
+                    No hay rollos que coincidan con la búsqueda.
+                  </Typography></Grid>
+                )}
+              </>
             )}
 
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculado automáticamente</Typography></Divider></Grid>
