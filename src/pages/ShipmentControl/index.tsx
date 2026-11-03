@@ -3,7 +3,7 @@ import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
   DialogContent, DialogActions, IconButton, InputAdornment, MenuItem,
-  FormControl, InputLabel, TablePagination, Grid, Select, Divider
+  FormControl, InputLabel, TablePagination, Grid, Select, Divider, Checkbox
 } from '@mui/material';
 import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import AddIcon from '@mui/icons-material/Add';
@@ -16,6 +16,8 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useShipmentControls } from '../../hooks/shipmentControls/useShipmentControls';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
+import { useWarehouseFgpos } from '../../hooks/packingControls/useWarehouseFgpos';
+import { packingControlsApi } from '../../utils/api';
 import { ShipmentControl } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
 
@@ -40,6 +42,17 @@ const emptyForm = {
   DataOwnerId: 0, Remarks: '',
 };
 
+interface BoxOption {
+  id: number;
+  style: string;
+  color: string;
+  size: string;
+  boxCode: string;
+  cartons: number;
+  pcsPerCarton: number;
+  packedQty: number;
+}
+
 const ShipmentControlPage: React.FC = () => {
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
@@ -59,12 +72,58 @@ const ShipmentControlPage: React.FC = () => {
 
   const [form, setForm] = useState(emptyForm);
 
+  const warehouseFgpos = useWarehouseFgpos();
+  const [boxes, setBoxes] = useState<BoxOption[]>([]);
+  const [selectedBoxIds, setSelectedBoxIds] = useState<number[]>([]);
+
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
   const resetForm = () => setForm(emptyForm);
 
-  const openCreate = () => { setEditingId(null); resetForm(); setFormError(''); setDialogOpen(true); };
+  const openCreate = () => {
+    setEditingId(null); resetForm(); setBoxes([]); setSelectedBoxIds([]);
+    setFormError(''); setDialogOpen(true);
+  };
+
+  const loadBoxes = async (fgpoId: number) => {
+    if (!fgpoId) { setBoxes([]); setSelectedBoxIds([]); return; }
+    try {
+      const res = await packingControlsApi.getByFgpo(fgpoId);
+      setBoxes((res.data ?? []).map((p: any): BoxOption => ({
+        id: p.id ?? p.ID ?? 0,
+        style: p.style ?? p.Style ?? '',
+        color: p.color ?? p.Color ?? '',
+        size: p.size ?? p.Size ?? '',
+        boxCode: p.boxCode ?? p.BoxCode ?? '',
+        cartons: (p.fullCartons ?? p.FullCartons ?? 0) + (p.partialCartons ?? p.PartialCartons ?? 0),
+        pcsPerCarton: p.pcsPerCarton ?? p.PcsPerCarton ?? 0,
+        packedQty: p.packedQty ?? p.PackedQty ?? 0,
+      })));
+      setSelectedBoxIds([]);
+    } catch { setBoxes([]); setSelectedBoxIds([]); }
+  };
+
+  const handleFgpoChange = (val: number) => {
+    setForm(prev => ({ ...prev, FGPOId: val }));
+    if (editingId === null) {
+      loadBoxes(val);
+      setSelectedBoxIds([]);
+      setForm(prev => ({ ...prev, PlannedQty: 0, ActualLoadedQty: 0, InTransitQty: 0, CustomerReceivedQty: 0, TotalShippedQty: 0 }));
+    }
+  };
+
+  const toggleBox = (id: number) => {
+    const next = selectedBoxIds.includes(id) ? selectedBoxIds.filter(x => x !== id) : [...selectedBoxIds, id];
+    setSelectedBoxIds(next);
+    const total = boxes.filter(b => next.includes(b.id)).reduce((s, b) => s + b.packedQty, 0);
+    setForm(f => ({ ...f, PlannedQty: total, TotalShippedQty: total }));
+  };
+
+  // En creación solo se muestran los FGPOs que están en warehouse (con cajas por enviar).
+  const fgpoOptions = editingId === null
+    ? warehouseFgpos.map(f => ({ id: f.fgpoId, label: f.fgpoNumber }))
+    : fgpoList;
   const openEdit = (item: ShipmentControl) => {
     setEditingId(item.id);
     setForm({
@@ -95,6 +154,7 @@ const ShipmentControlPage: React.FC = () => {
     setFormError('');
     if (!form.ShipmentNumber.trim()) { setFormError('Shipment Number is required.'); return; }
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
+    if (editingId === null && selectedBoxIds.length === 0) { setFormError('Seleccione al menos una caja.'); return; }
     if (form.PlannedQty < 0 || form.ActualLoadedQty < 0 || form.InTransitQty < 0 || form.CustomerReceivedQty < 0 || form.TotalShippedQty < 0) {
       setFormError('Quantities cannot be negative.'); return;
     }
@@ -215,9 +275,9 @@ const ShipmentControlPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
-                <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => setF('FGPOId', Number(e.target.value))}>
-                  <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
-                  {fgpoList.map((f) => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
+                <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => handleFgpoChange(Number(e.target.value))}>
+                  <MenuItem value=""><em>{editingId === null ? 'Seleccione un FGPO (warehouse)...' : 'Select a FGPO...'}</em></MenuItem>
+                  {fgpoOptions.map((f) => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
@@ -229,22 +289,66 @@ const ShipmentControlPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Planned Qty" type="number" value={form.PlannedQty} onChange={e => setF('PlannedQty', Number(e.target.value))} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Actual Loaded Qty" type="number" value={form.ActualLoadedQty} onChange={e => setF('ActualLoadedQty', Number(e.target.value))} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="In Transit Qty" type="number" value={form.InTransitQty} onChange={e => setF('InTransitQty', Number(e.target.value))} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Customer Received Qty" type="number" value={form.CustomerReceivedQty} onChange={e => setF('CustomerReceivedQty', Number(e.target.value))} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Total Shipped Qty" type="number" value={form.TotalShippedQty} onChange={e => setF('TotalShippedQty', Number(e.target.value))} />
-            </Grid>
+            {editingId === null ? (
+              <>
+                <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cajas a enviar</Typography></Divider></Grid>
+                <Grid size={{ xs: 12 }}>
+                  {!form.FGPOId ? (
+                    <Typography variant="body2" color="text.secondary">Seleccione un FGPO para ver las cajas disponibles.</Typography>
+                  ) : boxes.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">No hay cajas disponibles para este FGPO.</Typography>
+                  ) : (
+                    <TableContainer sx={{ maxHeight: 260 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell padding="checkbox"></TableCell>
+                            {['Estilo / Color', 'Talla', 'Caja', 'Cajas', 'Pcs/Caja', 'Piezas'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {boxes.map(b => (
+                            <TableRow key={b.id} hover selected={selectedBoxIds.includes(b.id)}>
+                              <TableCell padding="checkbox">
+                                <Checkbox checked={selectedBoxIds.includes(b.id)} onChange={() => toggleBox(b.id)} />
+                              </TableCell>
+                              <TableCell>{b.style || '-'} / {b.color || '-'}</TableCell>
+                              <TableCell>{b.size || '-'}</TableCell>
+                              <TableCell>{b.boxCode || '-'}</TableCell>
+                              <TableCell>{b.cartons}</TableCell>
+                              <TableCell>{b.pcsPerCarton}</TableCell>
+                              <TableCell sx={{ fontWeight: 600 }}>{num(b.packedQty)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Piezas seleccionadas: {num(form.PlannedQty)}
+                  </Typography>
+                </Grid>
+              </>
+            ) : (
+              <>
+                <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities</Typography></Divider></Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                  <TextField fullWidth size="small" label="Planned Qty" type="number" value={form.PlannedQty} onChange={e => setF('PlannedQty', Number(e.target.value))} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                  <TextField fullWidth size="small" label="Actual Loaded Qty" type="number" value={form.ActualLoadedQty} onChange={e => setF('ActualLoadedQty', Number(e.target.value))} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                  <TextField fullWidth size="small" label="In Transit Qty" type="number" value={form.InTransitQty} onChange={e => setF('InTransitQty', Number(e.target.value))} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                  <TextField fullWidth size="small" label="Customer Received Qty" type="number" value={form.CustomerReceivedQty} onChange={e => setF('CustomerReceivedQty', Number(e.target.value))} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                  <TextField fullWidth size="small" label="Total Shipped Qty" type="number" value={form.TotalShippedQty} onChange={e => setF('TotalShippedQty', Number(e.target.value))} />
+                </Grid>
+              </>
+            )}
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Fechas</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField fullWidth size="small" label="Planned Loading" type="date" value={form.PlannedLoadingDate} onChange={e => setF('PlannedLoadingDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />

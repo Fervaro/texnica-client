@@ -288,6 +288,7 @@ export const packingControlsApi = {
   getAll: () => api.get('/packing-controls'),
   getById: (id: number) => api.get(`/packing-controls/${id}`),
   getByFgpo: (fgpoId: number) => api.get(`/packing-controls/fgpo/${fgpoId}`),
+  getWarehouseFgpos: () => api.get('/packing-controls/warehouse-fgpos'),
   create: (data: any) => api.post('/packing-controls', data),
   createBulk: (data: any) => api.post('/packing-controls/bulk', data),
   update: (id: number, data: any) => api.put(`/packing-controls/${id}`, data),

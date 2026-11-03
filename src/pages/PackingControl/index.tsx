@@ -24,6 +24,7 @@ import { PackingControl } from '../../types';
 const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],
   FGPOId: 0,
+  BoxTypeId: 0,
   QcPassedQty: 0, ReceivedByPackingQty: 0, FoldedQty: 0, PolybaggedQty: 0, PendingPacking: 0, PackedQty: 0,
   PcsPerCarton: 0, Cajas: 0,
   ResponsiblePersonId: 0, Remarks: '',
@@ -69,6 +70,7 @@ const PackingControlPage: React.FC = () => {
     setForm({
       PackingDate: item.packingDate?.split('T')[0] || '',
       FGPOId: item.fgpoId,
+      BoxTypeId: item.boxTypeId ?? 0,
       QcPassedQty: item.qcPassedQty, ReceivedByPackingQty: item.receivedByPackingQty,
       FoldedQty: item.foldedQty, PolybaggedQty: item.polybaggedQty, PendingPacking: item.pendingPacking, PackedQty: item.packedQty,
       PcsPerCarton: item.pcsPerCarton,
@@ -93,6 +95,7 @@ const PackingControlPage: React.FC = () => {
     try {
       const payload = {
         ...form,
+        BoxTypeId: form.BoxTypeId || null,
         ResponsiblePersonId: form.ResponsiblePersonId || null,
         PackingDate: form.PackingDate ? new Date(form.PackingDate).toISOString() : new Date().toISOString(),
       };
