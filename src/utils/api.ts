@@ -30,7 +30,7 @@ api.interceptors.request.use(
           config.params = { ...config.params, customerId: customer.id };
         }
 
-        if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+        if (config.data && typeof config.data === 'object' && !Array.isArray(config.data) && !(config.data instanceof FormData)) {
           const storedUser = localStorage.getItem('user');
           const user = storedUser ? JSON.parse(storedUser) : null;
           const isUserCreation = config.url?.endsWith('/auth/users') === true;
