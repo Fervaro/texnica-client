@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { errorMessage } from '../utils/errorMessage';
 
 /**
  * Contrato mínimo que debe cumplir el objeto de API de un recurso
@@ -61,7 +62,7 @@ export function useResource<T>(
       setItems((res.data?.items ?? []).map(normalize));
       setTotalCount(res.data?.totalCount ?? 0);
     } catch (err: any) {
-      setError(err.response?.data || err.message || 'Error cargando datos.');
+      setError(errorMessage(err, 'Error cargando datos.'));
     } finally {
       setLoading(false);
     }

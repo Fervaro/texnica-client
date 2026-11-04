@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { permissionsApi } from '../../utils/api';
+import { errorMessage } from '../../utils/errorMessage';
 import { Permission } from '../../types';
 
 const mapPermission = (raw: any): Permission => ({
@@ -24,7 +25,7 @@ export const usePermissions = () => {
       const res = await permissionsApi.getAll();
       setItems((res.data ?? []).map(mapPermission));
     } catch (err: any) {
-      setError(err.response?.data || err.message || 'Error cargando permisos.');
+      setError(errorMessage(err, 'Error cargando permisos.'));
     } finally {
       setLoading(false);
     }

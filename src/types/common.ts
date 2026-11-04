@@ -15,6 +15,8 @@ export interface SelectOption {
   sub?: string;
   /** Proveedor (para opciones de Fabric PO) */
   supplier?: string;
+  /** FGPO al que pertenece la opción (para filtrar Lotes). */
+  fgpoId?: number;
 }
 
 /** Catálogo maestro: { Type: [values...] } */

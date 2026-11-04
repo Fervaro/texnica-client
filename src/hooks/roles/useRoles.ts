@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { rolesApi } from '../../utils/api';
+import { errorMessage } from '../../utils/errorMessage';
 import { Role } from '../../types';
 
 const mapRole = (raw: any): Role => ({
@@ -23,7 +24,7 @@ export const useRoles = () => {
       const res = await rolesApi.getAll();
       setItems((res.data ?? []).map(mapRole));
     } catch (err: any) {
-      setError(err.response?.data || err.message || 'Error cargando roles.');
+      setError(errorMessage(err, 'Error cargando roles.'));
     } finally {
       setLoading(false);
     }

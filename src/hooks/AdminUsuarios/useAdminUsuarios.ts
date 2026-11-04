@@ -118,8 +118,17 @@ export const useAdminUsuarios = () => {
   }, [loadData]);
 
   const handleUpdateUser = useCallback(async (userId: number, data: any) => {
+    // Normaliza el payload: Employee no debe llevar CustomerId (se envía null),
+    // y RoleId/CustomerId vacíos se convierten a null (no 0 ni string vacío).
+    const payload = {
+      userName: data.userName,
+      userEmail: data.userEmail,
+      userType: data.userType,
+      customerId: data.userType === 'Client' ? (data.customerId || null) : null,
+      roleId: data.roleId ? Number(data.roleId) : null,
+    };
     try {
-      await usersApi.update(userId, data);
+      await usersApi.update(userId, payload);
       setSnackbar('User updated successfully.');
       await loadData();
     } catch (err: any) {

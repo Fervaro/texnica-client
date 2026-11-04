@@ -93,7 +93,7 @@ const FabricReservationPage: React.FC = () => {
       });
     } catch (err: any) {
       const status = err?.response?.status;
-      setTotalsError(status ? `Error ${status} al cargar los totales de reservas.` : 'No se pudieron cargar los totales de reservas.');
+      setTotalsError(status === 403 ? 'No se posee acceso a este Módulo.' : status ? `Error ${status} al cargar los totales de reservas.` : 'No se pudieron cargar los totales de reservas.');
     }
   };
 
@@ -196,6 +196,9 @@ const FabricReservationPage: React.FC = () => {
   const selectedPo = fabricPOList.find((f: any) => f.id === form.FabricPOId) as any;
   const derivedComponent = selectedPo?.meta?.fabricComponent || '';
   const derivedUom = selectedPo?.meta?.uom || '';
+
+  // Lotes de la FGPO seleccionada (el campo Lots se habilita solo con FGPO).
+  const lotsForFgpo = lotList.filter(o => o.fgpoId === form.FGPOId);
 
   // Vistas previas de columnas calculadas (fórmula del Excel)
   const n = (s: string) => s === '' ? 0 : Number(s);
@@ -316,6 +319,7 @@ const FabricReservationPage: React.FC = () => {
                 <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => {
                   const id = Number(e.target.value);
                   setF('FGPOId', id);
+                  setF('LotIds', []);
                   if (id) loadBalances(id); else setBalances([]);
                 }}>
                   <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
@@ -327,6 +331,7 @@ const FabricReservationPage: React.FC = () => {
               <FormControl fullWidth size="small">
                 <InputLabel>Lots</InputLabel>
                 <Select multiple value={form.LotIds} label="Lots"
+                  disabled={!form.FGPOId}
                   onChange={e => setF('LotIds', e.target.value as number[])}
                   renderValue={(sel) => {
                     const ids = sel as number[];
@@ -340,7 +345,7 @@ const FabricReservationPage: React.FC = () => {
                       </Box>
                     );
                   }}>
-                  {lotList.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
+                  {lotsForFgpo.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>

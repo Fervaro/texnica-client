@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { authApi } from '../../utils/api';
+import { errorMessage } from '../../utils/errorMessage';
 import { LoginRequest, RegisterRequest, User } from '../../types';
 
 /** Hook de autenticación: consume /api/auth (login, register, change-password) */
@@ -14,7 +15,7 @@ export const useAuth = () => {
       const res = await authApi.login(data.userName, data.password);
       return res.data as { token: string; user: User };
     } catch (err: any) {
-      setError(err.response?.data || err.message || 'Error al iniciar sesión.');
+      setError(errorMessage(err, 'Error al iniciar sesión.'));
       throw err;
     } finally {
       setLoading(false);
@@ -28,7 +29,7 @@ export const useAuth = () => {
       const res = await authApi.register(data.userName, data.userEmail, data.password);
       return res.data;
     } catch (err: any) {
-      setError(err.response?.data || err.message || 'Error al registrarse.');
+      setError(errorMessage(err, 'Error al registrarse.'));
       throw err;
     } finally {
       setLoading(false);
@@ -42,7 +43,7 @@ export const useAuth = () => {
       try {
         await authApi.changePassword(currentPassword, newPassword);
       } catch (err: any) {
-        setError(err.response?.data || err.message || 'Error al cambiar la contraseña.');
+        setError(errorMessage(err, 'Error al cambiar la contraseña.'));
         throw err;
       } finally {
         setLoading(false);

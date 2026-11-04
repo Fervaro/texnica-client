@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usersApi } from '../../utils/api';
+import { errorMessage } from '../../utils/errorMessage';
 import { User } from '../../types';
 
 const mapUser = (raw: any): User => ({
@@ -28,7 +29,7 @@ export const useUsers = () => {
       const res = await usersApi.getAll();
       setUsers((res.data ?? []).map(mapUser));
     } catch (err: any) {
-      setError(err.response?.data || err.message || 'Error cargando usuarios.');
+      setError(errorMessage(err, 'Error cargando usuarios.'));
     } finally {
       setLoading(false);
     }

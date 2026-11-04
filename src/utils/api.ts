@@ -57,6 +57,20 @@ api.interceptors.request.use(
   }
 );
 
+// Normaliza los 403 (sin permiso) a un mensaje amigable y consistente para
+// todos los consumidores que lean `response.data.message`.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 403 && !error.response?.data?.message) {
+      const friendly = 'No se posee acceso a este Módulo.';
+      error.message = friendly;
+      error.response.data = { message: friendly };
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Roles API
 export const rolesApi = {
   getAll: () => api.get('/roles'),
@@ -281,6 +295,13 @@ export const fabricMovementsApi = {
 // Fabric Inventory Import API (importación desde Excel INGRESOS)
 export const fabricInventoryImportApi = {
   import: (data: any) => api.post('/fabric-inventory-import', data),
+  // Actualización masiva de rollos existentes desde Excel.
+  // Contrato backend (pendiente de implementar en ERP.Api):
+  //   POST /fabric-inventory-import/update
+  //   { fgpoId?: number|null, campoMaster?: string|null,
+  //     rows: [{ key: { rollNumber?, bacht?, uniqueId? }, fields: {...} }] }
+  //   Respuesta esperada: { updated, notFound, skipped }.
+  update: (data: any) => api.post('/fabric-inventory-import/update', data),
 };
 
 // Packing Control API

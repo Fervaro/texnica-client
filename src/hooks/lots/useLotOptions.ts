@@ -15,6 +15,7 @@ export const useLotOptions = () => {
         id: l.id ?? l.ID,
         label: l.lotNumber ?? l.LotNumber ?? '',
         sub: l.fabricPONumber ?? l.FabricPONumber ?? '',
+        fgpoId: l.fgpoId ?? l.FGPOId ?? 0,
       })));
     } catch { /* vacío */ } finally { setLoading(false); }
   }, []);

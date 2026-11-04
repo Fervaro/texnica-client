@@ -136,7 +136,7 @@ const FabricReceivingPage: React.FC = () => {
       });
     } catch (err: any) {
       const status = err?.response?.status;
-      setTotalsError(status ? `Error ${status} al cargar los totales de recepciones.` : 'No se pudieron cargar los totales de recepciones.');
+      setTotalsError(status === 403 ? 'No se posee acceso a este Módulo.' : status ? `Error ${status} al cargar los totales de recepciones.` : 'No se pudieron cargar los totales de recepciones.');
     }
   };
   useEffect(() => { loadRecTotals(); }, []);
