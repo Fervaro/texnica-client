@@ -90,7 +90,7 @@ const FabricShipmentPage: React.FC = () => {
       });
     } catch (err: any) {
       const status = err?.response?.status;
-      setTotalsError(status === 403 ? 'No se posee acceso a este Módulo.' : status ? `Error ${status} al cargar los totales de embarques.` : 'No se pudieron cargar los totales de embarques.');
+      setTotalsError(status === 403 ? 'No access to this Module.' : status ? `Error ${status} loading shipment totals.` : 'Could not load shipment totals.');
     }
   };
   useEffect(() => { loadShipTotals(); }, []);
@@ -131,7 +131,7 @@ const FabricShipmentPage: React.FC = () => {
       { name: 'Roll Quantity', value: form.RollQty },
       { name: 'Shipped Weight', value: form.ShippedWeight },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,
@@ -213,7 +213,7 @@ const FabricShipmentPage: React.FC = () => {
       const res = await fabricShipmentLotsApi.getByShipment(shipmentId);
       setLots((res.data ?? []).map(mapLot));
     } catch (err: any) {
-      setLotsError(errMsg(err, 'No se pudieron cargar los lotes.'));
+      setLotsError(errMsg(err, 'Could not load lots.'));
     } finally {
       setLotsLoading(false);
     }
@@ -254,25 +254,25 @@ const FabricShipmentPage: React.FC = () => {
   const setLotF = (field: string, value: any) => setLotForm(prev => ({ ...prev, [field]: value }));
 
   const handleLotDelete = async (lot: FabricShipmentLot) => {
-    if (!window.confirm(`¿Eliminar el lote "${lot.lotNumber}"?`)) return;
+    if (!window.confirm(`Delete lot "${lot.lotNumber}"?`)) return;
     try {
       await fabricShipmentLotsApi.delete(lot.id);
       if (lotsShipment) await loadLots(lotsShipment.id);
     } catch (err: any) {
-      setLotsError(err?.response?.data?.message || err?.message || 'Error al eliminar el lote.');
+      setLotsError(err?.response?.data?.message || err?.message || 'Error deleting lot.');
     }
   };
 
   const handleLotSave = async () => {
     setLotFormError('');
-    if (!lotForm.LotNumber.trim()) { setLotFormError('El número de lote es obligatorio.'); return; }
+    if (!lotForm.LotNumber.trim()) { setLotFormError('Lot number is required.'); return; }
     const rolls = Number(lotForm.ShippedRolls || '') || 0;
     const yards = Number(lotForm.ShippedYards || '') || 0;
-    if (rolls < 0 || yards < 0) { setLotFormError('Rollos y yards no pueden ser negativos.'); return; }
-    if (rolls === 0 && yards === 0) { setLotFormError('Debe indicar al menos una cantidad enviada (rollos o yardas).'); return; }
+    if (rolls < 0 || yards < 0) { setLotFormError('Rolls and yards cannot be negative.'); return; }
+    if (rolls === 0 && yards === 0) { setLotFormError('You must indicate at least one shipped quantity (rolls or yards).'); return; }
     const width = lotForm.Width === '' ? null : Number(lotForm.Width);
     const gsm = lotForm.GSM === '' ? null : Number(lotForm.GSM);
-    if ((width != null && width < 0) || (gsm != null && gsm < 0)) { setLotFormError('Width y GSM no pueden ser negativos.'); return; }
+    if ((width != null && width < 0) || (gsm != null && gsm < 0)) { setLotFormError('Width and GSM cannot be negative.'); return; }
 
     const payload: any = {
       lotNumber: lotForm.LotNumber.trim(),
@@ -296,7 +296,7 @@ const FabricShipmentPage: React.FC = () => {
       setLotDialogOpen(false);
       if (lotsShipment) await loadLots(lotsShipment.id);
     } catch (err: any) {
-      setLotFormError(err?.response?.data?.message || err?.response?.data || 'Error al guardar el lote.');
+      setLotFormError(err?.response?.data?.message || err?.response?.data || 'Error saving lot.');
     } finally {
       setLotSaving(false);
     }
@@ -336,9 +336,9 @@ const FabricShipmentPage: React.FC = () => {
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Yardas enviadas', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
-          { label: 'Lotes', value: shipTotals.lots.toLocaleString(), color: 'text.disabled', suffix: '' },
-          { label: 'Embarques', value: shipTotals.shipments.toLocaleString(), color: 'text.disabled', suffix: '' },
+          { label: 'Yards shipped', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
+          { label: 'Lots', value: shipTotals.lots.toLocaleString(), color: 'text.disabled', suffix: '' },
+          { label: 'Shipments', value: shipTotals.shipments.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 
@@ -394,7 +394,7 @@ const FabricShipmentPage: React.FC = () => {
                   <TableCell>{fmt(item.etd)}</TableCell>
                   <TableCell><Chip label={item.shipmentStatus || 'N/A'} size="small" color={sc(item.shipmentStatus ?? '')} variant="outlined" /></TableCell>
                   <TableCell>
-                    <IconButton size="small" color="primary" title="Lotes" onClick={() => openLots(item)}><ListAltIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="primary" title="Lots" onClick={() => openLots(item)}><ListAltIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
@@ -425,11 +425,11 @@ const FabricShipmentPage: React.FC = () => {
               <TextField fullWidth size="small" label="Shipment Number *" value={form.ShipmentNumber} onChange={e => setF('ShipmentNumber', e.target.value)} required placeholder="SHP-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Fabric PO (opcional)" value={form.FabricPONumber}
+              <TextField fullWidth size="small" label="Fabric PO (optional)" value={form.FabricPONumber}
                 onChange={e => setF('FabricPONumber', e.target.value)} placeholder="PO-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="FGPO (opcional)" value={form.FGPONumber}
+              <TextField fullWidth size="small" label="FGPO (optional)" value={form.FGPONumber}
                 onChange={e => setF('FGPONumber', e.target.value)} placeholder="FGPO-2026-001" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Supplier" value={form.Supplier} onChange={e => setF('Supplier', e.target.value)} /></Grid>
@@ -445,8 +445,8 @@ const FabricShipmentPage: React.FC = () => {
             {/* ── Shipment Quantities ── */}
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Shipment Quantities</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Rolls" type="number" value={form.RollQty || ''} onChange={e => setF('RollQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Quantity (auto)" value={form.ShippedQuantity || 0} disabled helperText="Calculado desde los lotes" /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Rolls (auto)" value={form.ShippedRolls || 0} disabled helperText="Calculado desde los lotes" /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Quantity (auto)" value={form.ShippedQuantity || 0} disabled helperText="Calculated from lots" /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Rolls (auto)" value={form.ShippedRolls || 0} disabled helperText="Calculated from lots" /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Shipped Weight" type="number" value={form.ShippedWeight || ''} onChange={e => setF('ShippedWeight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
 
             {/* ── Documents & Container ── */}
@@ -519,7 +519,7 @@ const FabricShipmentPage: React.FC = () => {
 
       {/* Lots Dialog */}
       <Dialog open={lotsOpen} onClose={() => setLotsOpen(false)} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Lotes del embarque — {lotsShipment?.shipmentNumber || ''}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Shipment lots — {lotsShipment?.shipmentNumber || ''}</DialogTitle>
         <Divider />
         <DialogContent sx={{ pt: 2 }}>
           {lotsError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLotsError('')}>{lotsError}</Alert>}
@@ -533,14 +533,14 @@ const FabricShipmentPage: React.FC = () => {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
           ) : lots.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              No hay lotes registrados para este embarque.
+              No lots registered for this shipment.
             </Typography>
           ) : (
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                    {['#', 'Lote', 'Style', 'Color', 'Fabric', 'Shipped Rolls', 'Rec. Rolls', 'Shipped Yards', 'Rec. Yards', 'Pend. Yards', 'Actions'].map(h =>
+                    {['#', 'Lot', 'Style', 'Color', 'Fabric', 'Shipped Rolls', 'Rec. Rolls', 'Shipped Yards', 'Rec. Yards', 'Pend. Yards', 'Actions'].map(h =>
                       <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1 }}>{h}</TableCell>)}
                   </TableRow>
                 </TableHead>
@@ -578,7 +578,7 @@ const FabricShipmentPage: React.FC = () => {
       {/* Lot Add/Edit Dialog */}
       <Dialog open={lotDialogOpen} onClose={() => setLotDialogOpen(false)} maxWidth="sm" fullWidth>
         <form onSubmit={(e) => { e.preventDefault(); handleLotSave(); }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>{editingLotId ? 'Editar lote' : 'Nuevo lote'}</DialogTitle>
+          <DialogTitle sx={{ fontWeight: 700 }}>{editingLotId ? 'Edit lot' : 'New lot'}</DialogTitle>
           <DialogContent sx={{ pt: 2 }}>
             {lotFormError && <Alert severity="error" sx={{ mb: 2 }}>{lotFormError}</Alert>}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -592,14 +592,14 @@ const FabricShipmentPage: React.FC = () => {
                 <FormControl fullWidth size="small">
                   <InputLabel>Style</InputLabel>
                   <Select value={lotForm.StyleId || ''} label="Style" onChange={e => setLotF('StyleId', Number(e.target.value))}>
-                    <MenuItem value=""><em>Sin estilo</em></MenuItem>
+                    <MenuItem value=""><em>No style</em></MenuItem>
                     {styleOptions.map((o: any) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
                   </Select>
                 </FormControl>
                 <FormControl fullWidth size="small">
                   <InputLabel>Color</InputLabel>
                   <Select value={lotForm.ColorId || ''} label="Color" onChange={e => setLotF('ColorId', Number(e.target.value))}>
-                    <MenuItem value=""><em>Sin color</em></MenuItem>
+                    <MenuItem value=""><em>No color</em></MenuItem>
                     {colorOptions.map((o: any) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
                   </Select>
                 </FormControl>
@@ -631,16 +631,16 @@ const FabricShipmentPage: React.FC = () => {
 
       {/* Prompt: registrar Recepción tras crear un embarque */}
       <Dialog open={!!receivingPrompt} onClose={() => setReceivingPrompt(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Registrar Recepción de tela</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Register Fabric Receiving</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            El embarque <strong>{receivingPrompt?.shipmentNumber}</strong> fue creado. ¿Deseas registrar ahora su Recepción de tela?
-            Se prellenará el Shipment Number y los datos del embarque.
+            The shipment <strong>{receivingPrompt?.shipmentNumber}</strong> was created. Do you want to register its Fabric Receiving now?
+            The Shipment Number and shipment data will be prefilled.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setReceivingPrompt(null)}>Más tarde</Button>
-          <Button variant="contained" onClick={goToReceivingFromPrompt}>Crear Recepción</Button>
+          <Button onClick={() => setReceivingPrompt(null)}>Later</Button>
+          <Button variant="contained" onClick={goToReceivingFromPrompt}>Create Receiving</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -103,7 +103,7 @@ const MillTestPage: React.FC = () => {
       { name: 'Actual Width', value: form.ActualWidth },
       { name: 'Actual GSM', value: form.ActualGSM },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,

@@ -53,7 +53,7 @@ const StylesPage: React.FC = () => {
       const res = await stylesApi.getAll();
       setItems((res.data ?? []).map(mapStyle));
       setError('');
-    } catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    } catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
 
@@ -83,7 +83,7 @@ const StylesPage: React.FC = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const negField = firstNegativeField([{ name: 'GSM', value: form.Gsm }]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     setFormError('');
     setSaving(true);
     try {
@@ -96,14 +96,14 @@ const StylesPage: React.FC = () => {
       else await stylesApi.create(payload);
       setDialogOpen(false);
       await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Style?')) return;
+    if (!window.confirm('Delete this style?')) return;
     try { await stylesApi.delete(id); await load(); }
-    catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => {
@@ -135,7 +135,7 @@ const StylesPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <CheckroomIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Styles
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Catálogo de estilos (Master Data)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Style catalog (Master Data)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
@@ -146,7 +146,7 @@ const StylesPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar por Style o descripción..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search by Style or description..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -175,8 +175,8 @@ const StylesPage: React.FC = () => {
                   <TableCell>{s.gsm ?? '-'}</TableCell>
                   <TableCell>{s.weightOz ?? '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(s)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(s)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

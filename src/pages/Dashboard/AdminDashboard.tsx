@@ -141,7 +141,7 @@ const AdminDashboard: React.FC = () => {
         Warehouse Overview
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Control de empaque — estado de empaque y listo para embarque
+        Packing control — packing status and ready to ship
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 3, mb: 3, flexWrap: 'wrap' }}>
@@ -176,7 +176,7 @@ const AdminDashboard: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Inventory2Icon sx={{ fontSize: 40, color: 'info.main' }} />
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total de cajas</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Boxes</Typography>
               <Typography variant="h4" sx={{ color: 'info.main', fontWeight: 'bold' }}>{totalBoxes.toLocaleString()}</Typography>
             </Box>
           </Box>
@@ -202,10 +202,10 @@ const AdminDashboard: React.FC = () => {
       {/* ── Control de Tela ── */}
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
         <Inventory2Icon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
-        Control de Tela
+        Fabric Control
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Entradas a bodega según las recepciones de tela registradas
+        Warehouse entries based on recorded fabric receipts
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
@@ -213,7 +213,7 @@ const AdminDashboard: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <LocalShippingIcon sx={{ fontSize: 40, color: 'primary.main' }} />
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Yardas en Tránsito</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Yards In Transit</Typography>
               <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{shipTotals.shipped.toLocaleString(undefined, { maximumFractionDigits: 2 })} <Typography component="span" variant="body2">yd</Typography></Typography>
             </Box>
           </Box>
@@ -222,7 +222,7 @@ const AdminDashboard: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Recibido</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Received</Typography>
               <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{recvReceived.toLocaleString(undefined, { maximumFractionDigits: 2 })} <Typography component="span" variant="body2">yd</Typography></Typography>
             </Box>
           </Box>
@@ -231,7 +231,7 @@ const AdminDashboard: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Inventory2Icon sx={{ fontSize: 40, color: 'success.main' }} />
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Disponible</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Available</Typography>
               <Typography variant="h5" sx={{ color: 'success.main', fontWeight: 'bold' }}>{invTotals.available.toLocaleString(undefined, { maximumFractionDigits: 2 })} <Typography component="span" variant="body2">yd</Typography></Typography>
             </Box>
           </Box>
@@ -240,7 +240,7 @@ const AdminDashboard: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Inventory2Icon sx={{ fontSize: 40, color: 'warning.main' }} />
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pendiente de registrar</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending to record</Typography>
               <Typography variant="h5" sx={{ color: 'warning.main', fontWeight: 'bold' }}>{shipTotals.pending.toLocaleString(undefined, { maximumFractionDigits: 2 })} <Typography component="span" variant="body2">yd</Typography></Typography>
             </Box>
           </Box>

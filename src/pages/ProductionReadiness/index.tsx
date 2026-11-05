@@ -133,7 +133,7 @@ const ProductionReadinessPage: React.FC = () => {
             Production Readiness
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            PRR — Checklist de preparación antes de iniciar producción (Overall Result automático)
+            PRR — Readiness checklist before starting production (automatic Overall Result)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -217,7 +217,7 @@ const ProductionReadinessPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -248,7 +248,7 @@ const ProductionReadinessPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Checklist de preparación</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Preparation checklist</Typography></Divider></Grid>
             {checklist.map(c => (
               <Grid key={c.key} size={{ xs: 6, sm: 4, md: 3 }}>
                 <FormControl fullWidth size="small">
@@ -260,7 +260,7 @@ const ProductionReadinessPage: React.FC = () => {
               </Grid>
             ))}
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Condiciones</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Conditions</Typography></Divider></Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Open Conditions" value={form.OpenConditions} onChange={e => setF('OpenConditions', e.target.value)} multiline rows={2} /></Grid>
           </Grid>
         </DialogContent>

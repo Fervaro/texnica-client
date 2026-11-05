@@ -446,7 +446,7 @@ const Fgpo: React.FC = () => {
     }
     // El Unit Price debe existir en el catálogo Prices para esa combinación Style/Color/Size
     if (!lineForm.UnitPrice || Number(lineForm.UnitPrice) <= 0) {
-      setLineFormError('No hay Unit Price configurado en el catálogo Prices para esa combinación Style/Color/Size.');
+      setLineFormError('No Unit Price is configured in the Prices catalog for that Style/Color/Size combination.');
       return;
     }
 
@@ -461,7 +461,7 @@ const Fgpo: React.FC = () => {
       const totalAfter = sumOthers + newQty;
       if (totalAfter > fgpo.OrderQuantity) {
         setLineFormError(
-          `La cantidad total de líneas (${totalAfter}) supera el Order Qty del FGPO (${fgpo.OrderQuantity}).`
+          `The total line quantity (${totalAfter}) exceeds the FGPO Order Qty (${fgpo.OrderQuantity}).`
         );
         return;
       }
@@ -871,23 +871,23 @@ const Fgpo: React.FC = () => {
               />
               <CatalogAutocomplete
                 label="Style"
-                placeholder="Buscar un Style..."
+                placeholder="Search for a Style..."
                 value={form.Style}
                 options={styleOptions as any}
                 onChange={v => setForm({ ...form, Style: v })}
                 addNewEntityLabel="Style"
                 onAddNew={goToCreateStyle}
-                helperText="Escribe para filtrar. Si no existe, podrás crearlo en el módulo Styles."
+                helperText="Type to filter. If it does not exist, you can create it in the Styles module."
               />
               <CatalogAutocomplete
                 label="Color"
-                placeholder="Buscar un Color..."
+                placeholder="Search for a Color..."
                 value={form.Color}
                 options={colorOptions as any}
                 onChange={v => setForm({ ...form, Color: v })}
                 addNewEntityLabel="Color"
                 onAddNew={goToCreateColor}
-                helperText="Escribe para filtrar. Si no existe, podrás crearlo en el módulo Colors."
+                helperText="Type to filter. If it does not exist, you can create it in the Colors module."
               />
               <TextField
                 label="Order Quantity *"
@@ -983,7 +983,7 @@ const Fgpo: React.FC = () => {
                 <InputLabel>Style *</InputLabel>
                 <Select value={lineForm.StyleId || ''} label="Style *" onChange={e => setLineForm(prev => applyCatalogPrice({ ...prev, StyleId: Number(e.target.value) }))}>
                   {lineForm.StyleId === 0 && (
-                    <MenuItem value=""><em>Sin Style vinculado</em></MenuItem>
+                    <MenuItem value=""><em>No linked Style</em></MenuItem>
                   )}
                   {styleOptions.map((option: any) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
                 </Select>
@@ -992,7 +992,7 @@ const Fgpo: React.FC = () => {
                 <InputLabel>Color *</InputLabel>
                 <Select value={lineForm.ColorId || ''} label="Color *" onChange={e => setLineForm(prev => applyCatalogPrice({ ...prev, ColorId: Number(e.target.value) }))}>
                   {lineForm.ColorId === 0 && (
-                    <MenuItem value=""><em>Sin Color vinculado</em></MenuItem>
+                    <MenuItem value=""><em>No linked Color</em></MenuItem>
                   )}
                   {colorOptions.map((option: any) => <MenuItem key={option.id} value={option.id}>{option.label}</MenuItem>)}
                 </Select>
@@ -1014,8 +1014,8 @@ const Fgpo: React.FC = () => {
                 slotProps={{ input: { readOnly: true } }}
                 helperText={
                   lineForm.UnitPrice !== '' && Number(lineForm.UnitPrice) > 0
-                    ? 'Auto desde el catálogo Prices (Style/Color/Size)'
-                    : 'Sin precio configurado para esa combinación en el catálogo Prices'
+                    ? 'Auto from the Prices catalog (Style/Color/Size)'
+                    : 'No price configured for that combination in the Prices catalog'
                 }
               />
             </Box>

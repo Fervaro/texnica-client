@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   if (loading) {
-    return <div>Cargando sesión...</div>; // Optionally a spinner here
+    return <div>Loading session...</div>; // Optionally a spinner here
   }
 
   return (

@@ -42,6 +42,11 @@ export interface RollBalance {
   fgpoId: number;
   fgpoNumber: string;
   unitOfMeasure?: string;
+  /** Información del lote (descripción, estilo, color, familia). */
+  style?: string;
+  color?: string;
+  fabricDescription?: string;
+  family?: string;
   receivedQuantity: number;
   physicalQuantity: number;
   reservedQuantity: number;

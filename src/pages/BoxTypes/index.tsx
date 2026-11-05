@@ -51,7 +51,7 @@ const BoxTypesPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await boxTypesApi.getAll(); setItems((res.data ?? []).map(mapBoxType)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -72,10 +72,10 @@ const BoxTypesPage: React.FC = () => {
       { name: 'Width', value: form.Width },
       { name: 'Height', value: form.Height },
       { name: 'Empty Carton Weight', value: form.EmptyCartonWeight },
-      { name: 'Qty por box', value: form.QtyPerBox },
+      { name: 'Qty per box', value: form.QtyPerBox },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
-    if (!form.QtyPerBox || Number(form.QtyPerBox) <= 0) { setFormError('Qty por box debe ser mayor que 0 (cantidad de prendas por caja).'); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
+    if (!form.QtyPerBox || Number(form.QtyPerBox) <= 0) { setFormError('Qty per box must be greater than 0 (garments per box).'); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = {
@@ -88,13 +88,13 @@ const BoxTypesPage: React.FC = () => {
       };
       if (editingId) await boxTypesApi.update(editingId, payload); else await boxTypesApi.create(payload);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Box Type?')) return;
-    try { await boxTypesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this Box Type?')) return;
+    try { await boxTypesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
@@ -122,7 +122,7 @@ const BoxTypesPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar tipo de caja..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search box type..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -154,8 +154,8 @@ const BoxTypesPage: React.FC = () => {
                   <TableCell>{b.emptyCartonWeight ?? '-'}</TableCell>
                   <TableCell>{b.comments || '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(b)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(b.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(b)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(b.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -189,7 +189,7 @@ const BoxTypesPage: React.FC = () => {
                 <Autocomplete fullWidth size="small" freeSolo options={sizeOptions}
                   inputValue={form.Size} onInputChange={(_, v) => setForm({ ...form, Size: v })}
                   renderInput={(params) => <TextField {...params} label="Size" />} />
-                <TextField fullWidth size="small" label="Qty por box *" type="number" value={form.QtyPerBox} onChange={e => setForm({ ...form, QtyPerBox: e.target.value })} required onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
+                <TextField fullWidth size="small" label="Qty per box *" type="number" value={form.QtyPerBox} onChange={e => setForm({ ...form, QtyPerBox: e.target.value })} required onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} />
               </Box>
               <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setForm({ ...form, Comments: e.target.value })} multiline rows={2} />
             </Box>

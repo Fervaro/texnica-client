@@ -74,7 +74,7 @@ const FabricReservationPage: React.FC = () => {
   const loadBalances = async (fgpoId?: number) => {
     setLoadingBalances(true); setBalancesError('');
     try { const res = await fabricMovementsApi.getBalances(fgpoId); setBalances(res.data ?? []); }
-    catch (err: any) { setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'); }
+    catch (err: any) { setBalancesError(err?.response?.data?.message || err?.message || 'Could not load roll balances.'); }
     finally { setLoadingBalances(false); }
   };
 
@@ -93,7 +93,7 @@ const FabricReservationPage: React.FC = () => {
       });
     } catch (err: any) {
       const status = err?.response?.status;
-      setTotalsError(status === 403 ? 'No se posee acceso a este Módulo.' : status ? `Error ${status} al cargar los totales de reservas.` : 'No se pudieron cargar los totales de reservas.');
+      setTotalsError(status === 403 ? 'No access to this Module.' : status ? `Error ${status} loading reservation totals.` : 'Could not load reservation totals.');
     }
   };
 
@@ -108,6 +108,17 @@ const FabricReservationPage: React.FC = () => {
     !rollSearch.trim() || r.rollNumber.toLowerCase().includes(rollSearch.trim().toLowerCase()));
   const visibleRolls = filteredRolls.slice(0, rollVisible);
   const setRollQty = (rollId: number, value: string) => setRollInputs(prev => ({ ...prev, [rollId]: value }));
+
+  // Asigna a todos los rollos compatibles su cantidad disponible de una vez
+  // (los rollos sin disponibilidad quedan vacíos).
+  const handleSelectAllRolls = () => {
+    const next: Record<number, string> = { ...rollInputs };
+    availableRolls.forEach(r => {
+      next[r.rollReceivingId] = r.availableQuantity > 0 ? String(r.availableQuantity) : '';
+    });
+    setRollInputs(next);
+  };
+  const handleClearRolls = () => setRollInputs({});
 
   useEffect(() => { setRollVisible(ROLLS_PER_PAGE); setRollSearch(''); }, [form.FGPOId, form.FabricPOId, form.LotIds]);
 
@@ -143,17 +154,17 @@ const FabricReservationPage: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar esta reserva?')) return;
-    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this reservation?')) return;
+    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openRelease = (r: FabricReservation) => { setReleaseItem(r); setReleaseQty(''); setReleaseError(''); setReleaseOpen(true); };
   const handleRelease = async () => {
     setReleaseError('');
     const q = Number(releaseQty);
-    if (!(q > 0)) { setReleaseError('La cantidad debe ser mayor que cero.'); return; }
+    if (!(q > 0)) { setReleaseError('Quantity must be greater than zero.'); return; }
     if (releaseItem && q > (releaseItem.remainingReservation ?? 0)) {
-      setReleaseError(`La cantidad no puede superar el pendiente (${releaseItem.remainingReservation}).`); return;
+      setReleaseError(`Quantity cannot exceed the pending amount (${releaseItem.remainingReservation}).`); return;
     }
     setReleasing(true);
     try {
@@ -161,7 +172,7 @@ const FabricReservationPage: React.FC = () => {
       setReleaseOpen(false);
       await refresh();
     } catch (err: any) {
-      setReleaseError(err?.response?.data?.message || err?.response?.data || 'Error liberando la reserva.');
+      setReleaseError(err?.response?.data?.message || err?.response?.data || 'Error releasing the reservation.');
     } finally { setReleasing(false); }
   };
 
@@ -186,7 +197,7 @@ const FabricReservationPage: React.FC = () => {
       if (editingId) await update(editingId, payload);
       else await create(payload);
       setDialogOpen(false);
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
   };
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
@@ -197,8 +208,27 @@ const FabricReservationPage: React.FC = () => {
   const derivedComponent = selectedPo?.meta?.fabricComponent || '';
   const derivedUom = selectedPo?.meta?.uom || '';
 
+  // Total de yardas disponibles por lote (para ocultar lotes sin tela por usar).
+  const lotAvailableMap: Record<number, number> = {};
+  balances.forEach(b => {
+    if (b.lotId != null) {
+      lotAvailableMap[b.lotId] = (lotAvailableMap[b.lotId] ?? 0) + (b.availableQuantity ?? 0);
+    }
+  });
+
   // Lotes de la FGPO seleccionada (el campo Lots se habilita solo con FGPO).
-  const lotsForFgpo = lotList.filter(o => o.fgpoId === form.FGPOId);
+  // Se omiten los lotes sin yardas disponibles, salvo los ya seleccionados o
+  // cuando aún no hay datos de saldos confiables (cargando o con error).
+  const lotsForFgpo = lotList.filter(o => {
+    if (o.fgpoId !== form.FGPOId) return false;
+    if (form.LotIds.includes(o.id)) return true;
+    if (loadingBalances || balancesError) return true;
+    return (lotAvailableMap[o.id] ?? 0) > 0;
+  });
+
+  // Primer rollo que pertenece a un lote seleccionado: provee la información
+  // de la tela (descripción, estilo, color, familia) para el panel informativo.
+  const selectedLotRoll = balances.find(b => b.lotId != null && form.LotIds.includes(b.lotId));
 
   // Vistas previas de columnas calculadas (fórmula del Excel)
   const n = (s: string) => s === '' ? 0 : Number(s);
@@ -211,7 +241,7 @@ const FabricReservationPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <BookmarkAddIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Fabric Reservation
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Reserva de tela aprobada para corte (pendiente calculado automáticamente)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Fabric reservation approved for cutting (pending calculated automatically)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
@@ -223,10 +253,10 @@ const FabricReservationPage: React.FC = () => {
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Reservado', value: resTotals.reserved.toLocaleString(), color: 'warning.main' },
-          { label: 'Liberado', value: resTotals.released.toLocaleString(), color: 'info.main' },
-          { label: 'Pendiente activo', value: resTotals.pending.toLocaleString(), color: 'primary.main' },
-          { label: 'Reservas activas', value: resTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
+          { label: 'Reserved', value: resTotals.reserved.toLocaleString(), color: 'warning.main' },
+          { label: 'Released', value: resTotals.released.toLocaleString(), color: 'info.main' },
+          { label: 'Active pending', value: resTotals.pending.toLocaleString(), color: 'primary.main' },
+          { label: 'Active reservations', value: resTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 
@@ -248,7 +278,7 @@ const FabricReservationPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Date', 'Fabric PO', 'FGPO', 'Component', 'Lot', 'Reserved', 'UOM', 'Released', 'Remaining', 'Status', 'Reserved By', 'Rollos', 'Actions'].map(h =>
+                {['Date', 'Fabric PO', 'FGPO', 'Component', 'Lot', 'Reserved', 'UOM', 'Released', 'Remaining', 'Status', 'Reserved By', 'Rolls', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
@@ -275,11 +305,11 @@ const FabricReservationPage: React.FC = () => {
                   <TableCell>{r.reservedByName || '-'}</TableCell>
                   <TableCell>
                     {r.hasRollAssignment
-                      ? <Chip label={`${(r.rolls ?? []).length} rollo(s)`} size="small" variant="outlined" color="info" />
-                      : <Chip label="Sin rollo" size="small" variant="outlined" color="default" />}
+                      ? <Chip label={`${(r.rolls ?? []).length} roll(s)`} size="small" variant="outlined" color="info" />
+                      : <Chip label="No roll" size="small" variant="outlined" color="default" />}
                   </TableCell>
                   <TableCell>
-                    <IconButton size="small" color="success" title="Liberar (release)" onClick={() => openRelease(r)}><UnarchiveIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="success" title="Release" onClick={() => openRelease(r)}><UnarchiveIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(r); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(r)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(r.id)}><DeleteIcon fontSize="small" /></IconButton>
@@ -302,13 +332,13 @@ const FabricReservationPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Reservation Date *" type="date" value={form.ReservationDate} onChange={e => setF('ReservationDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Fabric PO</InputLabel>
                 <Select value={form.FabricPOId || ''} label="Fabric PO" onChange={e => setF('FabricPOId', Number(e.target.value))}>
-                  <MenuItem value=""><em>Sin Fabric PO (tela del cliente)</em></MenuItem>
+                  <MenuItem value=""><em>No Fabric PO (customer fabric)</em></MenuItem>
                   {fabricPOList.map((f: any) => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -349,32 +379,66 @@ const FabricReservationPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Component (del Fabric PO)" value={derivedComponent} slotProps={{ input: { readOnly: true } }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="UOM (del Fabric PO)" value={derivedUom} slotProps={{ input: { readOnly: true } }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Component (from Fabric PO)" value={derivedComponent} slotProps={{ input: { readOnly: true } }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="UOM (from Fabric PO)" value={derivedUom} slotProps={{ input: { readOnly: true } }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades (input)</Typography></Divider></Grid>
+            {selectedLotRoll && (
+              <Grid size={{ xs: 12 }}>
+                <Paper elevation={1} sx={{ p: 2, backgroundColor: 'primary.light' }}>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography variant="caption" color="text.secondary">Description</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.fabricDescription || '-'}</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography variant="caption" color="text.secondary">Style</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.style || '-'}</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography variant="caption" color="text.secondary">Color</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.color || '-'}</Typography>
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3 }}>
+                      <Typography variant="caption" color="text.secondary">Family</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.family || '-'}</Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Grid>
+            )}
+
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities (input)</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Reserved Quantity" type="number" value={form.ReservedQuantity} onChange={e => setF('ReservedQuantity', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Released Quantity" type="number" value={form.ReleasedQuantity} onChange={e => setF('ReleasedQuantity', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Asignación por rollo (opcional)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Roll assignment (optional)</Typography></Divider></Grid>
             {loadingBalances ? (
-              <Grid size={{ xs: 12 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={16} /><Typography variant="caption" color="text.secondary">Cargando rollos...</Typography></Box></Grid>
+              <Grid size={{ xs: 12 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={16} /><Typography variant="caption" color="text.secondary">Loading rolls...</Typography></Box></Grid>
             ) : availableRolls.length === 0 ? (
               <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">
-                {form.FGPOId ? 'Sin rollos disponibles para los filtros seleccionados (FGPO/Fabric PO/Lotes).' : 'Seleccione FGPO para ver los rollos disponibles.'}
+                {form.FGPOId ? 'No rolls available for the selected filters (FGPO/Fabric PO/Lots).' : 'Select FGPO to view available rolls.'}
               </Typography></Grid>
             ) : (
               <>
                 <Grid size={{ xs: 12 }}>
-                  <TextField fullWidth size="small" placeholder={`Buscar rollo (${availableRolls.length} disponibles)...`}
-                    value={rollSearch}
-                    onChange={e => { setRollSearch(e.target.value); setRollVisible(ROLLS_PER_PAGE); }}
-                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> } }} />
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <TextField size="small" placeholder={`Search roll (${availableRolls.length} available)...`}
+                      value={rollSearch}
+                      onChange={e => { setRollSearch(e.target.value); setRollVisible(ROLLS_PER_PAGE); }}
+                      sx={{ flex: 1, minWidth: 220 }}
+                      slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> } }} />
+                    <Button variant="outlined" size="small" onClick={handleSelectAllRolls}>
+                      Select all ({availableRolls.length})
+                    </Button>
+                    <Button variant="text" size="small" color="inherit" onClick={handleClearRolls}>
+                      Clear
+                    </Button>
+                  </Box>
                 </Grid>
                 {visibleRolls.map(r => (
                   <Grid size={{ xs: 12, sm: 6, md: 4 }} key={r.rollReceivingId}>
                     <TextField fullWidth size="small"
-                      label={`${r.rollNumber}${r.lotNumber ? ` · lote ${r.lotNumber}` : ''} — disp. ${r.availableQuantity} / reservado ${r.reservedQuantity} / físico ${r.physicalQuantity}`}
+                      label={`${r.rollNumber}${r.lotNumber ? ` · lot ${r.lotNumber}` : ''} — avail. ${r.availableQuantity} / reserved ${r.reservedQuantity} / physical ${r.physicalQuantity}`}
                       type="number" value={rollInputs[r.rollReceivingId] ?? ''}
                       onChange={e => setRollQty(r.rollReceivingId, e.target.value)} />
                   </Grid>
@@ -382,22 +446,22 @@ const FabricReservationPage: React.FC = () => {
                 {visibleRolls.length < filteredRolls.length && (
                   <Grid size={{ xs: 12 }}>
                     <Button variant="text" size="small" onClick={() => setRollVisible(v => v + ROLLS_PER_PAGE)}>
-                      Mostrar más ({filteredRolls.length - visibleRolls.length} restantes)
+                      Show more ({filteredRolls.length - visibleRolls.length} remaining)
                     </Button>
                   </Grid>
                 )}
                 {filteredRolls.length === 0 && (
                   <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">
-                    No hay rollos que coincidan con la búsqueda.
+                    No rolls match the search.
                   </Typography></Grid>
                 )}
               </>
             )}
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculado automáticamente</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculated automatically</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Remaining Reservation" value={remaining} slotProps={{ input: { readOnly: true } }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Estado & Responsables</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Status & Responsible</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Status</InputLabel>
@@ -451,13 +515,13 @@ const FabricReservationPage: React.FC = () => {
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Status</Typography><Chip label={viewItem.status || '-'} size="small" color={sc(viewItem.status ?? '')} /></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Reserved By</Typography><Typography>{viewItem.reservedByName || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Approved By</Typography><Typography>{viewItem.approvedByName || '-'}</Typography></Grid>
-              <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Rollos asignados</Typography></Grid>
+              <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Assigned rolls</Typography></Grid>
               {(viewItem.rolls && viewItem.rolls.length > 0) ? viewItem.rolls.map(l => (
                 <Grid size={{ xs: 12, sm: 6 }} key={l.id}>
-                  <Typography variant="body2">{l.rollNumber} — reservado {l.reservedQuantity} / liberado {l.releasedQuantity}</Typography>
+                  <Typography variant="body2">{l.rollNumber} — reserved {l.reservedQuantity} / released {l.releasedQuantity}</Typography>
                 </Grid>
               )) : (
-                <Grid size={{ xs: 12 }}><Typography variant="body2" color="text.secondary">Reserva histórica sin rollo asignado</Typography></Grid>
+                <Grid size={{ xs: 12 }}><Typography variant="body2" color="text.secondary">Historical reservation without an assigned roll</Typography></Grid>
               )}
               {viewItem.comments && <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Comments</Typography><Typography>{viewItem.comments}</Typography></Grid>}
             </Grid>
@@ -468,18 +532,18 @@ const FabricReservationPage: React.FC = () => {
 
       {/* Release Dialog */}
       <Dialog open={releaseOpen} onClose={() => setReleaseOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Liberar reserva (release)</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Release reservation</DialogTitle>
         <DialogContent>
           {releaseError && <Alert severity="error" sx={{ mb: 2 }}>{releaseError}</Alert>}
           {releaseItem && (
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="body2">Fabric PO <b>{releaseItem.fabricPONumber}</b> · FGPO <b>{releaseItem.fgpoNumber}</b></Typography>
-                <Typography variant="body2" color="text.secondary">Reservado {releaseItem.reservedQuantity} · Liberado {releaseItem.releasedQuantity}</Typography>
-                <Typography variant="body2" color="warning.main">Pendiente {releaseItem.remainingReservation}</Typography>
+                <Typography variant="body2" color="text.secondary">Reserved {releaseItem.reservedQuantity} · Released {releaseItem.releasedQuantity}</Typography>
+                <Typography variant="body2" color="warning.main">Pending {releaseItem.remainingReservation}</Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <TextField fullWidth size="small" label="Cantidad a liberar" type="number" value={releaseQty}
+                <TextField fullWidth size="small" label="Quantity to release" type="number" value={releaseQty}
                   onChange={e => setReleaseQty(e.target.value)} slotProps={{ htmlInput: { min: 0, max: releaseItem.remainingReservation } }} />
               </Grid>
             </Grid>
@@ -488,7 +552,7 @@ const FabricReservationPage: React.FC = () => {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setReleaseOpen(false)} disabled={releasing}>Cancel</Button>
           <Button variant="contained" onClick={handleRelease} disabled={releasing} startIcon={releasing ? <CircularProgress size={18} /> : null}>
-            {releasing ? 'Liberando...' : 'Liberar'}
+            {releasing ? 'Releasing...' : 'Release'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -63,7 +63,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 403 && !error.response?.data?.message) {
-      const friendly = 'No se posee acceso a este Módulo.';
+      const friendly = 'You do not have access to this Module.';
       error.message = friendly;
       error.response.data = { message: friendly };
     }

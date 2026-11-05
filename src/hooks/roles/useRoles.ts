@@ -24,7 +24,7 @@ export const useRoles = () => {
       const res = await rolesApi.getAll();
       setItems((res.data ?? []).map(mapRole));
     } catch (err: any) {
-      setError(errorMessage(err, 'Error cargando roles.'));
+      setError(errorMessage(err, 'Error loading roles.'));
     } finally {
       setLoading(false);
     }

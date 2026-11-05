@@ -113,7 +113,7 @@ const ShadeMatchPage: React.FC = () => {
             Shade Match
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Aprobación de tonalidad entre body fabric, rib y tape
+            Shade approval between body fabric, rib and tape
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -195,7 +195,7 @@ const ShadeMatchPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -210,7 +210,7 @@ const ShadeMatchPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Rib Lot" value={form.RibLot} onChange={e => setF('RibLot', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Shoulder Tape Lot" value={form.ShoulderTapeLot} onChange={e => setF('ShoulderTapeLot', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Grupos de Shade</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Shade Groups</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <FormControl fullWidth size="small"><InputLabel>Body Shade Group</InputLabel>
                 <Select value={form.BodyShadeGroup} label="Body Shade Group" onChange={e => setF('BodyShadeGroup', e.target.value)}>
@@ -236,7 +236,7 @@ const ShadeMatchPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Comparación</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Comparison</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small"><InputLabel>Body vs Rib</InputLabel>
                 <Select value={form.BodyVsRib} label="Body vs Rib" onChange={e => setF('BodyVsRib', e.target.value)}>

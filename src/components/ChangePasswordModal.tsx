@@ -51,17 +51,17 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
     setSuccess(false);
 
     if (newPassword !== confirmPassword) {
-      setError('Las contraseñas no coinciden.');
+      setError('Passwords do not match.');
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+      setError('Password must be at least 6 characters.');
       return;
     }
 
     if (newPassword.toLowerCase() === 'inicio') {
-      setError('La nueva contraseña no puede ser la contraseña por defecto.');
+      setError('The new password cannot be the default password.');
       return;
     }
 
@@ -86,7 +86,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
-        'Error al cambiar la contraseña.';
+        'Error changing password.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -118,12 +118,12 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
           <LockResetIcon sx={{ color: 'primary.main', fontSize: 28 }} />
         </Box>
         <Typography component="h2" variant="h6" sx={{ fontWeight: 700 }}>
-          Cambiar Contraseña
+          Change Password
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           {isForcedChange
-            ? 'Por seguridad, debes crear una contraseña propia antes de continuar.'
-            : 'Ingresa tu contraseña actual y define una nueva.'}
+            ? 'For security, you must create your own password before continuing.'
+            : 'Enter your current password and set a new one.'}
         </Typography>
       </DialogTitle>
 
@@ -136,13 +136,13 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
           )}
           {success && (
             <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
-              Contraseña actualizada correctamente.
+              Password updated successfully.
             </Alert>
           )}
 
           {!isForcedChange && (
             <TextField
-              label="Contraseña actual"
+              label="Current password"
               type={showPassword ? 'text' : 'password'}
               fullWidth
               required
@@ -165,7 +165,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
           )}
 
           <TextField
-            label="Nueva contraseña"
+            label="New password"
             type={showPassword ? 'text' : 'password'}
             fullWidth
             required
@@ -187,7 +187,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
           />
 
           <TextField
-            label="Confirmar nueva contraseña"
+            label="Confirm new password"
             type={showPassword ? 'text' : 'password'}
             fullWidth
             required
@@ -212,7 +212,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onClose
               },
             }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Guardar Contraseña'}
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Save Password'}
           </Button>
         </DialogActions>
       </Box>

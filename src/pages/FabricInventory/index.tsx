@@ -8,7 +8,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { fabricShipmentsApi, fabricInventoriesApi } from '../../utils/api';
+import { fabricShipmentsApi, fabricInventoriesApi, fabricReceivingsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import { FabricControlTela } from '../../types';
 
@@ -34,6 +34,15 @@ const FabricInventoryPage: React.FC = () => {
 
   const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0 });
   const [invTotals, setInvTotals] = useState({ physical: 0, reserved: 0, available: 0 });
+  const [receivedTotal, setReceivedTotal] = useState(0);
+
+  const loadReceivedTotal = async () => {
+    try {
+      const res = await fabricReceivingsApi.getTotals();
+      const t = res.data ?? {};
+      setReceivedTotal(num(t.receivedYards ?? t.ReceivedYards));
+    } catch { /* silencioso */ }
+  };
 
   const loadShipTotals = async () => {
     try {
@@ -76,11 +85,11 @@ const FabricInventoryPage: React.FC = () => {
         date: r.date ?? r.Date ?? '',
       })));
     } catch (err: any) {
-      setLoadError(err?.response?.data?.message || err?.message || 'No se pudo cargar el control de tela.');
+      setLoadError(err?.response?.data?.message || err?.message || 'Could not load fabric control.');
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { loadShipTotals(); loadInventoryTotals(); loadRows(); }, []);
+  useEffect(() => { loadShipTotals(); loadInventoryTotals(); loadReceivedTotal(); loadRows(); }, []);
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); };
   const handleClearSearch = () => setSearchInput('');
@@ -101,29 +110,29 @@ const FabricInventoryPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            <Inventory2Icon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Control de Tela
+            <Inventory2Icon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Fabric Control
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Entradas a bodega según las recepciones de tela registradas</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Warehouse entries based on recorded fabric receipts</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { loadShipTotals(); loadInventoryTotals(); loadRows(); }}>Refresh</Button>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { loadShipTotals(); loadInventoryTotals(); loadReceivedTotal(); loadRows(); }}>Refresh</Button>
         </Box>
       </Box>
 
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Yardas en Tránsito', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
-          { label: 'Inventario Físico', value: invTotals.physical.toLocaleString(), color: 'info.main' },
-          { label: 'Reservado', value: invTotals.reserved.toLocaleString(), color: 'warning.main' },
-          { label: 'Disponible', value: invTotals.available.toLocaleString(), color: 'success.main' },
-          { label: 'Pendiente de registrar', value: shipTotals.pending.toLocaleString(), color: 'text.disabled' },
+          { label: 'Yards In Transit', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
+          { label: 'Physical Inventory', value: receivedTotal.toLocaleString(), color: 'info.main' },
+          { label: 'Reserved', value: invTotals.reserved.toLocaleString(), color: 'warning.main' },
+          { label: 'Available', value: invTotals.available.toLocaleString(), color: 'success.main' },
+          { label: 'Pending to record', value: shipTotals.pending.toLocaleString(), color: 'text.disabled' },
         ]}
       />
 
       <Paper sx={{ mb: 2, p: 1.5, display: 'flex', gap: 1 }}>
         <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, flex: 1 }}>
-          <TextField size="small" placeholder="Buscar por FGPO, color, descripción..."
+          <TextField size="small" placeholder="Search by FGPO, color, description..."
             value={searchInput} onChange={e => setSearchInput(e.target.value)}
             slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: searchInput ? <InputAdornment position="end"><IconButton size="small" onClick={handleClearSearch}><ClearIcon /></IconButton></InputAdornment> : null } }}
             sx={{ flex: 1, maxWidth: 500 }} />
@@ -138,7 +147,7 @@ const FabricInventoryPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['FGPO', 'Color', 'Descripción', 'Enviado (yd)', 'Recibido (yd)', 'Pendiente (yd)', 'Rollos', 'Estatus', 'Fecha'].map(h =>
+                {['FGPO', 'Color', 'Description', 'Shipped (yd)', 'Received (yd)', 'Pending (yd)', 'Rolls', 'Status', 'Date'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
@@ -148,7 +157,7 @@ const FabricInventoryPage: React.FC = () => {
                 <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                  <Typography variant="body1">Sin registros de control de tela</Typography>
+                  <Typography variant="body1">No fabric control records</Typography>
                 </TableCell></TableRow>
               ) : filtered.map((r, i) => (
                 <TableRow key={i} hover>

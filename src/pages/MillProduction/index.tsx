@@ -100,7 +100,7 @@ const MillProductionPage: React.FC = () => {
       { name: 'Yardage / Quantity', value: form.YardageOrQty },
       { name: 'Weight', value: form.Weight },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = { ...form, DataOwnerId: form.DataOwnerId || null, FinishDate: form.FinishDate || null, PlannedExport: form.PlannedExport || null, ActualExport: form.ActualExport || null };
       if (editingId) await update(editingId, payload);

@@ -75,8 +75,8 @@ const TrimsControlPage: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este registro de avío?')) return;
-    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this trim record?')) return;
+    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const handleSave = async () => {
@@ -92,7 +92,7 @@ const TrimsControlPage: React.FC = () => {
       { name: 'Reserved Qty', value: form.ReservedQty },
       { name: 'Issued Qty', value: form.IssuedQty },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const num = (v: string) => v === '' ? 0 : Number(v);
       const payload = {
@@ -106,7 +106,7 @@ const TrimsControlPage: React.FC = () => {
       if (editingId) await update(editingId, payload);
       else await create(payload);
       setDialogOpen(false);
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
   };
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
@@ -125,7 +125,7 @@ const TrimsControlPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <TuneIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Trims Control
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Control de avíos: disponibles y faltantes (calculado automáticamente)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Trims control: available and missing (calculated automatically)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
@@ -197,7 +197,7 @@ const TrimsControlPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -220,7 +220,7 @@ const TrimsControlPage: React.FC = () => {
               <FormControl fullWidth size="small">
                 <InputLabel>Supplier</InputLabel>
                 <Select value={form.SupplierId || ''} label="Supplier" onChange={e => setF('SupplierId', Number(e.target.value))}>
-                  <MenuItem value=""><em>Sin proveedor</em></MenuItem>
+                  <MenuItem value=""><em>No supplier</em></MenuItem>
                   {supplierList.map((s: any) => <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -235,7 +235,7 @@ const TrimsControlPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Consumption / Garment" type="number" value={form.ConsumptionPerGarment} onChange={e => setF('ConsumptionPerGarment', e.target.value)} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades (input)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities (input)</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Required Qty" type="number" value={form.RequiredQty} onChange={e => setF('RequiredQty', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Ordered Qty" type="number" value={form.OrderedQty} onChange={e => setF('OrderedQty', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Received Qty" type="number" value={form.ReceivedQty} onChange={e => setF('ReceivedQty', e.target.value)} /></Grid>
@@ -244,12 +244,12 @@ const TrimsControlPage: React.FC = () => {
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Reserved Qty" type="number" value={form.ReservedQty} onChange={e => setF('ReservedQty', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Issued Qty" type="number" value={form.IssuedQty} onChange={e => setF('IssuedQty', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculado automáticamente</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculated automatically</Typography></Divider></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><TextField fullWidth size="small" label="Available Qty" value={avail} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><TextField fullWidth size="small" label="Shortage Qty" value={short} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><Chip label={`Status: ${status}`} color={sc(status)} sx={{ mt: 1 }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Estados & Dueño</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Statuses & Owner</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Development Status</InputLabel>

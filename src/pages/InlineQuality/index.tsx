@@ -90,7 +90,7 @@ const InlineQualityPage: React.FC = () => {
       { name: 'Defective Pieces', value: form.DefectivePieces },
       { name: 'Max Allowed', value: form.MaxAllowed },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,
@@ -116,7 +116,7 @@ const InlineQualityPage: React.FC = () => {
             Inline Quality
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Control de calidad en línea: DHU % y defect rate automáticos
+            Inline quality control: DHU % and defect rate automatic
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -202,7 +202,7 @@ const InlineQualityPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -218,7 +218,7 @@ const InlineQualityPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Operation" value={form.Operation} onChange={e => setF('Operation', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Operator" value={form.Operator} onChange={e => setF('Operator', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Resultados</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Results</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Checked Qty *" type="number" value={form.CheckedQty || ''} onChange={e => setF('CheckedQty', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Critical Defects" type="number" value={form.CriticalDefects || ''} onChange={e => setF('CriticalDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Major Defects" type="number" value={form.MajorDefects || ''} onChange={e => setF('MajorDefects', Number(e.target.value))} /></Grid>
@@ -235,7 +235,7 @@ const InlineQualityPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Acción & Causa</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Action & Cause</Typography></Divider></Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Immediate Correction" value={form.ImmediateCorrection} onChange={e => setF('ImmediateCorrection', e.target.value)} /></Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Root Cause / Follow-up" value={form.RootCause} onChange={e => setF('RootCause', e.target.value)} multiline rows={2} /></Grid>
           </Grid>

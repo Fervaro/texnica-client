@@ -77,7 +77,7 @@ const CreatePO: React.FC = () => {
           Create New FGPO (Customer Order)
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Crea una orden de producción real (FGPO) que alimenta los módulos de fabricación y embarques.
+          Create a real production order (FGPO) that feeds the manufacturing and shipment modules.
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit}>
@@ -92,7 +92,7 @@ const CreatePO: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField label="Temporary Order ID" fullWidth value={form.TemporaryNumber}
                 onChange={e => setF('TemporaryNumber', e.target.value)}
-                placeholder="Solo si estado es FGPO Pending" />
+                placeholder="Only if status is FGPO Pending" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="medium">

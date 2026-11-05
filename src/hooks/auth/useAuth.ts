@@ -15,7 +15,7 @@ export const useAuth = () => {
       const res = await authApi.login(data.userName, data.password);
       return res.data as { token: string; user: User };
     } catch (err: any) {
-      setError(errorMessage(err, 'Error al iniciar sesión.'));
+      setError(errorMessage(err, 'Error signing in.'));
       throw err;
     } finally {
       setLoading(false);
@@ -29,7 +29,7 @@ export const useAuth = () => {
       const res = await authApi.register(data.userName, data.userEmail, data.password);
       return res.data;
     } catch (err: any) {
-      setError(errorMessage(err, 'Error al registrarse.'));
+      setError(errorMessage(err, 'Error signing up.'));
       throw err;
     } finally {
       setLoading(false);
@@ -43,7 +43,7 @@ export const useAuth = () => {
       try {
         await authApi.changePassword(currentPassword, newPassword);
       } catch (err: any) {
-        setError(errorMessage(err, 'Error al cambiar la contraseña.'));
+        setError(errorMessage(err, 'Error changing password.'));
         throw err;
       } finally {
         setLoading(false);

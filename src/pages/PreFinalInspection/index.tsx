@@ -105,7 +105,7 @@ const PreFinalInspectionPage: React.FC = () => {
             Pre-Final Inspection
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Inspección previa al empaque con muestreo AQL (Result automático)
+            Pre-packing inspection with AQL sampling (automatic Result)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -187,7 +187,7 @@ const PreFinalInspectionPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -205,12 +205,12 @@ const PreFinalInspectionPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="AQL Major" type="number" value={form.AqlMajor || ''} onChange={e => setF('AqlMajor', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="AQL Minor" type="number" value={form.AqlMinor || ''} onChange={e => setF('AqlMinor', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Defectos encontrados</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Defects found</Typography></Divider></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Critical Defects" type="number" value={form.CriticalDefects || ''} onChange={e => setF('CriticalDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Major Defects" type="number" value={form.MajorDefects || ''} onChange={e => setF('MajorDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Minor Defects" type="number" value={form.MinorDefects || ''} onChange={e => setF('MinorDefects', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Números AQL — Aceptación (Ac) y Rechazo (Re)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">AQL Numbers — Acceptance (Ac) and Rejection (Re)</Typography></Divider></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Critical Ac" type="number" value={form.CriticalAc || ''} onChange={e => setF('CriticalAc', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Major Ac" type="number" value={form.MajorAc || ''} onChange={e => setF('MajorAc', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Minor Ac" type="number" value={form.MinorAc || ''} onChange={e => setF('MinorAc', Number(e.target.value))} /></Grid>
@@ -218,7 +218,7 @@ const PreFinalInspectionPage: React.FC = () => {
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Major Re" type="number" value={form.MajorRe || ''} onChange={e => setF('MajorRe', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 4, sm: 4 }}><TextField fullWidth size="small" label="Minor Re" type="number" value={form.MinorRe || ''} onChange={e => setF('MinorRe', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Resultado & Acción</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Result & Action</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Inspector" value={form.Inspector} onChange={e => setF('Inspector', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Disposition" value={form.Disposition} onChange={e => setF('Disposition', e.target.value)} /></Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setF('Comments', e.target.value)} multiline rows={2} /></Grid>

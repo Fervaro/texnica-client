@@ -70,7 +70,7 @@ const Production: React.FC = () => {
             Production / Customer Orders
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Órdenes de producción (FGPO) de clientes — datos reales del sistema
+            Customer production orders (FGPO) — real system data
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/fgpo')}>Create FGPO</Button>

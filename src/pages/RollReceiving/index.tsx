@@ -68,7 +68,7 @@ const RollReceivingPage: React.FC = () => {
   useEffect(() => {
     fabricMovementsApi.getBalances()
       .then(res => { setBalances(res.data ?? []); setBalancesError(''); })
-      .catch((err: any) => setBalancesError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los saldos de rollos.'));
+      .catch((err: any) => setBalancesError(err?.response?.data?.message || err?.message || 'Failed to load roll balances.'));
   }, []);
 
   // Indicadores del inventario físico, calculados desde los saldos de rollos (fuente: /fabric-movements/balances).
@@ -139,7 +139,7 @@ const RollReceivingPage: React.FC = () => {
       { name: 'Actual GSM', value: form.ActualGSM },
       { name: 'Damaged Qty', value: form.DamagedQty },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,
@@ -163,10 +163,10 @@ const RollReceivingPage: React.FC = () => {
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <AllInboxIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
-            Inventario Físico de Tela
+            Physical Fabric Inventory
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Metraje real y estados de los rollos recibidos — hereda PO/FGPO/Proveedor de la recepción
+            Actual yardage and status of received rolls — inherits PO/FGPO/Supplier from the receiving
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -177,11 +177,11 @@ const RollReceivingPage: React.FC = () => {
 
       <ModuleTotalsBar
         items={[
-          { label: 'Rollos activos', value: rollSummary.rolls.toLocaleString(), color: 'text.disabled' },
-          { label: 'Metraje registrado', value: `${rollSummary.received.toLocaleString()} yd`, color: 'primary.main' },
-          { label: 'Existencia física', value: `${rollSummary.physical.toLocaleString()} yd`, color: 'info.main' },
-          { label: 'Reservado', value: `${rollSummary.reserved.toLocaleString()} yd`, color: 'warning.main' },
-          { label: 'Disponible', value: `${rollSummary.available.toLocaleString()} yd`, color: 'success.main' },
+          { label: 'Active rolls', value: rollSummary.rolls.toLocaleString(), color: 'text.disabled' },
+          { label: 'Registered yardage', value: `${rollSummary.received.toLocaleString()} yd`, color: 'primary.main' },
+          { label: 'Physical stock', value: `${rollSummary.physical.toLocaleString()} yd`, color: 'info.main' },
+          { label: 'Reserved', value: `${rollSummary.reserved.toLocaleString()} yd`, color: 'warning.main' },
+          { label: 'Available', value: `${rollSummary.available.toLocaleString()} yd`, color: 'success.main' },
         ]}
       />
 
@@ -209,7 +209,7 @@ const RollReceivingPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Roll #', 'Receiving', 'Fabric PO', 'FGPO', 'Lot', 'Lote (embarque)', 'Físico', 'Reservado', 'Disp.', 'Yardage', 'Net Wt', 'Shade', 'Condition', 'Date', 'Actions'].map(h =>
+                {['Roll #', 'Receiving', 'Fabric PO', 'FGPO', 'Lot', 'Shipment Lot', 'Physical', 'Reserved', 'Avail.', 'Yardage', 'Net Wt', 'Shade', 'Condition', 'Date', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
@@ -286,7 +286,7 @@ const RollReceivingPage: React.FC = () => {
               <Grid size={{ xs: 12 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, backgroundColor: 'action.hover' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InfoOutlinedIcon fontSize="inherit" /> Heredado del Fabric Receiving (no editable)
+                    <InfoOutlinedIcon fontSize="inherit" /> Inherited from Fabric Receiving (not editable)
                   </Typography>
                   <Grid container spacing={1}>
                     <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Fabric PO</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{selectedReceiving.fabricPONumber || '-'}</Typography></Grid>
@@ -298,12 +298,12 @@ const RollReceivingPage: React.FC = () => {
               </Grid>
             )}
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Identificación del Rollo</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Roll Identification</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Roll Number *" value={form.RollNumber} onChange={e => setF('RollNumber', e.target.value)} placeholder="RL-001" /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Supplier Roll #" value={form.SupplierRollNumber} onChange={e => setF('SupplierRollNumber', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Lot Number" value={form.LotNumber} onChange={e => setF('LotNumber', e.target.value)} placeholder="LOT-MILL-001 (auto)" /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Medidas & Pesos</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Measurements & Weights</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Gross Weight" type="number" value={form.GrossWeight || ''} onChange={e => setF('GrossWeight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Net Weight" type="number" value={form.NetWeight || ''} onChange={e => setF('NetWeight', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Yardage" type="number" value={form.ActualYardage || ''} onChange={e => setF('ActualYardage', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
@@ -326,7 +326,7 @@ const RollReceivingPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Almacén & Notas</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Warehouse & Notes</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Warehouse Location" value={form.WarehouseLocation} onChange={e => setF('WarehouseLocation', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
@@ -356,7 +356,7 @@ const RollReceivingPage: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">FGPO</Typography><Typography sx={{ fontWeight: 600 }}>{viewItem.fgpoNumber} ({viewItem.customerName})</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Supplier</Typography><Typography>{viewItem.supplier || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Lot</Typography><Typography>{viewItem.lotNumber || '-'}</Typography></Grid>
-              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Lote (embarque)</Typography><Typography>{viewItem.shipmentLotNumber || '-'}</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Shipment Lot</Typography><Typography>{viewItem.shipmentLotNumber || '-'}</Typography></Grid>
               <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Gross Wt</Typography><Typography sx={{ fontWeight: 600 }}>{num(viewItem.grossWeight)}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Net Wt</Typography><Typography sx={{ fontWeight: 600 }}>{num(viewItem.netWeight)}</Typography></Grid>
@@ -380,7 +380,7 @@ const RollReceivingPage: React.FC = () => {
       <RollBulkGrid
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        title="Registrar rollos"
+        title="Register rolls"
         receivingId={0}
         receivingList={receivingList}
         conditionOptions={CONDITION_OPTIONS}

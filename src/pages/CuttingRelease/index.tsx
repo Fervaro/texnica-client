@@ -127,7 +127,7 @@ const CuttingReleasePage: React.FC = () => {
       { name: 'Width', value: form.Width },
       { name: 'Efficiency', value: form.Efficiency },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,
@@ -155,7 +155,7 @@ const CuttingReleasePage: React.FC = () => {
             Cutting Release
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Producción del tendido — corte por lote con tallas y rendimientos
+            Lay production — cutting by lot with sizes and yields
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -252,7 +252,7 @@ const CuttingReleasePage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -267,7 +267,7 @@ const CuttingReleasePage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Fabric Description" value={fabricDescription} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Release Date *" type="date" value={form.ReleaseDate} onChange={e => setF('ReleaseDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Fabric Lot" value={form.FabricLot} onChange={e => setF('FabricLot', e.target.value)} /></Grid>
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Producción del tendido</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Lay Production</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth required size="small" label="Cut Date" type="date" value={form.CutDate} onChange={e => setF('CutDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth size="small" label="Week" value={getWeek(form.CutDate) || ''} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 6, sm: 3, md: 2 }}><TextField fullWidth required size="small" label="Section" value={form.Section} onChange={e => setF('Section', e.target.value)} /></Grid>

@@ -326,19 +326,19 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
 
   /** Validación de cliente. El backend sigue siendo la autoridad final. */
   const validate = (): string => {
-    if (!form.fabricPONumber.trim()) return 'PO No. es obligatorio.';
-    if (!form.orderDate) return 'Issue Date es obligatoria.';
-    if (!form.requiredCompletion) return 'Delivery es obligatoria.';
-    if (!form.uom) return 'UOM es obligatorio.';
-    if (form.lines.length === 0) return 'Agrega al menos un Fabric Requirement como línea.';
+    if (!form.fabricPONumber.trim()) return 'PO No. is required.';
+    if (!form.orderDate) return 'Issue Date is required.';
+    if (!form.requiredCompletion) return 'Delivery is required.';
+    if (!form.uom) return 'UOM is required.';
+    if (form.lines.length === 0) return 'Add at least one Fabric Requirement as a line.';
 
     for (const l of form.lines) {
       const label = `${l.fgpoNumber} / ${l.style || '-'} / ${l.color || '-'} / ${l.componentCode || '-'}`;
-      if (!(Number(l.quantity) > 0)) return `La cantidad de la línea ${label} debe ser mayor que 0.`;
+      if (!(Number(l.quantity) > 0)) return `The quantity of line ${label} must be greater than 0.`;
       if (!l.allowOverPurchase && Number(l.quantity) > l.maxQuantity) {
-        return `La cantidad excede el requerimiento pendiente. Disponible para ordenar: ${fmtQty(l.maxQuantity)} ${form.uom} (${label}).`;
+        return `The quantity exceeds the pending requirement. Available to order: ${fmtQty(l.maxQuantity)} ${form.uom} (${label}).`;
       }
-      if (!(Number(l.unitPrice) > 0)) return `El USD/Yd de la línea ${label} debe ser mayor que 0.`;
+      if (!(Number(l.unitPrice) > 0)) return `The USD/Yd of line ${label} must be greater than 0.`;
     }
     return '';
   };
@@ -361,10 +361,10 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
       const payload = buildPayload();
       if (isEdit && editing) {
         await fabricPOsApi.update(editing.id, payload);
-        onSaved(`Fabric PO ${payload.fabricPONumber} actualizada correctamente.`);
+        onSaved(`Fabric PO ${payload.fabricPONumber} updated successfully.`);
       } else {
         await fabricPOsApi.create(payload);
-        onSaved(`Fabric PO ${payload.fabricPONumber} creada correctamente.`);
+        onSaved(`Fabric PO ${payload.fabricPONumber} created successfully.`);
       }
       setPreviewOpen(false);
       onClose();
@@ -375,7 +375,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
         (typeof data === 'string' && data) ||
         data?.message ||
         err?.message ||
-        'No fue posible guardar la Fabric PO.';
+        'Could not save the Fabric PO.';
       setFormError(message);
       setPreviewOpen(false);
     } finally {
@@ -394,7 +394,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
           {formError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError('')}>{formError}</Alert>}
           {loadingEdit && (
             <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mb: 2 }}>
-              Actualizando disponibilidad de los Fabric Requirements...
+              Updating Fabric Requirements availability...
             </Alert>
           )}
 
@@ -451,7 +451,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
             <TextField
               label="Customer (derived)" size="small" value={totalCustomers}
               slotProps={{ input: { readOnly: true } }}
-              helperText="Se deriva de las FGPO seleccionadas"
+              helperText="Derived from the selected FGPOs"
             />
             <TextField
               label="Prepared" size="small" value={preparedBy}
@@ -508,7 +508,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
           {form.lines.length === 0 ? (
             <Paper elevation={0} sx={{ p: 4, textAlign: 'center', backgroundColor: 'action.hover' }}>
               <Typography variant="body2" color="text.secondary">
-                Aún no hay líneas. Usa <strong>Select Fabric Requirements</strong> para agregar una o varias.
+                No lines yet. Use <strong>Select Fabric Requirements</strong> to add one or more.
               </Typography>
             </Paper>
           ) : (
@@ -542,7 +542,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
                             {line.allowOverPurchase && (
-                              <Tooltip title="Sobrecompra (supera el requerimiento pendiente)">
+                              <Tooltip title="Over-purchase (exceeds the pending requirement)">
                                 <Box sx={{ width: 8, height: 8, mt: 1.5, borderRadius: '50%', bgcolor: 'error.main', flexShrink: 0 }} />
                               </Tooltip>
                             )}
@@ -552,7 +552,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                               error={exceeds || !(Number(line.quantity) > 0)}
                               sx={{ width: 130 }}
                               slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                              helperText={line.allowOverPurchase ? 'Sobrecompra permitida' : `Máx: ${fmtQty(line.maxQuantity)}`}
+                              helperText={line.allowOverPurchase ? 'Over-purchase allowed' : `Max: ${fmtQty(line.maxQuantity)}`}
                             />
                           </Box>
                         </TableCell>
@@ -588,7 +588,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                           />
                         </TableCell>
                         <TableCell>
-                          <Tooltip title="Remove de la PO (no elimina el Fabric Requirement)">
+                          <Tooltip title="Remove from the PO (does not delete the Fabric Requirement)">
                             <IconButton size="small" color="error" onClick={() => removeLine(line.key)}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -612,7 +612,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                   <strong>Total Amount:</strong> {fmtMoney(totalAmount)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  ({form.lines.length} línea(s) · valores recalculados por el backend al guardar)
+                  ({form.lines.length} line(s) · values recalculated by the backend on save)
                 </Typography>
               </Box>
             </Paper>
@@ -645,11 +645,11 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
       {/* ── Preview (vista previa en la app, NO el PDF oficial) ───────── */}
       <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-          Preview — {form.fabricPONumber || '(sin PO No.)'}
+          Preview — {form.fabricPONumber || '(no PO No.)'}
         </DialogTitle>
         <DialogContent dividers>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Vista previa dentro de la aplicación. El documento PDF oficial se generará en una etapa posterior.
+            In-app preview. The official PDF document will be generated at a later stage.
           </Alert>
 
           <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>Header</Typography>

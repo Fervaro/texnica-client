@@ -82,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
         { text: 'Mill Production',  icon: <PrecisionManufacturingIcon fontSize="small" />, path: '/mill-production' },
         { text: 'Mill Test',        icon: <ScienceIcon fontSize="small" />,                path: '/mill-test' },
         { text: 'Fabric Inventory', icon: <Inventory2Icon fontSize="small" />,             path: '/fabric-inventory' },
-        { text: 'Importar Inventario', icon: <UploadFileIcon fontSize="small" />,           path: '/inventory-import' },
+        { text: 'Import Inventory', icon: <UploadFileIcon fontSize="small" />,           path: '/inventory-import' },
       ],
     },
     {

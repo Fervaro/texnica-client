@@ -170,7 +170,7 @@ const Warehouse: React.FC = () => {
         Warehouse Overview
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Control de empaque — estado de empaque y listo para embarque
+        Packing control — packing status and ready to ship
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -209,7 +209,7 @@ const Warehouse: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Inventory2Icon sx={{ fontSize: 40, color: 'info.main' }} />
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total de cajas</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Boxes</Typography>
                   <Typography variant="h4" sx={{ color: 'info.main', fontWeight: 'bold' }}>{totalBoxes.toLocaleString()}</Typography>
                 </Box>
               </Box>
@@ -236,7 +236,7 @@ const Warehouse: React.FC = () => {
           {/* Packing Control por FGPO */}
           <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
             <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold', mb: 2 }}>
-              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control por FGPO
+              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control by FGPO
             </Typography>
             <TableContainer>
               <Table size="small">
@@ -249,7 +249,7 @@ const Warehouse: React.FC = () => {
                     ))}
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Ready to Ship</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Pending</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Cajas</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Boxes</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -283,12 +283,12 @@ const Warehouse: React.FC = () => {
                               Packing: {g.fgpoNumber || g.key}
                             </Typography>
                             {g.boxRows.length === 0 ? (
-                              <Typography variant="body2" color="text.secondary">Sin registros para este FGPO.</Typography>
+                              <Typography variant="body2" color="text.secondary">No records for this FGPO.</Typography>
                             ) : (
                               <Table size="small">
                                 <TableHead>
                                   <TableRow>
-                                    {['Estilo', 'Color', 'Talla', 'Piezas totales', ...visibleFields.map(f => f.label), 'Cant. por caja', 'Cant. de cajas', 'Sin empacar'].map(h => (
+                                    {['Style', 'Color', 'Size', 'Total pieces', ...visibleFields.map(f => f.label), 'Qty per box', 'No. of boxes', 'Unpacked'].map(h => (
                                       <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
                                     ))}
                                   </TableRow>

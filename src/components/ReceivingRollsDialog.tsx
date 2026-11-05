@@ -69,7 +69,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
         customerName: m.customerName ?? m.CustomerName ?? '',
       });
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'No se pudieron cargar los rollos.');
+      setError(err?.response?.data?.message || err?.message || 'Could not load rolls.');
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
 
   const handleEditSave = async () => {
     setEditError('');
-    if (!edit.rollNumber.trim()) { setEditError('Roll Number es obligatorio.'); return; }
+    if (!edit.rollNumber.trim()) { setEditError('Roll Number is required.'); return; }
     const neg = firstNegativeField([
       { name: 'Gross Weight', value: edit.grossWeight },
       { name: 'Net Weight', value: edit.netWeight },
@@ -124,7 +124,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
       { name: 'Actual GSM', value: edit.actualGSM },
       { name: 'Damaged Qty', value: edit.damagedQty },
     ]);
-    if (neg) { setEditError(`${neg} no puede ser negativo.`); return; }
+    if (neg) { setEditError(`${neg} cannot be negative.`); return; }
 
     setEditSaving(true);
     try {
@@ -148,39 +148,39 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
       setEditOpen(false);
       await load();
     } catch (err: any) {
-      setEditError(err?.response?.data?.message || err?.response?.data || err?.message || 'Error al guardar.');
+      setEditError(err?.response?.data?.message || err?.response?.data || err?.message || 'Error saving.');
     } finally {
       setEditSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('¿Eliminar este rollo?')) return;
+    if (!window.confirm('Delete this roll?')) return;
     try {
       await rollReceivingsApi.delete(id);
       await load();
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Error al eliminar.');
+      setError(err?.response?.data?.message || err?.message || 'Error deleting.');
     }
   };
 
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Rollos — {receivingNumber}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Rolls — {receivingNumber}</DialogTitle>
         <Divider />
         <DialogContent sx={{ pt: 2 }}>
           {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setBulkOpen(true)}>
-              Agregar rollos
+              Add rolls
             </Button>
           </Box>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
           ) : rolls.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-              Esta recepción no tiene rollos registrados todavía.
+              This receiving has no rolls registered yet.
             </Typography>
           ) : (
             <TableContainer sx={{ border: '1px solid', borderColor: 'divider', maxHeight: 440, overflow: 'auto' }}>
@@ -222,7 +222,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
       <RollBulkGrid
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        title={`Agregar rollos — ${receivingNumber}`}
+        title={`Add rolls — ${receivingNumber}`}
         receivingId={receivingId}
         receivingList={receivingMeta ? [receivingMeta] : [{ id: receivingId, label: receivingNumber }]}
         conditionOptions={DEFAULT_CONDITIONS}
@@ -234,7 +234,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
 
       {/* Edición de un rollo */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Editar rollo</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>Edit roll</DialogTitle>
         <Divider />
         <DialogContent sx={{ pt: 2 }}>
           {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
@@ -269,7 +269,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleEditSave} disabled={editSaving} startIcon={editSaving ? <CircularProgress size={18} /> : null}>
-            {editSaving ? 'Guardando...' : 'Guardar'}
+            {editSaving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>

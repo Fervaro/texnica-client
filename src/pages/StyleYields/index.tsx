@@ -47,7 +47,7 @@ const StyleYieldsPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await styleYieldsApi.getAll(); setItems((res.data ?? []).map(mapStyleYield)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -81,7 +81,7 @@ const StyleYieldsPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.StyleId || !form.ComponentId) { setFormError('Style y Component son obligatorios.'); return; }
+    if (!form.StyleId || !form.ComponentId) { setFormError('Style and Component are required.'); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = {
@@ -90,13 +90,13 @@ const StyleYieldsPage: React.FC = () => {
       };
       if (editingId) await styleYieldsApi.update(editingId, payload); else await styleYieldsApi.create(payload);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Yield?')) return;
-    try { await styleYieldsApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this yield?')) return;
+    try { await styleYieldsApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
@@ -113,7 +113,7 @@ const StyleYieldsPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <PercentIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Style Yields
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Consumo por estilo y componente (Yield cotizado vs real)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Consumption by style and component (quoted vs actual yield)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
@@ -124,7 +124,7 @@ const StyleYieldsPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar por Style o Component..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search by Style or Component..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -149,8 +149,8 @@ const StyleYieldsPage: React.FC = () => {
                   <TableCell>{y.componentCode}</TableCell>
                   <TableCell>{y.yieldQuoted ?? '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(y)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(y.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(y)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(y.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

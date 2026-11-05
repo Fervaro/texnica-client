@@ -7,7 +7,7 @@
  */
 export function errorMessage(err: any, fallback = 'Error'): string {
   if (err?.response?.status === 403) {
-    return 'No se posee acceso a este Módulo.';
+    return 'You do not have access to this Module.';
   }
   const data = err?.response?.data;
   if (typeof data === 'string' && data.trim()) {

@@ -54,18 +54,18 @@ const ModulePlaceholder: React.FC<ModulePlaceholderProps> = ({
             </Typography>
           )}
         </Box>
-        <Chip icon={<ConstructionIcon />} label="Módulo en desarrollo" color="warning" variant="outlined" />
+        <Chip icon={<ConstructionIcon />} label="Module in development" color="warning" variant="outlined" />
       </Box>
 
       <Alert severity="info" sx={{ mb: 2 }}>
-        Este módulo aún no está implementado. La ventana muestra la estructura de campos definida en el
-        master workbook (TPCS Integrated Master Control Workbook) para referencia del equipo.
+        This module is not yet implemented. The window shows the field structure defined in the
+        master workbook (TPCS Integrated Master Control Workbook) for the team's reference.
       </Alert>
 
       <Paper sx={{ overflow: 'hidden' }}>
         <Box sx={{ p: 2, backgroundColor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="subtitle2" color="text.secondary">
-            Estructura de datos esperada ({fields.length} campos)
+            Expected data structure ({fields.length} fields)
           </Typography>
           {note && <Typography variant="caption" color="text.secondary">{note}</Typography>}
         </Box>
@@ -74,7 +74,7 @@ const ModulePlaceholder: React.FC<ModulePlaceholderProps> = ({
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
                 <TableCell sx={{ color: 'white', fontWeight: 600, width: 60 }}>#</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 600 }}>Campo (según Excel)</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600 }}>Field (per Excel)</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

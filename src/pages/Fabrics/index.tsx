@@ -119,7 +119,7 @@ const FabricsPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await fabricsApi.getAll(); setItems((res.data ?? []).map(mapFabric)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); loadCatalog(); }, []);
@@ -137,19 +137,19 @@ const FabricsPage: React.FC = () => {
       { name: 'GSM', value: form.Gsm },
       { name: 'Weight', value: form.WeightOz },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = { ...form, Gsm: form.Gsm === '' ? null : Number(form.Gsm), WeightOz: form.WeightOz === '' ? null : Number(form.WeightOz) };
       if (editingId) await fabricsApi.update(editingId, payload); else await fabricsApi.create(payload);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Fabric?')) return;
-    try { await fabricsApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this Fabric?')) return;
+    try { await fabricsApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setAutoFgpoId(0); setFormError(''); setDialogOpen(true); };
@@ -167,7 +167,7 @@ const FabricsPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <FabricIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Fabrics
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Tela — referencia, contenido y construcción (Master Data)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Fabric — reference, content and construction (Master Data)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
@@ -178,7 +178,7 @@ const FabricsPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar por nombre, color o referencia..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search by name, color or reference..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -209,8 +209,8 @@ const FabricsPage: React.FC = () => {
                   <TableCell>{f.gsm ?? '-'}</TableCell>
                   <TableCell>{f.weightOz ?? '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(f)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(f.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(f)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(f.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -235,7 +235,7 @@ const FabricsPage: React.FC = () => {
                     label="Fabric Reference"
                     onChange={e => { const v = Number(e.target.value); setAutoFgpoId(v); applyFgpoAutofill(v); }}
                   >
-                    <MenuItem value=""><em>Selecciona un FGPO...</em></MenuItem>
+                    <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
                     {fgpoOptions.map(fg => (
                       <MenuItem key={fg.id} value={fg.id}>
                         {fg.label}{fg.style ? ` — Style: ${fg.style}` : ''}{fg.color ? ` / ${fg.color}` : ''}

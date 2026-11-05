@@ -54,7 +54,7 @@ const FabricMovementsPage: React.FC = () => {
       setMovements(mv.data ?? []);
       setRolls(rl.data ?? []);
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Error cargando movimientos.');
+      setError(err?.response?.data?.message || err?.message || 'Error loading movements.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ const FabricMovementsPage: React.FC = () => {
       });
     } catch (err: any) {
       const status = err?.response?.status;
-      setTotalsError(status === 403 ? 'No se posee acceso a este Módulo.' : status ? `Error ${status} al cargar los totales de movimientos.` : 'No se pudieron cargar los totales de movimientos.');
+      setTotalsError(status === 403 ? 'No access to this Module.' : status ? `Error ${status} loading movement totals.` : 'Could not load movement totals.');
     }
   };
 
@@ -98,11 +98,11 @@ const FabricMovementsPage: React.FC = () => {
 
   const handleSave = async () => {
     setFormError('');
-    if (!form.RollReceivingId) { setFormError('El rollo es obligatorio.'); return; }
+    if (!form.RollReceivingId) { setFormError('Roll is required.'); return; }
     const qty = Number(form.Quantity);
-    if (!(qty > 0)) { setFormError('La cantidad debe ser mayor que cero.'); return; }
+    if (!(qty > 0)) { setFormError('Quantity must be greater than zero.'); return; }
     if (form.MovementType === 'Reversal' && !form.IsReversalOfId) {
-      setFormError('Seleccione el movimiento original a revertir.'); return;
+      setFormError('Select the original movement to reverse.'); return;
     }
     setSaving(true);
     try {
@@ -119,10 +119,10 @@ const FabricMovementsPage: React.FC = () => {
         comments: form.Comments || null,
       });
       setDialogOpen(false);
-      setSuccess('Movimiento registrado correctamente.');
+      setSuccess('Movement registered successfully.');
       await load();
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.response?.data || 'Error guardando el movimiento.');
+      setFormError(err?.response?.data?.message || err?.response?.data || 'Error saving movement.');
     } finally {
       setSaving(false);
     }
@@ -149,7 +149,7 @@ const FabricMovementsPage: React.FC = () => {
             Fabric Movements
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Historial de movimientos físicos por rollo — saldo derivado de los movimientos
+            Physical movement history by roll — balance derived from movements
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -162,10 +162,10 @@ const FabricMovementsPage: React.FC = () => {
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Ajustes positivos', value: movTotals.adjIn.toLocaleString(), color: 'success.main' },
-          { label: 'Ajustes negativos', value: movTotals.adjOut.toLocaleString(), color: 'error.main' },
-          { label: 'Devoluciones', value: movTotals.returnIn.toLocaleString(), color: 'info.main' },
-          { label: 'Movimientos', value: movTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
+          { label: 'Positive adjustments', value: movTotals.adjIn.toLocaleString(), color: 'success.main' },
+          { label: 'Negative adjustments', value: movTotals.adjOut.toLocaleString(), color: 'error.main' },
+          { label: 'Returns', value: movTotals.returnIn.toLocaleString(), color: 'info.main' },
+          { label: 'Movements', value: movTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 
@@ -174,21 +174,21 @@ const FabricMovementsPage: React.FC = () => {
 
       <Paper sx={{ mb: 2, p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
         <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Rollo</InputLabel>
-          <Select value={filterRoll || ''} label="Rollo" onChange={e => setFilterRoll(Number(e.target.value) || 0)}>
-            <MenuItem value=""><em>Todos</em></MenuItem>
-            {rolls.map(r => <MenuItem key={r.id} value={r.id}>{r.rollNumber || `Rollo ${r.id}`}</MenuItem>)}
+          <InputLabel>Roll</InputLabel>
+          <Select value={filterRoll || ''} label="Roll" onChange={e => setFilterRoll(Number(e.target.value) || 0)}>
+            <MenuItem value=""><em>All</em></MenuItem>
+            {rolls.map(r => <MenuItem key={r.id} value={r.id}>{r.rollNumber || `Roll ${r.id}`}</MenuItem>)}
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Tipo</InputLabel>
-          <Select value={filterType} label="Tipo" onChange={e => setFilterType(e.target.value)}>
-            <MenuItem value=""><em>Todos</em></MenuItem>
+          <InputLabel>Type</InputLabel>
+          <Select value={filterType} label="Type" onChange={e => setFilterType(e.target.value)}>
+            <MenuItem value=""><em>All</em></MenuItem>
             {MOVEMENT_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
           </Select>
         </FormControl>
-        <TextField size="small" label="Desde" type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-        <TextField size="small" label="Hasta" type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        <TextField size="small" label="From" type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        <TextField size="small" label="To" type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
       </Paper>
 
       <Paper sx={{ overflow: 'hidden' }}>
@@ -196,7 +196,7 @@ const FabricMovementsPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Fecha', 'Rollo', 'Tipo', 'Cantidad', 'UOM', 'Referencia', 'Idempotencia', 'Comentarios'].map(h =>
+                {['Date', 'Roll', 'Type', 'Quantity', 'UOM', 'Reference', 'Idempotency', 'Comments'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
@@ -231,53 +231,53 @@ const FabricMovementsPage: React.FC = () => {
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid size={{ xs: 12 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Rollo *</InputLabel>
-                <Select value={form.RollReceivingId || ''} label="Rollo *" onChange={e => setF('RollReceivingId', Number(e.target.value))}>
-                  <MenuItem value=""><em>Seleccione un rollo...</em></MenuItem>
-                  {rolls.map(r => <MenuItem key={r.id} value={r.id}>{r.rollNumber || `Rollo ${r.id}`}</MenuItem>)}
+                <InputLabel>Roll *</InputLabel>
+                <Select value={form.RollReceivingId || ''} label="Roll *" onChange={e => setF('RollReceivingId', Number(e.target.value))}>
+                  <MenuItem value=""><em>Select a roll...</em></MenuItem>
+                  {rolls.map(r => <MenuItem key={r.id} value={r.id}>{r.rollNumber || `Roll ${r.id}`}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Tipo *</InputLabel>
-                <Select value={form.MovementType} label="Tipo *" onChange={e => setF('MovementType', e.target.value)}>
+                <InputLabel>Type *</InputLabel>
+                <Select value={form.MovementType} label="Type *" onChange={e => setF('MovementType', e.target.value)}>
                   {MOVEMENT_TYPES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="Cantidad *" type="number" value={form.Quantity} onChange={e => setF('Quantity', e.target.value)} />
+              <TextField fullWidth size="small" label="Quantity *" type="number" value={form.Quantity} onChange={e => setF('Quantity', e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="UOM (opcional)" value={form.UnitOfMeasure} onChange={e => setF('UnitOfMeasure', e.target.value)} />
+              <TextField fullWidth size="small" label="UOM (optional)" value={form.UnitOfMeasure} onChange={e => setF('UnitOfMeasure', e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="Fecha" type="date" value={form.MovementDate} onChange={e => setF('MovementDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+              <TextField fullWidth size="small" label="Date" type="date" value={form.MovementDate} onChange={e => setF('MovementDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
             {form.MovementType === 'Reversal' && (
               <Grid size={{ xs: 12 }}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Movimiento original a revertir *</InputLabel>
-                  <Select value={form.IsReversalOfId || ''} label="Movimiento original a revertir *" onChange={e => setF('IsReversalOfId', Number(e.target.value))}>
-                    <MenuItem value=""><em>Seleccione...</em></MenuItem>
+                  <InputLabel>Original movement to reverse *</InputLabel>
+                  <Select value={form.IsReversalOfId || ''} label="Original movement to reverse *" onChange={e => setF('IsReversalOfId', Number(e.target.value))}>
+                    <MenuItem value=""><em>Select...</em></MenuItem>
                     {selectedRollMovements.map(m => <MenuItem key={m.id} value={m.id}>{m.movementType} — {num(m.quantity)} ({fmt(m.movementDate)})</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
             )}
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="Tipo de referencia" value={form.ReferenceType} onChange={e => setF('ReferenceType', e.target.value)} />
+              <TextField fullWidth size="small" label="Reference type" value={form.ReferenceType} onChange={e => setF('ReferenceType', e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="Número de referencia" value={form.ReferenceNumber} onChange={e => setF('ReferenceNumber', e.target.value)} />
+              <TextField fullWidth size="small" label="Reference number" value={form.ReferenceNumber} onChange={e => setF('ReferenceNumber', e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12 }}>
-              <TextField fullWidth size="small" label="Comentarios" value={form.Comments} onChange={e => setF('Comments', e.target.value)} multiline rows={2} />
+              <TextField fullWidth size="small" label="Comments" value={form.Comments} onChange={e => setF('Comments', e.target.value)} multiline rows={2} />
             </Grid>
             <Grid size={{ xs: 12 }}>
               <Typography variant="caption" color="text.secondary">
-                Idempotencia: {idempotencyKey}
+                Idempotency: {idempotencyKey}
               </Typography>
             </Grid>
           </Grid>
@@ -285,7 +285,7 @@ const FabricMovementsPage: React.FC = () => {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
-            {saving ? 'Guardando...' : 'Guardar'}
+            {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>

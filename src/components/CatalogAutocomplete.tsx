@@ -125,7 +125,7 @@ const CatalogAutocomplete: React.FC<CatalogAutocompleteProps> = ({
               sx={{ color: 'primary.main', fontWeight: 600, display: 'flex', alignItems: 'center' }}
             >
               <AddIcon fontSize="small" sx={{ mr: 1 }} />
-              {`Agregar nuevo ${addNewEntityLabel} "${option.label}"`}
+              {`Add new ${addNewEntityLabel} "${option.label}"`}
             </Box>
           );
         }

@@ -164,7 +164,7 @@ const Layout = () => {
           </Typography>
           {selectedCustomer && user?.userType === 'Client' && (
             <Typography variant="body2" sx={{ mr: 2, fontWeight: 600 }}>
-              Cliente: {selectedCustomer.name}
+              Customer: {selectedCustomer.name}
             </Typography>
           )}
           {selectedCustomer && user?.userType !== 'Client' && (
@@ -175,7 +175,7 @@ const Layout = () => {
                 endIcon={<ExpandMoreIcon />}
                 sx={{ mr: 1, fontWeight: 600, textTransform: 'none' }}
               >
-                Cliente: {selectedCustomer.name}
+                Customer: {selectedCustomer.name}
               </Button>
               <Menu
                 anchorEl={customerMenuAnchor}
@@ -263,9 +263,9 @@ function App() {
                   <Route path="internal-test" element={<InternalTest />} />
                   <Route path="shade-match" element={<ShadeMatch />} />
                   <Route path="inline-quality" element={<InlineQuality />} />
-                  <Route path="endline-inspection" element={<AqlInspection inspectionType="Endline" title="Endline Inspection" subtitle="Inspección de fin de línea con muestreo AQL (Result automático)" />} />
-                  <Route path="pre-final-inspection" element={<AqlInspection inspectionType="PreFinal" title="Pre-Final Inspection" subtitle="Inspección pre-final con muestreo AQL (Result automático)" />} />
-                  <Route path="final-inspection" element={<AqlInspection inspectionType="Final" title="Final Inspection" subtitle="Inspección final con muestreo AQL (Result automático)" />} />
+                  <Route path="endline-inspection" element={<AqlInspection inspectionType="Endline" title="Endline Inspection" subtitle="End-of-line inspection with AQL sampling (Automatic result)" />} />
+                  <Route path="pre-final-inspection" element={<AqlInspection inspectionType="PreFinal" title="Pre-Final Inspection" subtitle="Pre-final inspection with AQL sampling (Automatic result)" />} />
+                  <Route path="final-inspection" element={<AqlInspection inspectionType="Final" title="Final Inspection" subtitle="Final inspection with AQL sampling (Automatic result)" />} />
                   <Route path="pp-sample" element={<PPSample />} />
                   <Route path="top-sample" element={<TOPSample />} />
                   <Route path="production-readiness" element={<ProductionReadiness />} />

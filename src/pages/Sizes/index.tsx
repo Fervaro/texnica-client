@@ -40,7 +40,7 @@ const SizesPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await sizesApi.getAll(); setItems((res.data ?? []).map(mapSize)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -54,13 +54,13 @@ const SizesPage: React.FC = () => {
       const payload = { ...form, SortOrder: Number(form.SortOrder) };
       if (editingId) await sizesApi.update(editingId, payload); else await sizesApi.create(payload);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Size?')) return;
-    try { await sizesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this size?')) return;
+    try { await sizesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
@@ -73,7 +73,7 @@ const SizesPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <StraightenIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Sizes
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Catálogo de tallas (Master Data)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Size catalog (Master Data)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
@@ -84,7 +84,7 @@ const SizesPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar talla..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search size..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -108,8 +108,8 @@ const SizesPage: React.FC = () => {
                   <TableCell>{s.description || '-'}</TableCell>
                   <TableCell>{s.sortOrder}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(s)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(s)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

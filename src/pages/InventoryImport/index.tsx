@@ -116,7 +116,7 @@ const InventoryImport: React.FC = () => {
       const wb = XLSX.read(buf, { type: 'array', cellDates: true });
       const ws = wb.Sheets['INGRESOS'] ?? wb.Sheets[wb.SheetNames[0]];
       if (!ws) {
-        setError('No se encontró la hoja INGRESOS en el archivo.');
+        setError('The INGRESOS sheet was not found in the file.');
         return;
       }
       const aoa: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
@@ -145,9 +145,9 @@ const InventoryImport: React.FC = () => {
         mapped.push(row);
       });
       setRows(mapped);
-      if (mapped.length === 0) setError('El archivo no contiene filas de datos.');
+      if (mapped.length === 0) setError('The file contains no data rows.');
     } catch (e: any) {
-      setError(e?.message || 'Error al leer el archivo.');
+      setError(e?.message || 'Error reading the file.');
     }
   };
 
@@ -155,11 +155,11 @@ const InventoryImport: React.FC = () => {
     setError('');
     setResult(null);
     if (!fgpoId && !campoMaster.trim()) {
-      setError('Seleccione un FGPO o indique CampoMaster (solo administradores).');
+      setError('Select a FGPO or enter CampoMaster (administrators only).');
       return;
     }
     if (!rows.length) {
-      setError('No hay filas para importar.');
+      setError('There are no rows to import.');
       return;
     }
     setImporting(true);
@@ -171,7 +171,7 @@ const InventoryImport: React.FC = () => {
       });
       setResult(res.data ?? res);
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.response?.data || e?.message || 'Error al importar.');
+      setError(e?.response?.data?.message || e?.response?.data || e?.message || 'Error importing.');
     } finally {
       setImporting(false);
     }
@@ -181,7 +181,7 @@ const InventoryImport: React.FC = () => {
     setError('');
     setResult(null);
     if (!rows.length) {
-      setError('No hay filas para actualizar.');
+      setError('There are no rows to update.');
       return;
     }
     const payload = rows.map((r) => {
@@ -199,7 +199,7 @@ const InventoryImport: React.FC = () => {
     });
 
     if (payload.some((p) => !p.key.rollNumber && !p.key.bacht && !p.key.uniqueId)) {
-      setError('Toda fila debe traer al menos ID Ticket, Bacht o ID para identificar el rollo.');
+      setError('Each row must include at least ID Ticket, Batch or ID to identify the roll.');
       return;
     }
 
@@ -212,7 +212,7 @@ const InventoryImport: React.FC = () => {
       });
       setResult(res.data ?? res);
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.response?.data || e?.message || 'Error al actualizar.');
+      setError(e?.response?.data?.message || e?.response?.data || e?.message || 'Error updating.');
     } finally {
       setImporting(false);
     }
@@ -226,12 +226,12 @@ const InventoryImport: React.FC = () => {
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <ImportExportIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
-            Importar Inventario (INGRESOS)
+            Import Inventory (INGRESOS)
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {mode === 'update'
-              ? 'Actualiza los campos físicos de rollos existentes (llave: ID Ticket + Bacht + ID).'
-              : 'Carga el Excel de inventario de bodega de tela. Una fila = un rollo recibido.'}
+              ? 'Updates the physical fields of existing rolls (key: ID Ticket + Batch + ID).'
+              : 'Loads the fabric warehouse inventory Excel. One row = one received roll.'}
           </Typography>
         </Box>
       </Box>
@@ -250,15 +250,15 @@ const InventoryImport: React.FC = () => {
         }}
         sx={{ mb: 2 }}
       >
-        <ToggleButton value="import">Importar (ingresos)</ToggleButton>
-        <ToggleButton value="update">Actualizar</ToggleButton>
+        <ToggleButton value="import">Import (receipts)</ToggleButton>
+        <ToggleButton value="update">Update</ToggleButton>
       </ToggleButtonGroup>
 
       <Paper sx={{ p: 2, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
         <FormControl size="small" sx={{ minWidth: 280 }}>
           <InputLabel>FGPO</InputLabel>
           <Select value={fgpoId || ''} label="FGPO" onChange={e => setFgpoId(Number(e.target.value))}>
-            <MenuItem value=""><em>Seleccione un FGPO...</em></MenuItem>
+            <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
             {fgpoList.map(f => (
               <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>
             ))}
@@ -267,10 +267,10 @@ const InventoryImport: React.FC = () => {
 
         <TextField
           size="small"
-          label="CampoMaster (sin FGPO)"
+          label="CampoMaster (without FGPO)"
           value={campoMaster}
           onChange={e => setCampoMaster(e.target.value)}
-          helperText="Solo administradores"
+          helperText="Administrators only"
           sx={{ minWidth: 240 }}
         />
 
@@ -286,9 +286,9 @@ const InventoryImport: React.FC = () => {
           }}
         />
         <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => fileRef.current?.click()}>
-          Seleccionar Excel
+          Select Excel
         </Button>
-        {fileName && <Typography variant="body2" color="text.secondary">{fileName} — {rows.length} fila(s)</Typography>}
+        {fileName && <Typography variant="body2" color="text.secondary">{fileName} — {rows.length} row(s)</Typography>}
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -296,17 +296,17 @@ const InventoryImport: React.FC = () => {
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setResult(null)}>
           {mode === 'update' ? (
             <>
-              Actualización completada: {result.updated ?? result.Updated ?? 0} actualizados,{' '}
-              {result.notFound ?? result.NotFound ?? 0} no encontrados,{' '}
-              {result.skipped ?? result.Skipped ?? 0} omitidos.
+              Update completed: {result.updated ?? result.Updated ?? 0} updated,{' '}
+              {result.notFound ?? result.NotFound ?? 0} not found,{' '}
+              {result.skipped ?? result.Skipped ?? 0} skipped.
             </>
           ) : (
             <>
-              Importación completada: {result.createdRolls ?? result.CreatedRolls ?? 0} rollos,{' '}
-              {result.createdReceivings ?? result.CreatedReceivings ?? 0} recepciones,{' '}
-              {result.createdLots ?? result.CreatedLots ?? 0} lotes,{' '}
-              {result.createdFamilies ?? result.CreatedFamilies ?? 0} familias,{' '}
-              {result.skippedRolls ?? result.SkippedRolls ?? 0} omitidos (ya existían).
+              Import completed: {result.createdRolls ?? result.CreatedRolls ?? 0} rolls,{' '}
+              {result.createdReceivings ?? result.CreatedReceivings ?? 0} receivings,{' '}
+              {result.createdLots ?? result.CreatedLots ?? 0} lots,{' '}
+              {result.createdFamilies ?? result.CreatedFamilies ?? 0} families,{' '}
+              {result.skippedRolls ?? result.SkippedRolls ?? 0} skipped (already existed).
             </>
           )}
         </Alert>
@@ -319,7 +319,7 @@ const InventoryImport: React.FC = () => {
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                    {['Bacht', 'ID Ticket', 'ID', 'Yardas', 'Color', 'Estilo', 'Familia', 'Contenedor', 'Factura', 'Fecha'].map(h => (
+                    {['Batch', 'ID Ticket', 'ID', 'Yards', 'Color', 'Style', 'Family', 'Container', 'Invoice', 'Date'].map(h => (
                       <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                     ))}
                   </TableRow>
@@ -352,8 +352,8 @@ const InventoryImport: React.FC = () => {
               startIcon={importing ? <CircularProgress size={18} /> : <ImportExportIcon />}
             >
               {importing
-                ? (mode === 'update' ? 'Actualizando...' : 'Importando...')
-                : `${mode === 'update' ? 'Actualizar' : 'Importar'} ${rows.length} rollo(s)`}
+                ? (mode === 'update' ? 'Updating...' : 'Importing...')
+                : `${mode === 'update' ? 'Update' : 'Import'} ${rows.length} roll(s)`}
             </Button>
           </Box>
         </>

@@ -62,7 +62,7 @@ export function useResource<T>(
       setItems((res.data?.items ?? []).map(normalize));
       setTotalCount(res.data?.totalCount ?? 0);
     } catch (err: any) {
-      setError(errorMessage(err, 'Error cargando datos.'));
+      setError(errorMessage(err, 'Error loading data.'));
     } finally {
       setLoading(false);
     }

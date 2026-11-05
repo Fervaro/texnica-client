@@ -154,7 +154,7 @@ const ShipmentControlPage: React.FC = () => {
     setFormError('');
     if (!form.ShipmentNumber.trim()) { setFormError('Shipment Number is required.'); return; }
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
-    if (editingId === null && selectedBoxIds.length === 0) { setFormError('Seleccione al menos una caja.'); return; }
+    if (editingId === null && selectedBoxIds.length === 0) { setFormError('Select at least one box.'); return; }
     if (form.PlannedQty < 0 || form.ActualLoadedQty < 0 || form.InTransitQty < 0 || form.CustomerReceivedQty < 0 || form.TotalShippedQty < 0) {
       setFormError('Quantities cannot be negative.'); return;
     }
@@ -191,7 +191,7 @@ const ShipmentControlPage: React.FC = () => {
             Shipment Control
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Control de embarques — planeado vs cargado, contenedores, ETD/ETA y destino
+            Shipment control — planned vs loaded, containers, ETD/ETA and destination
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -276,7 +276,7 @@ const ShipmentControlPage: React.FC = () => {
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
                 <Select value={form.FGPOId || ''} label="FGPO *" onChange={e => handleFgpoChange(Number(e.target.value))}>
-                  <MenuItem value=""><em>{editingId === null ? 'Seleccione un FGPO (warehouse)...' : 'Select a FGPO...'}</em></MenuItem>
+                  <MenuItem value=""><em>{editingId === null ? 'Select an FGPO (warehouse)...' : 'Select a FGPO...'}</em></MenuItem>
                   {fgpoOptions.map((f) => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -291,19 +291,19 @@ const ShipmentControlPage: React.FC = () => {
             </Grid>
             {editingId === null ? (
               <>
-                <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cajas a enviar</Typography></Divider></Grid>
+                <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Boxes to ship</Typography></Divider></Grid>
                 <Grid size={{ xs: 12 }}>
                   {!form.FGPOId ? (
-                    <Typography variant="body2" color="text.secondary">Seleccione un FGPO para ver las cajas disponibles.</Typography>
+                    <Typography variant="body2" color="text.secondary">Select an FGPO to view available boxes.</Typography>
                   ) : boxes.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">No hay cajas disponibles para este FGPO.</Typography>
+                    <Typography variant="body2" color="text.secondary">No boxes available for this FGPO.</Typography>
                   ) : (
                     <TableContainer sx={{ maxHeight: 260 }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
                           <TableRow>
                             <TableCell padding="checkbox"></TableCell>
-                            {['Estilo / Color', 'Talla', 'Caja', 'Cajas', 'Pcs/Caja', 'Piezas'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
+                            {['Style / Color', 'Size', 'Box', 'Cartons', 'Pcs/Box', 'Pieces'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -325,7 +325,7 @@ const ShipmentControlPage: React.FC = () => {
                     </TableContainer>
                   )}
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                    Piezas seleccionadas: {num(form.PlannedQty)}
+                    Selected pieces: {num(form.PlannedQty)}
                   </Typography>
                 </Grid>
               </>
@@ -349,7 +349,7 @@ const ShipmentControlPage: React.FC = () => {
                 </Grid>
               </>
             )}
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Fechas</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Dates</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField fullWidth size="small" label="Planned Loading" type="date" value={form.PlannedLoadingDate} onChange={e => setF('PlannedLoadingDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
@@ -362,7 +362,7 @@ const ShipmentControlPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField fullWidth size="small" label="ETA" type="date" value={form.ETA} onChange={e => setF('ETA', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Contenedor y Logística</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Container and Logistics</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Container Type</InputLabel>

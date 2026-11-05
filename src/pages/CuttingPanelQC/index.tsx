@@ -113,7 +113,7 @@ const CuttingPanelQCPage: React.FC = () => {
             Cutting Panel QC
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Inspección de calidad de paneles cortados (Total Defects, Defect Rate % y Result automáticos)
+            Quality inspection of cut panels (Total Defects, Defect Rate % and Result automatic)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -197,7 +197,7 @@ const CuttingPanelQCPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -222,20 +222,20 @@ const CuttingPanelQCPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Bundle No." value={form.BundleNo} onChange={e => setF('BundleNo', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Sample Qty" type="number" value={form.SampleQty || ''} onChange={e => setF('SampleQty', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Defectos encontrados (input)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Defects found (input)</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Panel" type="number" value={form.PanelDefects || ''} onChange={e => setF('PanelDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Notches" type="number" value={form.NotchesDefects || ''} onChange={e => setF('NotchesDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Drill Mark" type="number" value={form.DrillMarkDefects || ''} onChange={e => setF('DrillMarkDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Shade" type="number" value={form.ShadeDefects || ''} onChange={e => setF('ShadeDefects', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Measurement" type="number" value={form.MeasurementDefects || ''} onChange={e => setF('MeasurementDefects', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculado automáticamente</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculated automatically</Typography></Divider></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><TextField fullWidth size="small" label="Total Defects" value={total} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><TextField fullWidth size="small" label="Defect Rate %" value={rate.toFixed(4)} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><TextField fullWidth size="small" label="Max Allowed" value={maxAllowed} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 4, sm: 3 }}><Chip label={`Result: ${previewResult}`} color={sc(previewResult)} sx={{ mt: 1 }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Acción</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Action</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Inspector</InputLabel>

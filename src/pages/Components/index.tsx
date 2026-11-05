@@ -39,7 +39,7 @@ const ComponentsPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await componentsApi.getAll(); setItems((res.data ?? []).map(mapComponent)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -53,13 +53,13 @@ const ComponentsPage: React.FC = () => {
     try {
       if (editingId) await componentsApi.update(editingId, form); else await componentsApi.create(form);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Component?')) return;
-    try { await componentsApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this Component?')) return;
+    try { await componentsApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
@@ -83,7 +83,7 @@ const ComponentsPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar componente..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search component..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -106,8 +106,8 @@ const ComponentsPage: React.FC = () => {
                   <TableCell sx={{ fontWeight: 600 }}>{c.componentCode}</TableCell>
                   <TableCell>{c.description || '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(c)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(c)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

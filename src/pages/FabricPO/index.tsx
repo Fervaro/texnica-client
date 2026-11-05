@@ -279,7 +279,7 @@ const FabricPO: React.FC = () => {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       // Con responseType blob el error del backend llega como Blob: se lee como texto.
-      let message = 'No fue posible generar el PDF de la Fabric Purchase Order.';
+      let message = 'Could not generate the Fabric Purchase Order PDF.';
       const data = err?.response?.data;
       if (data instanceof Blob) {
         try {
@@ -439,7 +439,7 @@ const FabricPO: React.FC = () => {
                   <TableCell>{item.id}</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                     {item.lines.some(l => l.allowOverPurchase) && (
-                      <Tooltip title="Tiene líneas con sobrecompra">
+                      <Tooltip title="Has lines with over-purchase">
                         <Box
                           component="span"
                           sx={{
@@ -620,7 +620,7 @@ const FabricPO: React.FC = () => {
                         <TableCell align="right">{l.gsm || '-'}</TableCell>
                         <TableCell align="right">
                           {l.allowOverPurchase && (
-                            <Tooltip title="Sobrecompra">
+                            <Tooltip title="Over-purchase">
                               <Box component="span" sx={{ display: 'inline-block', width: 7, height: 7, mr: 0.5, borderRadius: '50%', bgcolor: 'error.main', verticalAlign: 'middle' }} />
                             </Tooltip>
                           )}
@@ -642,7 +642,7 @@ const FabricPO: React.FC = () => {
                       <TableRow>
                         <TableCell colSpan={14} align="center" sx={{ py: 3 }}>
                           <Typography variant="body2" color="text.secondary">
-                            Esta PO no tiene líneas registradas.
+                            This PO has no registered lines.
                           </Typography>
                         </TableCell>
                       </TableRow>

@@ -70,8 +70,8 @@ const SewingProductionPage: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este registro?')) return;
-    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this record?')) return;
+    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const handleSave = async () => {
@@ -90,7 +90,7 @@ const SewingProductionPage: React.FC = () => {
       if (editingId) await update(editingId, payload);
       else await create(payload);
       setDialogOpen(false);
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
   };
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
@@ -114,7 +114,7 @@ const SewingProductionPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <ChairAltIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> Sewing Production
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Producción de costura diaria por línea y turno (cumplimiento automático)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Daily sewing production by line and shift (automatic compliance)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
@@ -190,7 +190,7 @@ const SewingProductionPage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Date *" type="date" value={form.ProductionDate} onChange={e => setF('ProductionDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Shift" value={form.Shift} onChange={e => setF('Shift', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Line" value={form.Line} onChange={e => setF('Line', e.target.value)} /></Grid>
@@ -203,9 +203,9 @@ const SewingProductionPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Size (del FGPO)" value={derivedSize} slotProps={{ input: { readOnly: true } }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Size (from FGPO)" value={derivedSize} slotProps={{ input: { readOnly: true } }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades (input)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities (input)</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Sewing Input" type="number" value={form.SewingInput} onChange={e => setF('SewingInput', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Daily Target" type="number" value={form.DailyTarget} onChange={e => setF('DailyTarget', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Daily Output" type="number" value={form.DailyOutput} onChange={e => setF('DailyOutput', e.target.value)} /></Grid>
@@ -215,13 +215,13 @@ const SewingProductionPage: React.FC = () => {
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Reject" type="number" value={form.Reject} onChange={e => setF('Reject', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Downtime (min)" type="number" value={form.DowntimeMinutes} onChange={e => setF('DowntimeMinutes', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculado automáticamente</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Calculated automatically</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Target Ach. %" value={(ach * 100).toFixed(1)} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Sewing Variance" value={variance} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Pending Sewing" value={pending} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Overproduction" value={overprod} slotProps={{ input: { readOnly: true } }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Estado & Supervisor</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Status & Supervisor</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>TOP Status</InputLabel>

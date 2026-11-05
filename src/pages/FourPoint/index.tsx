@@ -99,7 +99,7 @@ const FourPointPage: React.FC = () => {
       { name: 'Rejected Qty', value: form.RejectedQty },
       { name: 'Hold Qty', value: form.HoldQty },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,
@@ -126,7 +126,7 @@ const FourPointPage: React.FC = () => {
             Four-Point
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Inspección de tela por el sistema Four-Point (puntos / 100 yd² automático)
+            Fabric inspection using the Four-Point system (points / 100 yd² automatic)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -215,8 +215,8 @@ const FourPointPage: React.FC = () => {
             <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Receiving (opcional)</InputLabel>
-                <Select value={form.ReceivingId || ''} label="Receiving (opcional)" onChange={e => setF('ReceivingId', Number(e.target.value))}>
+                <InputLabel>Receiving (optional)</InputLabel>
+                <Select value={form.ReceivingId || ''} label="Receiving (optional)" onChange={e => setF('ReceivingId', Number(e.target.value))}>
                   <MenuItem value=""><em>None</em></MenuItem>
                   {receivingList.map((r: any) => <MenuItem key={r.id} value={r.id}>{r.label}</MenuItem>)}
                 </Select>
@@ -244,7 +244,7 @@ const FourPointPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Lot Number" value={form.LotNumber} onChange={e => setF('LotNumber', e.target.value)} placeholder="LOT-MILL-001 (auto)" /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Roll Number" value={form.RollNumber} onChange={e => setF('RollNumber', e.target.value)} placeholder="RL-001" /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Medidas Inspeccionadas</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Inspected Measurements</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Width (in) *" type="number" value={form.Width || ''} onChange={e => setF('Width', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Inspected Length (yd) *" type="number" value={form.InspectedLength || ''} onChange={e => setF('InspectedLength', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Max Allowed" type="number" value={form.MaxAllowed || ''} onChange={e => setF('MaxAllowed', Number(e.target.value))} /></Grid>
@@ -258,13 +258,13 @@ const FourPointPage: React.FC = () => {
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Defectos por tipo (Four-Point)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Defects by type (Four-Point)</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="1-Point" type="number" value={form.Points1 || ''} onChange={e => setF('Points1', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="2-Point" type="number" value={form.Points2 || ''} onChange={e => setF('Points2', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="3-Point" type="number" value={form.Points3 || ''} onChange={e => setF('Points3', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="4-Point" type="number" value={form.Points4 || ''} onChange={e => setF('Points4', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades (yd)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities (yd)</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Accepted Qty" type="number" value={form.AcceptedQty || ''} onChange={e => setF('AcceptedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Rejected Qty" type="number" value={form.RejectedQty || ''} onChange={e => setF('RejectedQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Hold Qty" type="number" value={form.HoldQty || ''} onChange={e => setF('HoldQty', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>

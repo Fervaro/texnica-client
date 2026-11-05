@@ -100,7 +100,7 @@ const FgpoLinesPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await fgpoLinesApi.getAll(); setItems((res.data ?? []).map(mapFgpoLine)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -113,12 +113,12 @@ const FgpoLinesPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.FgpoId || !form.StyleId || !form.ColorId || !form.SizeId) { setFormError('FGPO, Style, Color y Size son obligatorios.'); return; }
+    if (!form.FgpoId || !form.StyleId || !form.ColorId || !form.SizeId) { setFormError('FGPO, Style, Color and Size are required.'); return; }
     const negField = firstNegativeField([
       { name: 'Quantity', value: form.Quantity },
       { name: 'Unit Price', value: form.UnitPrice },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = {
@@ -127,13 +127,13 @@ const FgpoLinesPage: React.FC = () => {
       };
       if (editingId) await fgpoLinesApi.update(editingId, payload); else await fgpoLinesApi.create(payload);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar esta línea?')) return;
-    try { await fgpoLinesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this line?')) return;
+    try { await fgpoLinesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
@@ -152,7 +152,7 @@ const FgpoLinesPage: React.FC = () => {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             <FormatListNumberedIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} /> FGPO Lines
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Líneas de PO: Style + Color + Size + Cantidad (unidad de producción)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>PO lines: Style + Color + Size + Quantity (production unit)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
@@ -163,7 +163,7 @@ const FgpoLinesPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar por FGPO, Style, Color o Size..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search by FGPO, Style, Color or Size..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -192,8 +192,8 @@ const FgpoLinesPage: React.FC = () => {
                   <TableCell>{l.unitPrice != null ? `$${l.unitPrice.toFixed(3)}` : '-'}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>${l.totalValue.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(l)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(l.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(l)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(l.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -245,8 +245,8 @@ const FgpoLinesPage: React.FC = () => {
               {form.StyleId && form.ColorId && form.SizeId && (
                 <Typography variant="caption" color={catalogPrice ? 'success.main' : 'text.secondary'}>
                   {catalogPrice
-                    ? `Precio del catálogo: $${catalogPrice.unitPrice.toFixed(3)} (${catalogPrice.sku || 'sin SKU'}) — aplicado automáticamente`
-                    : 'No hay precio en el catálogo para esta combinación Style/Color/Size'}
+                    ? `Catalog price: $${catalogPrice.unitPrice.toFixed(3)} (${catalogPrice.sku || 'no SKU'}) — applied automatically`
+                    : 'No catalog price for this Style/Color/Size combination'}
                 </Typography>
               )}
             </Box>

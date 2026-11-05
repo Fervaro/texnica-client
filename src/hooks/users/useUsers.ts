@@ -29,7 +29,7 @@ export const useUsers = () => {
       const res = await usersApi.getAll();
       setUsers((res.data ?? []).map(mapUser));
     } catch (err: any) {
-      setError(errorMessage(err, 'Error cargando usuarios.'));
+      setError(errorMessage(err, 'Error loading users.'));
     } finally {
       setLoading(false);
     }

@@ -104,7 +104,7 @@ const InternalTestPage: React.FC = () => {
       { name: 'Width Before', value: form.WidthBefore },
       { name: 'Width After', value: form.WidthAfter },
     ]);
-    if (negField) { setFormError(`${negField} no puede ser negativo.`); return; }
+    if (negField) { setFormError(`${negField} cannot be negative.`); return; }
     try {
       const payload = {
         ...form,
@@ -132,7 +132,7 @@ const InternalTestPage: React.FC = () => {
             Internal Test
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Pruebas de laboratorio: GSM, encogimiento, torque, bowing/skewing (calculado automáticamente)
+            Laboratory tests: GSM, shrinkage, torque, bowing/skewing (calculated automatically)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -248,25 +248,25 @@ const InternalTestPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Lot Number" value={form.LotNumber} onChange={e => setF('LotNumber', e.target.value)} placeholder="LOT-MILL-001 (auto)" /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Color" value={form.Color} onChange={e => setF('Color', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Muestra & GSM</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Sample & GSM</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Actual Width (in)" type="number" value={form.ActualWidth || ''} onChange={e => setF('ActualWidth', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Specimen Area (cm²)" type="number" value={form.SpecimenAreaCm2 || ''} onChange={e => setF('SpecimenAreaCm2', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Weight Before (g)" type="number" value={form.WeightBeforeG || ''} onChange={e => setF('WeightBeforeG', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Weight After (g)" type="number" value={form.WeightAfterG || ''} onChange={e => setF('WeightAfterG', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Target GSM *" type="number" value={form.TargetGSM || ''} onChange={e => setF('TargetGSM', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Encogimiento (Length / Width)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Shrinkage (Length / Width)</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Length Before" type="number" value={form.LengthBefore || ''} onChange={e => setF('LengthBefore', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Length After" type="number" value={form.LengthAfter || ''} onChange={e => setF('LengthAfter', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Width Before" type="number" value={form.WidthBefore || ''} onChange={e => setF('WidthBefore', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
             <Grid size={{ xs: 6, sm: 3 }}><TextField fullWidth size="small" label="Width After" type="number" value={form.WidthAfter || ''} onChange={e => setF('WidthAfter', Number(e.target.value))} onKeyDown={e => blockNegativeKey(e)} slotProps={{ htmlInput: nonNegativeInputProps }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Propiedades Dimensionales (%)</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Dimensional Properties (%)</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Torque %" type="number" value={form.TorquePct || ''} onChange={e => setF('TorquePct', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Bowing %" type="number" value={form.BowingPct || ''} onChange={e => setF('BowingPct', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Skewing %" type="number" value={form.SkewingPct || ''} onChange={e => setF('SkewingPct', Number(e.target.value))} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Resultados</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Results</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Shade Result" value={form.ShadeResult} onChange={e => setF('ShadeResult', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Wash Appearance" value={form.WashAppearance} onChange={e => setF('WashAppearance', e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Hand Feel" value={form.HandFeel} onChange={e => setF('HandFeel', e.target.value)} /></Grid>

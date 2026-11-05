@@ -215,7 +215,7 @@ const PackingControlPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField
-                fullWidth size="small" label="Cajas *" type="number"
+                fullWidth size="small" label="Boxes *" type="number"
                 value={form.Cajas || ''}
                 onChange={e => {
                   const cajas = Number(e.target.value);
@@ -230,10 +230,10 @@ const PackingControlPage: React.FC = () => {
               </Grid>
             ))}
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Pending Packing" type="number" value={form.PendingPacking} onChange={e => setF('PendingPacking', Number(e.target.value))} slotProps={{ htmlInput: { min: 0 } }} helperText="Piezas sin empacar (no completan caja)" />
+              <TextField fullWidth size="small" label="Pending Packing" type="number" value={form.PendingPacking} onChange={e => setF('PendingPacking', Number(e.target.value))} slotProps={{ htmlInput: { min: 0 } }} helperText="Pieces not yet packed (do not complete a box)" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} disabled helperText="Auto: Qty/Box × cajas" />
+              <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} disabled helperText="Auto: Qty/Box × boxes" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField fullWidth size="small" label="Pcs per Carton *" type="number" value={form.PcsPerCarton} disabled helperText="Auto: Qty/Box" />
@@ -298,7 +298,7 @@ const PackingControlPage: React.FC = () => {
       <PackingBulkGrid
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        title="Nuevo registro de empaque"
+        title="New packing record"
         fgpoOptions={fgpoList.map((f: any) => ({ id: f.id, label: f.label, style: f.meta?.style, color: f.meta?.color }))}
         userOptions={userList}
         fieldConfigs={fieldConfigs}

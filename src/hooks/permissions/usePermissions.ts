@@ -25,7 +25,7 @@ export const usePermissions = () => {
       const res = await permissionsApi.getAll();
       setItems((res.data ?? []).map(mapPermission));
     } catch (err: any) {
-      setError(errorMessage(err, 'Error cargando permisos.'));
+      setError(errorMessage(err, 'Error loading permissions.'));
     } finally {
       setLoading(false);
     }

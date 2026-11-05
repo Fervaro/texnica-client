@@ -136,7 +136,7 @@ const TOPSamplePage: React.FC = () => {
             TOP Sample
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            TOP (Top of Production) Sample — muestra de arranque de la línea de producción
+            TOP (Top of Production) Sample — production line startup sample
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -218,7 +218,7 @@ const TOPSamplePage: React.FC = () => {
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary" sx={{ mb: 0.5 }}>References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>FGPO *</InputLabel>
@@ -245,7 +245,7 @@ const TOPSamplePage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="TOP Qty" type="number" value={form.TopQty || ''} onChange={e => setF('TopQty', Number(e.target.value))} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Production Date" type="date" value={form.ProductionDate} onChange={e => setF('ProductionDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Resultados por rubro</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Results by category</Typography></Divider></Grid>
             {resultFields.map(rf => (
               <Grid key={rf.key} size={{ xs: 6, sm: 4, md: 3 }}>
                 <FormControl fullWidth size="small">
@@ -257,7 +257,7 @@ const TOPSamplePage: React.FC = () => {
               </Grid>
             ))}
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Aprobación</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Approval</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Status</InputLabel>

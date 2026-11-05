@@ -136,7 +136,7 @@ const FabricReceivingPage: React.FC = () => {
       });
     } catch (err: any) {
       const status = err?.response?.status;
-      setTotalsError(status === 403 ? 'No se posee acceso a este Módulo.' : status ? `Error ${status} al cargar los totales de recepciones.` : 'No se pudieron cargar los totales de recepciones.');
+      setTotalsError(status === 403 ? 'No access to this Module.' : status ? `Error ${status} loading receiving totals.` : 'Could not load receiving totals.');
     }
   };
   useEffect(() => { loadRecTotals(); }, []);
@@ -259,7 +259,7 @@ const FabricReceivingPage: React.FC = () => {
             Fabric Receiving
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Recepción de tela al llegar el contenedor (varianzas automáticas)
+            Fabric receiving when the container arrives (automatic variances)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -272,8 +272,8 @@ const FabricReceivingPage: React.FC = () => {
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Recibido (reportado)', value: recTotals.received.toLocaleString(), color: 'info.main' },
-          { label: 'Recepciones', value: recTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
+          { label: 'Received (reported)', value: recTotals.received.toLocaleString(), color: 'info.main' },
+          { label: 'Receiving', value: recTotals.count.toLocaleString(), color: 'text.disabled', suffix: '' },
         ]}
       />
 
@@ -324,7 +324,7 @@ const FabricReceivingPage: React.FC = () => {
                   <TableCell><Chip label={item.receivingStatus || 'N/A'} size="small" color={sc(item.receivingStatus ?? '')} variant="outlined" /></TableCell>
                   <TableCell>{fmt(item.receivingDate)}</TableCell>
                   <TableCell>
-                    <IconButton size="small" color="primary" title="Rollos" onClick={() => setRollsDialog({ id: item.id, number: item.receivingNumber })}><AllInboxIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="primary" title="Rolls" onClick={() => setRollsDialog({ id: item.id, number: item.receivingNumber })}><AllInboxIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
@@ -383,14 +383,14 @@ const FabricReceivingPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Fabric PO (opcional)</InputLabel>
-                <Select value={form.FabricPOId || ''} label="Fabric PO (opcional)" onChange={e => {
+                <InputLabel>Fabric PO (optional)</InputLabel>
+                <Select value={form.FabricPOId || ''} label="Fabric PO (optional)" onChange={e => {
                   const v = Number(e.target.value);
                   const po = poList.find((p: any) => (p.id ?? p.ID) === v);
                   setF('FabricPOId', v);
                   setF('Supplier', (po as any)?.sub || '');
                 }}>
-                  <MenuItem value=""><em>Sin Fabric PO (tela del cliente)</em></MenuItem>
+                  <MenuItem value=""><em>No Fabric PO (customer fabric)</em></MenuItem>
                   {poList.map((p: any) => <MenuItem key={p.id ?? p.ID} value={p.id ?? p.ID}>{p.label}{(p as any)?.sub ? ` — ${(p as any).sub}` : ''}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -406,15 +406,15 @@ const FabricReceivingPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Supplier" value={form.Supplier} onChange={e => setF('Supplier', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Cantidades</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Quantities</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Actual Received Qty" type="number" value={form.ActualReceivedQty || 0} disabled helperText="Auto: suma de yardas de los rollos" />
+              <TextField fullWidth size="small" label="Actual Received Qty" type="number" value={form.ActualReceivedQty || 0} disabled helperText="Auto: sum of yards from the rolls" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField fullWidth size="small" label="Received Rolls" type="number" value={form.ReceivedRolls || 0} disabled helperText="Auto: nº de rollos registrados" />
+              <TextField fullWidth size="small" label="Received Rolls" type="number" value={form.ReceivedRolls || 0} disabled helperText="Auto: number of registered rolls" />
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Estado & Ubicación</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Status & Location</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small"><InputLabel>Receiving Status</InputLabel>
                 <Select value={form.ReceivingStatus} label="Receiving Status" onChange={e => setF('ReceivingStatus', e.target.value)}>
@@ -439,7 +439,7 @@ const FabricReceivingPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12 }}><TextField fullWidth size="small" label="Remarks / Notes" value={form.Remarks} onChange={e => setF('Remarks', e.target.value)} multiline rows={2} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Rollos</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Rolls</Typography></Divider></Grid>
             {!editingId ? (
               <>
                 <Grid size={{ xs: 12 }}>
@@ -457,9 +457,9 @@ const FabricReceivingPage: React.FC = () => {
             ) : (
               <Grid size={{ xs: 12 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                  <Typography variant="body2">{form.ReceivedRolls} rollo(s) registrados. Los rollos se gestionan desde el botón "Rollos" de la lista.</Typography>
+                  <Typography variant="body2">{form.ReceivedRolls} roll(s) registered. Rolls are managed from the "Rolls" button in the list.</Typography>
                   <Button size="small" variant="outlined" onClick={() => setRollsDialog({ id: editingId, number: form.ReceivingNumber })}>
-                    Gestionar rollos
+                    Manage rolls
                   </Button>
                 </Paper>
               </Grid>

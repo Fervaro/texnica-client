@@ -81,8 +81,8 @@ const AqlInspectionPage: React.FC<Props> = ({ inspectionType, title, subtitle })
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar esta inspección?')) return;
-    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this inspection?')) return;
+    try { await remove(id); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const handleSave = async () => {
@@ -106,7 +106,7 @@ const AqlInspectionPage: React.FC<Props> = ({ inspectionType, title, subtitle })
       if (editingId) await update(editingId, payload);
       else await create(payload);
       setDialogOpen(false);
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
   };
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
@@ -191,7 +191,7 @@ const AqlInspectionPage: React.FC<Props> = ({ inspectionType, title, subtitle })
         <DialogContent sx={{ pt: 3, pb: 1 }}>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">Referencias</Typography></Grid>
+            <Grid size={{ xs: 12 }}><Typography variant="subtitle2" color="primary">References</Typography></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Inspection Date *" type="date" value={form.InspectionDate} onChange={e => setF('InspectionDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
@@ -222,7 +222,7 @@ const AqlInspectionPage: React.FC<Props> = ({ inspectionType, title, subtitle })
               </FormControl>
             </Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Parámetros AQL</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">AQL Parameters</Typography></Divider></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="AQL Major %" type="number" value={form.AqlMajor} onChange={e => setF('AqlMajor', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="AQL Minor %" type="number" value={form.AqlMinor} onChange={e => setF('AqlMinor', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Sample Size" type="number" value={form.SampleSize} onChange={e => setF('SampleSize', e.target.value)} /></Grid>
@@ -236,7 +236,7 @@ const AqlInspectionPage: React.FC<Props> = ({ inspectionType, title, subtitle })
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Major Re" type="number" value={form.MajorRe} onChange={e => setF('MajorRe', e.target.value)} /></Grid>
             <Grid size={{ xs: 6, sm: 4, md: 2 }}><TextField fullWidth size="small" label="Minor Re" type="number" value={form.MinorRe} onChange={e => setF('MinorRe', e.target.value)} /></Grid>
 
-            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Resultado</Typography></Divider></Grid>
+            <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Result</Typography></Divider></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Disposition</InputLabel>

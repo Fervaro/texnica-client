@@ -12,11 +12,11 @@ import FabricMovements from '../FabricMovements';
 import FabricReservation from '../FabricReservation';
 
 const TABS = [
-  { key: 'inventory', label: 'Control de Tela', icon: <Inventory2Icon fontSize="small" /> },
-  { key: 'shipments', label: 'Embarques y Lotes', icon: <LocalShippingIcon fontSize="small" /> },
-  { key: 'receivings', label: 'Recepciones', icon: <MoveToInboxIcon fontSize="small" /> },
-  { key: 'movements', label: 'Movimientos', icon: <SwapHorizIcon fontSize="small" /> },
-  { key: 'reservations', label: 'Reservas', icon: <BookmarkAddIcon fontSize="small" /> },
+  { key: 'inventory', label: 'Fabric Control', icon: <Inventory2Icon fontSize="small" /> },
+  { key: 'shipments', label: 'Shipments and Lots', icon: <LocalShippingIcon fontSize="small" /> },
+  { key: 'receivings', label: 'Receiving', icon: <MoveToInboxIcon fontSize="small" /> },
+  { key: 'movements', label: 'Movements', icon: <SwapHorizIcon fontSize="small" /> },
+  { key: 'reservations', label: 'Reservations', icon: <BookmarkAddIcon fontSize="small" /> },
 ];
 
 /**

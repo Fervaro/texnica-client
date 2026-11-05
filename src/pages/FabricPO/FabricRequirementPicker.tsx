@@ -52,7 +52,7 @@ const FabricRequirementPicker: React.FC<Props> = ({
       });
       setItems(res.data ?? []);
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.response?.data || 'No fue posible cargar los Fabric Requirements disponibles.');
+      setError(err?.response?.data?.message || err?.response?.data || 'Could not load available Fabric Requirements.');
       setItems([]);
     } finally {
       setLoading(false);
@@ -200,7 +200,7 @@ const FabricRequirementPicker: React.FC<Props> = ({
                     <TableCell align="right">{fmtQty(item.alreadyOrdered)}</TableCell>
                     <TableCell align="right">
                       {added ? (
-                        <Chip size="small" variant="outlined" label="Ya agregada" />
+                        <Chip size="small" variant="outlined" label="Already added" />
                       ) : (
                         <Chip
                           size="small"
@@ -226,7 +226,7 @@ const FabricRequirementPicker: React.FC<Props> = ({
                 <TableRow>
                   <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="text.secondary">
-                      No hay Fabric Requirements pendientes con los filtros actuales.
+                      No pending Fabric Requirements with the current filters.
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -236,7 +236,7 @@ const FabricRequirementPicker: React.FC<Props> = ({
         </TableContainer>
 
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          {fmtInt(items.length)} requirement(s) listado(s) · {fmtInt(selectedIds.length)} seleccionado(s)
+          {fmtInt(items.length)} requirement(s) listed · {fmtInt(selectedIds.length)} selected
         </Typography>
       </DialogContent>
 

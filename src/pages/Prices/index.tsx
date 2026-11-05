@@ -52,7 +52,7 @@ const PricesPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try { const res = await pricesApi.getAll(); setItems((res.data ?? []).map(mapPrice)); setError(''); }
-    catch (err: any) { setError(err.response?.data || 'Error cargando.'); }
+    catch (err: any) { setError(err.response?.data || 'Error loading.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -65,7 +65,7 @@ const PricesPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.StyleId || !form.ColorId || !form.SizeId) { setFormError('Style, Color y Size son obligatorios.'); return; }
+    if (!form.StyleId || !form.ColorId || !form.SizeId) { setFormError('Style, Color and Size are required.'); return; }
     setFormError(''); setSaving(true);
     try {
       const payload = {
@@ -74,13 +74,13 @@ const PricesPage: React.FC = () => {
       };
       if (editingId) await pricesApi.update(editingId, payload); else await pricesApi.create(payload);
       setDialogOpen(false); await load();
-    } catch (err: any) { setFormError(err.response?.data || 'Error guardando.'); }
+    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar este Precio?')) return;
-    try { await pricesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error eliminando.'); }
+    if (!window.confirm('Delete this Price?')) return;
+    try { await pricesApi.delete(id); await load(); } catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setFormError(''); setDialogOpen(true); };
@@ -108,7 +108,7 @@ const PricesPage: React.FC = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Paper sx={{ mb: 2, p: 1.5 }}>
-        <TextField size="small" placeholder="Buscar por Style, Color, Size o SKU..." value={search} onChange={e => setSearch(e.target.value)}
+        <TextField size="small" placeholder="Search by Style, Color, Size or SKU..." value={search} onChange={e => setSearch(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: search ? <InputAdornment position="end"><IconButton size="small" onClick={() => setSearch('')}><ClearIcon /></IconButton></InputAdornment> : null } }}
           sx={{ maxWidth: 400 }} />
       </Paper>
@@ -136,8 +136,8 @@ const PricesPage: React.FC = () => {
                   <TableCell sx={{ fontWeight: 600 }}>${p.unitPrice.toFixed(3)}</TableCell>
                   <TableCell>{p.comments || '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Editar"><IconButton size="small" color="info" onClick={() => openEdit(p)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Eliminar"><IconButton size="small" color="error" onClick={() => handleDelete(p.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(p)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(p.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}

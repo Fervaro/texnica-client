@@ -94,14 +94,14 @@ export const validateRollRows = (rows: RollRowDraft[]): string => {
   const errs: string[] = [];
   const seen = new Set<string>();
   rows.forEach((r, i) => {
-    if (!r.rollNumber.trim()) errs.push(`Fila ${i + 1}: Roll Number es obligatorio.`);
+    if (!r.rollNumber.trim()) errs.push(`Row ${i + 1}: Roll Number is required.`);
     else {
       const k = r.rollNumber.trim().toLowerCase();
-      if (seen.has(k)) errs.push(`Fila ${i + 1}: Roll Number "${r.rollNumber.trim()}" duplicado.`);
+      if (seen.has(k)) errs.push(`Row ${i + 1}: Roll Number "${r.rollNumber.trim()}" duplicated.`);
       seen.add(k);
     }
     for (const f of NEGATIVE_FIELDS) {
-      if (Number(r[f.key]) < 0) errs.push(`Fila ${i + 1}: ${f.name} no puede ser negativo.`);
+      if (Number(r[f.key]) < 0) errs.push(`Row ${i + 1}: ${f.name} cannot be negative.`);
     }
   });
   return errs.length ? errs.slice(0, 6).join(' | ') + (errs.length > 6 ? ' …' : '') : '';
@@ -182,7 +182,7 @@ const RollGridRow = React.memo(function RollGridRow({
             value={row.rollNumber}
             onChange={e => set({ rollNumber: e.target.value })}
             placeholder="Roll #"
-            title={rollErr ? (duplicate ? 'Duplicado' : 'Requerido') : ''}
+            title={rollErr ? (duplicate ? 'Duplicate' : 'Required') : ''}
           />
         )}
       </TableCell>
@@ -241,7 +241,7 @@ const RollGridRow = React.memo(function RollGridRow({
           type="button"
           onClick={() => onRemove(row.key)}
           disabled={isOnlyRow}
-          title="Quitar fila"
+          title="Remove row"
           style={{ border: 'none', background: 'none', color: '#d32f2f', fontSize: 16, lineHeight: 1, padding: '2px 6px', cursor: isOnlyRow ? 'default' : 'pointer', opacity: isOnlyRow ? 0.35 : 1 }}
         >✕</button>
       </TableCell>
@@ -308,9 +308,9 @@ export const RollGridTable: React.FC<RollGridTableProps> = ({
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-        <TextField size="small" label="Filas a agregar" type="number" value={addCount} onChange={e => setAddCount(Number(e.target.value))} sx={{ width: 120 }} slotProps={{ htmlInput: { min: 1, max: 2000 } }} />
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={addRows}>Agregar</Button>
-        <Button variant="outlined" startIcon={<AddIcon />} onClick={addSingleRow}>+1 fila</Button>
+        <TextField size="small" label="Rows to add" type="number" value={addCount} onChange={e => setAddCount(Number(e.target.value))} sx={{ width: 120 }} slotProps={{ htmlInput: { min: 1, max: 2000 } }} />
+        <Button variant="outlined" startIcon={<AddIcon />} onClick={addRows}>Add</Button>
+        <Button variant="outlined" startIcon={<AddIcon />} onClick={addSingleRow}>+1 row</Button>
       </Box>
       <TableContainer sx={{ maxHeight, border: '1px solid', borderColor: 'divider', overflow: 'auto' }}>
         <Table size="small" stickyHeader>
@@ -345,7 +345,7 @@ export const RollGridTable: React.FC<RollGridTableProps> = ({
         </Table>
       </TableContainer>
       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-        {rows.length} fila(s) — Las celdas en rojo se corrigen antes de guardar.
+        {rows.length} row(s) — Red cells must be corrected before saving.
       </Typography>
     </Box>
   );
@@ -403,7 +403,7 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
 
   const handleSave = async () => {
     setError('');
-    if (!receivingIdState) { setError('Seleccione la Recepción de tela.'); return; }
+    if (!receivingIdState) { setError('Select the Fabric Receiving.'); return; }
 
     const vErr = validateRollRows(rows);
     if (vErr) { setError(vErr); return; }
@@ -418,7 +418,7 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
         err?.response?.data?.message
         || (typeof err?.response?.data === 'string' ? err.response.data : null)
         || err?.message
-        || 'Error al guardar los rollos.',
+        || 'Error saving rolls.',
       );
     } finally {
       setSaving(false);
@@ -435,23 +435,23 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
         {noReceiving ? (
           <Box sx={{ py: 2 }}>
             <Typography variant="body1" sx={{ mb: 1 }}>
-              Este embarque aún no tiene una Recepción de tela registrada. Regístrala primero para poder ingresar los rollos.
+              This shipment does not yet have a Fabric Receiving recorded. Register it first to be able to enter the rolls.
             </Typography>
             {onGoToReceiving && (
-              <Button variant="contained" onClick={onGoToReceiving}>Ir a Recepción</Button>
+              <Button variant="contained" onClick={onGoToReceiving}>Go to Receiving</Button>
             )}
           </Box>
         ) : (
           <>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 2 }}>
               <FormControl size="small" sx={{ minWidth: 280 }}>
-                <InputLabel>Recepción de tela *</InputLabel>
+                <InputLabel>Fabric Receiving *</InputLabel>
                 <Select
                   value={receivingIdState || ''}
-                  label="Recepción de tela *"
+                  label="Fabric Receiving *"
                   onChange={e => setReceivingIdState(Number(e.target.value))}
                 >
-                  <MenuItem value=""><em>Seleccione una Recepción...</em></MenuItem>
+                  <MenuItem value=""><em>Select a Receiving...</em></MenuItem>
                   {receivingList.map(r => (
                     <MenuItem key={r.id} value={r.id}>{r.label}{r.supplier ? ` — ${r.supplier}` : ''}</MenuItem>
                   ))}
@@ -469,7 +469,7 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
               <Box sx={{ mb: 2 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, backgroundColor: 'action.hover' }}>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <InfoOutlinedIcon fontSize="inherit" /> Heredado del Fabric Receiving (no editable)
+                    <InfoOutlinedIcon fontSize="inherit" /> Inherited from Fabric Receiving (not editable)
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                     <Box><Typography variant="caption" color="text.secondary">Fabric PO</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{selectedReceiving.fabricPONumber || '-'}</Typography></Box>
@@ -500,7 +500,7 @@ const RollBulkGrid: React.FC<RollBulkGridProps> = ({
           disabled={saving || noReceiving}
           startIcon={saving ? <CircularProgress size={18} /> : null}
         >
-          {saving ? 'Guardando...' : `Crear ${rows.length} rollo${rows.length === 1 ? '' : 's'}`}
+          {saving ? 'Saving...' : `Create ${rows.length} roll${rows.length === 1 ? '' : 's'}`}
         </Button>
       </DialogActions>
     </Dialog>

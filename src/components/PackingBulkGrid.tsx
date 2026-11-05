@@ -113,9 +113,9 @@ const PackingRow = React.memo(function PackingRow({
           style={fgpoErr ? cellErrStyle : cellStyle}
           value={row.fgpoId || ''}
           onChange={e => set({ fgpoId: Number(e.target.value), boxTypeId: 0 })}
-          title={fgpoErr ? 'Requerido' : ''}
+          title={fgpoErr ? 'Required' : ''}
         >
-          <option value="">Seleccione FGPO...</option>
+          <option value="">Select FGPO...</option>
           {fgpoOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
       </TableCell>
@@ -124,16 +124,16 @@ const PackingRow = React.memo(function PackingRow({
           style={boxErr ? cellErrStyle : cellStyle}
           value={row.boxTypeId || ''}
           onChange={e => set({ boxTypeId: Number(e.target.value) })}
-          title={boxErr ? 'Requerido' : ''}
+          title={boxErr ? 'Required' : ''}
         >
-          <option value="">Seleccione caja...</option>
+          <option value="">Select box...</option>
           {compatible.map(b => (
-            <option key={b.id} value={b.id}>{b.boxCode}{b.size ? ` (${b.size})` : ''} — {b.qtyPerBox}/caja</option>
+            <option key={b.id} value={b.id}>{b.boxCode}{b.size ? ` (${b.size})` : ''} — {b.qtyPerBox}/box</option>
           ))}
         </select>
       </TableCell>
       <TableCell sx={{ p: 0.5 }}>
-        <input style={boxesErr ? cellErrStyle : cellStyle} inputMode="numeric" value={row.boxes} onChange={e => set({ boxes: e.target.value })} onKeyDown={blockNegativeKey} title={boxesErr ? 'Debe ser ≥ 1' : ''} />
+        <input style={boxesErr ? cellErrStyle : cellStyle} inputMode="numeric" value={row.boxes} onChange={e => set({ boxes: e.target.value })} onKeyDown={blockNegativeKey} title={boxesErr ? 'Must be ≥ 1' : ''} />
       </TableCell>
       <TableCell sx={{ p: 0.5 }}><div style={{ ...cellReadonlyStyle, textAlign: 'right' }}>{fmtNum(packedQty)}</div></TableCell>
       {fields.map(f => (
@@ -156,7 +156,7 @@ const PackingRow = React.memo(function PackingRow({
           type="button"
           onClick={() => onRemove(row.key)}
           disabled={isOnlyRow}
-          title="Quitar fila"
+          title="Remove row"
           style={{ border: 'none', background: 'none', color: '#d32f2f', fontSize: 16, lineHeight: 1, padding: '2px 6px', cursor: isOnlyRow ? 'default' : 'pointer', opacity: isOnlyRow ? 0.35 : 1 }}
         >✕</button>
       </TableCell>
@@ -213,12 +213,12 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
     setError('');
     const errs: string[] = [];
     rows.forEach((r, i) => {
-      if (!r.fgpoId) errs.push(`Fila ${i + 1}: FGPO es obligatorio.`);
-      if (!r.boxTypeId) errs.push(`Fila ${i + 1}: Box Type es obligatorio.`);
+      if (!r.fgpoId) errs.push(`Row ${i + 1}: FGPO is required.`);
+      if (!r.boxTypeId) errs.push(`Row ${i + 1}: Box Type is required.`);
       const box = boxOptions.find(b => b.id === r.boxTypeId);
-      if (box && box.qtyPerBox <= 0) errs.push(`Fila ${i + 1}: la caja "${box.boxCode}" no tiene Qty/Box configurado.`);
+      if (box && box.qtyPerBox <= 0) errs.push(`Row ${i + 1}: box "${box.boxCode}" has no Qty/Box configured.`);
       const boxes = Number(r.boxes) || 0;
-      if (boxes <= 0) errs.push(`Fila ${i + 1}: la cantidad de cajas debe ser mayor que 0.`);
+      if (boxes <= 0) errs.push(`Row ${i + 1}: box quantity must be greater than 0.`);
     });
     if (errs.length) { setError(errs.slice(0, 6).join(' | ') + (errs.length > 6 ? ' …' : '')); return; }
 
@@ -253,7 +253,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
         err?.response?.data?.message
         || (typeof err?.response?.data === 'string' ? err.response.data : null)
         || err?.message
-        || 'Error al guardar.',
+        || 'Error saving.',
       );
     } finally {
       setSaving(false);
@@ -270,15 +270,15 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           <FormControl size="small" sx={{ minWidth: 220 }}>
             <InputLabel>Responsible Person</InputLabel>
             <Select value={responsiblePersonId || ''} label="Responsible Person" onChange={e => setResponsiblePersonId(Number(e.target.value))}>
-              <MenuItem value=""><em>Seleccione...</em></MenuItem>
+              <MenuItem value=""><em>Select...</em></MenuItem>
               {userOptions.map(o => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
           <Box sx={{ flexGrow: 1 }} />
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField size="small" label="Filas a agregar" type="number" value={addCount} onChange={e => setAddCount(Number(e.target.value))} sx={{ width: 120 }} slotProps={{ htmlInput: { min: 1, max: 2000 } }} />
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={addRows}>Agregar</Button>
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={addSingleRow}>+1 fila</Button>
+            <TextField size="small" label="Rows to add" type="number" value={addCount} onChange={e => setAddCount(Number(e.target.value))} sx={{ width: 120 }} slotProps={{ htmlInput: { min: 1, max: 2000 } }} />
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={addRows}>Add</Button>
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={addSingleRow}>+1 row</Button>
           </Box>
         </Box>
 
@@ -288,7 +288,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.light' }}>
-                {['#', 'FGPO *', 'Box Type *', 'Cajas *', 'Packed Qty', ...fields.map(f => f.label), 'Pending Packing', 'Remarks', ''].map(h => (
+                {['#', 'FGPO *', 'Box Type *', 'Boxes *', 'Packed Qty', ...fields.map(f => f.label), 'Pending Packing', 'Remarks', ''].map(h => (
                   <TableCell key={h} sx={{ fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
@@ -312,13 +312,13 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
         </TableContainer>
 
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          {rows.length} fila(s) — Packed Qty = Qty/Box × cajas. La fecha y el responsable aplican a todas las filas.
+          {rows.length} row(s) — Packed Qty = Qty/Box × boxes. The date and responsible person apply to all rows.
         </Typography>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
-          {saving ? 'Guardando...' : `Crear ${rows.length} registro${rows.length === 1 ? '' : 's'}`}
+          {saving ? 'Saving...' : `Create ${rows.length} record${rows.length === 1 ? '' : 's'}`}
         </Button>
       </DialogActions>
     </Dialog>

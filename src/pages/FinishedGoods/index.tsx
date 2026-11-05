@@ -113,7 +113,7 @@ const FinishedGoodsPage: React.FC = () => {
             Finished Goods
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Mercancía terminada en almacén — recibida, reservada, lista y embarcada
+            Finished goods in warehouse — received, reserved, ready and shipped
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -240,7 +240,7 @@ const FinishedGoodsPage: React.FC = () => {
             <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 1 }} />
               <Alert severity="info" variant="outlined">
-                Ready to Ship y Warehouse Balance se calculan automáticamente a partir de los embarques (Shipment Control).
+                Ready to Ship and Warehouse Balance are calculated automatically from shipments (Shipment Control).
               </Alert>
             </Grid>
           </Grid>
