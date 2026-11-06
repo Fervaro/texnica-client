@@ -19,7 +19,8 @@ import PackingBulkGrid from '../../components/PackingBulkGrid';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { visiblePackingFields } from '../../utils/packingFields';
-import { PackingControl } from '../../types';
+import { packingControlsApi } from '../../utils/api';
+import { PackingControl, PackingMixOptions } from '../../types';
 
 const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],
@@ -61,6 +62,101 @@ const PackingControlPage: React.FC = () => {
   const { configs: fieldConfigs } = usePackingFieldConfigs();
   const visibleFields = visiblePackingFields(fieldConfigs);
 
+  // ── Estado del diálogo de Mix ──────────────────────────────
+  const [mixOpen, setMixOpen] = useState(false);
+  const [mixFgpoId, setMixFgpoId] = useState(0);
+  const [mixFgpoList, setMixFgpoList] = useState<{ id: number; label: string }[]>([]);
+  const [mixOptions, setMixOptions] = useState<PackingMixOptions | null>(null);
+  const [mixQuantities, setMixQuantities] = useState<Record<string, string>>({});
+  const [mixDate, setMixDate] = useState(new Date().toISOString().split('T')[0]);
+  const [mixResponsibleId, setMixResponsibleId] = useState(0);
+  const [mixRemarks, setMixRemarks] = useState('');
+  const [mixError, setMixError] = useState('');
+  const [mixSaving, setMixSaving] = useState(false);
+  const [mixLoading, setMixLoading] = useState(false);
+
+  const openMix = () => {
+    setMixOpen(true);
+    setMixFgpoId(0);
+    setMixOptions(null);
+    setMixQuantities({});
+    setMixDate(new Date().toISOString().split('T')[0]);
+    setMixResponsibleId(0);
+    setMixRemarks('');
+    setMixError('');
+    loadMixFgpos();
+  };
+
+  const loadMixFgpos = async () => {
+    try {
+      const res = await packingControlsApi.getFgpos();
+      setMixFgpoList((res.data ?? []).map((f: any) => ({
+        id: f.fgpoId ?? f.FgpoId ?? 0,
+        label: f.fgpoNumber ?? f.FgpoNumber ?? '',
+      })));
+    } catch { setMixFgpoList([]); }
+  };
+
+  const loadMixOptions = async (fgpoId: number) => {
+    setMixError('');
+    setMixQuantities({});
+    if (!fgpoId) { setMixOptions(null); return; }
+    setMixLoading(true);
+    try {
+      const res = await packingControlsApi.getMixOptions(fgpoId);
+      setMixOptions(res.data ?? res);
+    } catch (err: any) {
+      setMixOptions(null);
+      setMixError(err?.response?.data?.message || err?.message || 'Could not load Mix options.');
+    } finally {
+      setMixLoading(false);
+    }
+  };
+
+  const mixTotal = (mixOptions?.sizes ?? []).reduce(
+    (sum, s) => sum + (Number(mixQuantities[s.size ?? ''] ?? '') || 0), 0);
+  const mixCapacity = mixOptions?.pcsPerCarton ?? 0;
+
+  const autoFillMix = () => {
+    if (!mixOptions || mixCapacity <= 0) return;
+    const next: Record<string, string> = {};
+    let remaining = mixCapacity;
+    for (const s of mixOptions.sizes) {
+      const key = s.size ?? '';
+      const take = Math.min(remaining, s.pendingPacking);
+      if (take > 0) next[key] = String(take);
+      remaining -= take;
+      if (remaining <= 0) break;
+    }
+    setMixQuantities(next);
+  };
+
+  const submitMix = async () => {
+    setMixError('');
+    if (!mixFgpoId) { setMixError('Select an FGPO.'); return; }
+    const lines = (mixOptions?.sizes ?? [])
+      .map(s => ({ size: s.size ?? '', quantity: Number(mixQuantities[s.size ?? ''] ?? '') || 0 }))
+      .filter(l => l.quantity > 0);
+    if (lines.length === 0) { setMixError('Enter at least one quantity (or use Auto-fill).'); return; }
+    if (mixTotal > mixCapacity) { setMixError(`Total (${mixTotal}) exceeds the box capacity (${mixCapacity}).`); return; }
+    setMixSaving(true);
+    try {
+      await packingControlsApi.createMix({
+        packingDate: mixDate ? new Date(mixDate).toISOString() : new Date().toISOString(),
+        fgpoId: mixFgpoId,
+        responsiblePersonId: mixResponsibleId || null,
+        remarks: mixRemarks || null,
+        lines,
+      });
+      setMixOpen(false);
+      await refresh();
+    } catch (err: any) {
+      setMixError(err?.response?.data?.message || err?.message || 'Error creating Mix.');
+    } finally {
+      setMixSaving(false);
+    }
+  };
+
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
 
@@ -83,7 +179,12 @@ const PackingControlPage: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Delete this packing record?')) return;
-    try { await remove(id); }
+    try {
+      const item = items.find(i => i.id === id);
+      if (item?.isMix) await packingControlsApi.deleteMix(id);
+      else await remove(id);
+      await refresh();
+    }
     catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
   };
 
@@ -129,6 +230,7 @@ const PackingControlPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={openMix}>Create Mix</Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Record</Button>
         </Box>
       </Box>
@@ -166,7 +268,12 @@ const PackingControlPage: React.FC = () => {
                   <TableCell>{fmt(item.packingDate)}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{item.fgpoNumber}</TableCell>
                   <TableCell>{item.style || '-'} / {item.color || '-'}</TableCell>
-                  <TableCell>{item.size || '-'}</TableCell>
+                  <TableCell>
+                    {item.isMix ? (
+                      <Chip size="small" color="secondary" variant="outlined"
+                        label={(item.mixLines ?? []).map(l => `${l.size ?? '?'} ${l.quantity}`).join(' · ') || 'Mix'} />
+                    ) : (item.size || '-')}
+                  </TableCell>
                   {visibleFields.map(f => (
                     <TableCell key={f.fieldNo}>{num(item[FIELD_ITEM_KEY[f.fieldNo]] as number)}</TableCell>
                   ))}
@@ -180,7 +287,9 @@ const PackingControlPage: React.FC = () => {
                   <TableCell>{item.responsiblePersonName || '-'}</TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                    {!item.isMix && (
+                      <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                    )}
                     <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
@@ -288,11 +397,90 @@ const PackingControlPage: React.FC = () => {
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Variance</Typography><Typography>{num(viewItem.packingVariance)}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Pending</Typography><Typography>{num(viewItem.pendingPacking)}</Typography></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Overpacked</Typography><Typography>{num(viewItem.overpackedQty)}</Typography></Grid>
+              {viewItem.isMix && (viewItem.mixLines ?? []).length > 0 && (
+                <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Mix breakdown</Typography><Typography>{(viewItem.mixLines ?? []).map(l => `${l.size ?? '?'}: ${l.quantity}`).join(' · ')}</Typography></Grid>
+              )}
               {viewItem.remarks && <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Remarks</Typography><Typography>{viewItem.remarks}</Typography></Grid>}
             </Grid>
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setViewOpen(false)}>Close</Button></DialogActions>
+      </Dialog>
+
+      {/* ── Dialog Crear Mix ── */}
+      <Dialog open={mixOpen} onClose={() => setMixOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Create Mix Box</DialogTitle>
+        <DialogContent>
+          {mixError && <Alert severity="error" sx={{ mb: 2 }}>{mixError}</Alert>}
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>FGPO *</InputLabel>
+                <Select value={mixFgpoId || ''} label="FGPO *"
+                  onChange={e => { const id = Number(e.target.value); setMixFgpoId(id); loadMixOptions(id); }}>
+                  <MenuItem value=""><em>Select a FGPO...</em></MenuItem>
+                  {mixFgpoList.map((f) => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth size="small" label="Packing Date" type="date" value={mixDate} onChange={e => setMixDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth size="small" label="Box capacity (pcs)" value={mixCapacity || ''} disabled helperText="Highest Qty per box of this FGPO" />
+            </Grid>
+
+            {mixLoading ? (
+              <Grid size={{ xs: 12 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={16} /><Typography variant="caption" color="text.secondary">Loading sizes...</Typography></Box></Grid>
+            ) : mixOptions && mixOptions.sizes.length === 0 ? (
+              <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">No sizes with pending pieces for this FGPO.</Typography></Grid>
+            ) : mixOptions && mixOptions.sizes.length > 0 ? (
+              <>
+                <Grid size={{ xs: 12 }}>
+                  <Divider><Typography variant="caption" color="text.secondary">Pieces per size</Typography></Divider>
+                </Grid>
+                {mixOptions.sizes.map(s => {
+                  const key = s.size ?? '';
+                  return (
+                    <Grid size={{ xs: 6 }} key={key}>
+                      <TextField fullWidth size="small" type="number"
+                        label={`${key} — pending ${s.pendingPacking}`}
+                        value={mixQuantities[key] ?? ''}
+                        onChange={e => setMixQuantities(prev => ({ ...prev, [key]: e.target.value }))}
+                        slotProps={{ htmlInput: { min: 0, max: s.pendingPacking } }} />
+                    </Grid>
+                  );
+                })}
+                <Grid size={{ xs: 12 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button variant="outlined" size="small" onClick={autoFillMix}>Auto-fill</Button>
+                    <Chip label={`Total: ${mixTotal} / ${mixCapacity}`} size="small"
+                      color={mixTotal > mixCapacity ? 'error' : mixTotal === mixCapacity ? 'success' : 'default'} variant="outlined" />
+                  </Box>
+                </Grid>
+              </>
+            ) : null}
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Responsible Person</InputLabel>
+                <Select value={mixResponsibleId || ''} label="Responsible Person" onChange={e => setMixResponsibleId(Number(e.target.value))}>
+                  <MenuItem value=""><em>Select a User...</em></MenuItem>
+                  {userList.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth size="small" label="Remarks" value={mixRemarks} onChange={e => setMixRemarks(e.target.value)} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMixOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={submitMix} disabled={mixSaving || !mixOptions || mixOptions.sizes.length === 0}>
+            {mixSaving ? 'Creating...' : 'Create Mix'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <PackingBulkGrid

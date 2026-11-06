@@ -38,6 +38,19 @@ const mapShipmentControl = (raw: any): ShipmentControl => ({
   active: raw.active ?? raw.Active ?? true,
   createdAt: raw.createdAt ?? raw.CreatedAt ?? '',
   updatedAt: raw.updatedAt ?? raw.UpdatedAt,
+  fgpoCount: raw.fgpoCount ?? raw.FgpoCount ?? 0,
+  lines: (raw.lines ?? raw.Lines ?? []).map((l: any) => ({
+    id: l.id ?? l.ID ?? 0,
+    fgpoId: l.fgpoId ?? l.FGPOId ?? 0,
+    fgpoNumber: l.fgpoNumber ?? l.FGPONumber ?? '',
+    style: l.style ?? l.Style ?? '',
+    color: l.color ?? l.Color ?? '',
+    size: l.size ?? l.Size ?? '',
+    boxCode: l.boxCode ?? l.BoxCode ?? '',
+    boxesToShip: l.boxesToShip ?? l.BoxesToShip ?? 0,
+    pcsPerCarton: l.pcsPerCarton ?? l.PcsPerCarton ?? 0,
+    pieces: l.pieces ?? l.Pieces ?? 0,
+  })),
 });
 
 /** Hook de Shipment Control: consume /api/shipment-controls */

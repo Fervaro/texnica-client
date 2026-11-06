@@ -36,6 +36,33 @@ export interface ShipmentControl {
   active: boolean;
   createdAt: string;
   updatedAt?: string;
+  lines?: ShipmentControlLine[];
+  fgpoCount?: number;
+}
+
+/** Línea de un embarque: cajas a enviar de un FGPO + talla/caja. */
+export interface ShipmentControlLine {
+  id?: number;
+  fgpoId: number;
+  fgpoNumber?: string;
+  style?: string;
+  color?: string;
+  size?: string;
+  boxCode?: string;
+  boxesToShip: number;
+  pcsPerCarton: number;
+  pieces?: number;
+}
+
+export interface CreateShipmentControlLineInput {
+  fgpoId: number;
+  packingControlId?: number | null;
+  style?: string;
+  color?: string;
+  size?: string;
+  boxCode?: string;
+  boxesToShip: number;
+  pcsPerCarton: number;
 }
 
 export interface CreateShipmentControlInput {
@@ -61,4 +88,5 @@ export interface CreateShipmentControlInput {
   dataOwnerId?: number | null;
   lastUpdated?: string | null;
   remarks?: string | null;
+  lines?: CreateShipmentControlLineInput[];
 }

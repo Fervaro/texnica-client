@@ -9,7 +9,8 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { packingControlsApi } from '../../utils/api';
+import SendIcon from '@mui/icons-material/Send';
+import { packingControlsApi, shipmentControlsApi } from '../../utils/api';
 import { usePackingFieldConfigs } from '../../hooks/packingControls/usePackingFieldConfigs';
 import { visiblePackingFields, PACKING_FIELD_PROP } from '../../utils/packingFields';
 
@@ -44,6 +45,8 @@ const Warehouse: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedFgpo, setExpandedFgpo] = useState<string | null>(null);
+  const [shippedBoxes, setShippedBoxes] = useState(0);
+  const [shippedPieces, setShippedPieces] = useState(0);
 
   const { configs: fieldConfigs } = usePackingFieldConfigs();
   const visibleFields = useMemo(() => visiblePackingFields(fieldConfigs), [fieldConfigs]);
@@ -52,7 +55,10 @@ const Warehouse: React.FC = () => {
     const load = async () => {
       setLoading(true); setError('');
       try {
-        const res = await packingControlsApi.getAll();
+        const [res, shipRes] = await Promise.all([
+          packingControlsApi.getAll(),
+          shipmentControlsApi.getAll().catch(() => ({ data: [] })),
+        ]);
         setPackingItems((res.data ?? []).map((p: any) => ({
           id: p.id ?? p.ID ?? 0,
           fgpoId: p.fgpoId ?? p.FGPOId ?? 0,
@@ -74,6 +80,18 @@ const Warehouse: React.FC = () => {
           pendingPacking: p.pendingPacking ?? p.PendingPacking ?? 0,
           overpackedQty: p.overpackedQty ?? p.OverpackedQty ?? 0,
         })));
+        const shipments = (shipRes.data ?? []) as any[];
+        let boxes = 0, pieces = 0;
+        shipments.forEach((sc: any) => {
+          const lines = sc.lines ?? sc.Lines ?? [];
+          const lineBoxes = lines.reduce((a: number, l: any) => a + (l.boxesToShip ?? l.BoxesToShip ?? 0), 0);
+          const linePieces = lines.reduce((a: number, l: any) =>
+            a + (l.pieces ?? l.Pieces ?? (l.boxesToShip ?? l.BoxesToShip ?? 0) * (l.pcsPerCarton ?? l.PcsPerCarton ?? 0)), 0);
+          boxes += lineBoxes;
+          pieces += lines.length > 0 ? linePieces : (sc.totalShippedQty ?? sc.TotalShippedQty ?? 0);
+        });
+        setShippedBoxes(boxes);
+        setShippedPieces(pieces);
       } catch (err: any) { setError(err?.response?.data?.message || 'Failed to load packing data.'); }
       finally { setLoading(false); }
     };
@@ -162,6 +180,8 @@ const Warehouse: React.FC = () => {
   }, [fgpoGroups, visibleFields]);
 
   const totalBoxes = fgpoSummary.reduce((s, g) => s + g.totalBoxes, 0);
+  const pendingShipPieces = Math.max(0, totalReady - shippedPieces);
+  const pendingShipBoxes = Math.max(0, totalBoxes - shippedBoxes);
 
   return (
     <Box>
@@ -178,39 +198,79 @@ const Warehouse: React.FC = () => {
         <>
           {/* Summary Cards */}
           <Box sx={{ display: 'flex', gap: 3, mb: 3, flexWrap: 'wrap' }}>
-            <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'primary.main', flex: 1, minWidth: 240 }}>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: 'primary.main', flex: 1, minWidth: 180 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <InventoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                <InventoryIcon sx={{ fontSize: 26, color: 'primary.main' }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Packed</Typography>
-                  <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{totalPacked.toLocaleString()}</Typography>
+                  <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{totalPacked.toLocaleString()}</Typography>
                 </Box>
               </Box>
             </Paper>
-            <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'success.main', flex: 1, minWidth: 240 }}>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: 'success.main', flex: 1, minWidth: 180 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <LocalShippingIcon sx={{ fontSize: 40, color: 'success.main' }} />
+                <LocalShippingIcon sx={{ fontSize: 26, color: 'success.main' }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Ready to Ship</Typography>
-                  <Typography variant="h4" sx={{ color: 'success.main', fontWeight: 'bold' }}>{totalReady.toLocaleString()}</Typography>
+                  <Typography variant="h6" sx={{ color: 'success.main', fontWeight: 'bold' }}>{totalReady.toLocaleString()}</Typography>
                 </Box>
               </Box>
             </Paper>
-            <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'warning.main', flex: 1, minWidth: 240 }}>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: 'warning.main', flex: 1, minWidth: 180 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <WarehouseIcon sx={{ fontSize: 40, color: 'warning.main' }} />
+                <WarehouseIcon sx={{ fontSize: 26, color: 'warning.main' }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending Packing</Typography>
-                  <Typography variant="h4" sx={{ color: 'warning.main', fontWeight: 'bold' }}>{totalPending.toLocaleString()}</Typography>
+                  <Typography variant="h6" sx={{ color: 'warning.main', fontWeight: 'bold' }}>{totalPending.toLocaleString()}</Typography>
                 </Box>
               </Box>
             </Paper>
-            <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: 'info.main', flex: 1, minWidth: 240 }}>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: 'info.main', flex: 1, minWidth: 180 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Inventory2Icon sx={{ fontSize: 40, color: 'info.main' }} />
+                <Inventory2Icon sx={{ fontSize: 26, color: 'info.main' }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Boxes</Typography>
-                  <Typography variant="h4" sx={{ color: 'info.main', fontWeight: 'bold' }}>{totalBoxes.toLocaleString()}</Typography>
+                  <Typography variant="h6" sx={{ color: 'info.main', fontWeight: 'bold' }}>{totalBoxes.toLocaleString()}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </Box>
+
+          {/* Segunda fila: enviado y pendiente por enviar (piezas y cajas) */}
+          <Box sx={{ display: 'flex', gap: 3, mb: 3, flexWrap: 'wrap' }}>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: '#0d9488', flex: 1, minWidth: 180 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <SendIcon sx={{ fontSize: 26, color: '#0d9488' }} />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Shipped</Typography>
+                  <Typography variant="h6" sx={{ color: '#0d9488', fontWeight: 'bold' }}>{shippedPieces.toLocaleString()}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: '#0d9488', flex: 1, minWidth: 180 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Inventory2Icon sx={{ fontSize: 26, color: '#0d9488' }} />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Box Shipped</Typography>
+                  <Typography variant="h6" sx={{ color: '#0d9488', fontWeight: 'bold' }}>{shippedBoxes.toLocaleString()}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: '#6b7280', flex: 1, minWidth: 180 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <WarehouseIcon sx={{ fontSize: 26, color: '#6b7280' }} />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending Ship</Typography>
+                  <Typography variant="h6" sx={{ color: '#6b7280', fontWeight: 'bold' }}>{pendingShipPieces.toLocaleString()}</Typography>
+                </Box>
+              </Box>
+            </Paper>
+            <Paper elevation={2} sx={{ p: 2, borderTop: 3, borderColor: '#6b7280', flex: 1, minWidth: 180 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <InventoryIcon sx={{ fontSize: 26, color: '#6b7280' }} />
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending Ship Box</Typography>
+                  <Typography variant="h6" sx={{ color: '#6b7280', fontWeight: 'bold' }}>{pendingShipBoxes.toLocaleString()}</Typography>
                 </Box>
               </Box>
             </Paper>

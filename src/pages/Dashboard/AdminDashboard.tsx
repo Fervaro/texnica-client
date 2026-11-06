@@ -6,7 +6,8 @@ import WarehouseIcon from '@mui/icons-material/Warehouse';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import { packingControlsApi, fabricShipmentsApi, fabricInventoriesApi, fabricReceivingsApi } from '../../utils/api';
+import SendIcon from '@mui/icons-material/Send';
+import { packingControlsApi, fabricShipmentsApi, fabricInventoriesApi, fabricReceivingsApi, shipmentControlsApi } from '../../utils/api';
 import { usePackingFieldConfigs } from '../../hooks/packingControls/usePackingFieldConfigs';
 import { visiblePackingFields, PACKING_FIELD_PROP } from '../../utils/packingFields';
 
@@ -55,6 +56,8 @@ const AdminDashboard: React.FC = () => {
   const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0 });
   const [invTotals, setInvTotals] = useState({ physical: 0, reserved: 0, available: 0 });
   const [recvReceived, setRecvReceived] = useState(0);
+  const [shippedBoxes, setShippedBoxes] = useState(0);
+  const [shippedPieces, setShippedPieces] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -65,13 +68,26 @@ const AdminDashboard: React.FC = () => {
     const load = async () => {
       setLoading(true); setError('');
       try {
-        const [pkRes, shipRes, invRes, recvRes] = await Promise.all([
+        const [pkRes, shipRes, invRes, recvRes, shipCtrlRes] = await Promise.all([
           packingControlsApi.getAll(),
           fabricShipmentsApi.getTotals(),
           fabricInventoriesApi.getTotals(),
           fabricReceivingsApi.getTotals(),
+          shipmentControlsApi.getAll().catch(() => ({ data: [] })),
         ]);
         setPackingItems((pkRes.data ?? []).map(mapPk));
+        const shipments = (shipCtrlRes.data ?? []) as any[];
+        let boxes = 0, pieces = 0;
+        shipments.forEach((sc: any) => {
+          const lines = sc.lines ?? sc.Lines ?? [];
+          const lineBoxes = lines.reduce((a: number, l: any) => a + (l.boxesToShip ?? l.BoxesToShip ?? 0), 0);
+          const linePieces = lines.reduce((a: number, l: any) =>
+            a + (l.pieces ?? l.Pieces ?? (l.boxesToShip ?? l.BoxesToShip ?? 0) * (l.pcsPerCarton ?? l.PcsPerCarton ?? 0)), 0);
+          boxes += lineBoxes;
+          pieces += lines.length > 0 ? linePieces : (sc.totalShippedQty ?? sc.TotalShippedQty ?? 0);
+        });
+        setShippedBoxes(boxes);
+        setShippedPieces(pieces);
         const t = shipRes.data ?? {};
         setShipTotals({
           shipped: num(t.shippedYards ?? t.ShippedYards),
@@ -117,6 +133,9 @@ const AdminDashboard: React.FC = () => {
       0,
     );
   }, [packingItems]);
+
+  const pendingShipPieces = Math.max(0, totalReady - shippedPieces);
+  const pendingShipBoxes = Math.max(0, totalBoxes - shippedBoxes);
 
   const fieldTotals: Record<number, number> = {};
   visibleFields.forEach((f) => {
@@ -178,6 +197,46 @@ const AdminDashboard: React.FC = () => {
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Boxes</Typography>
               <Typography variant="h4" sx={{ color: 'info.main', fontWeight: 'bold' }}>{totalBoxes.toLocaleString()}</Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+
+      {/* Segunda fila: enviado y pendiente por enviar (piezas y cajas) */}
+      <Box sx={{ display: 'flex', gap: 3, mb: 3, flexWrap: 'wrap' }}>
+        <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: '#0d9488', flex: 1, minWidth: 220 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <SendIcon sx={{ fontSize: 40, color: '#0d9488' }} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Total Shipped</Typography>
+              <Typography variant="h4" sx={{ color: '#0d9488', fontWeight: 'bold' }}>{shippedPieces.toLocaleString()}</Typography>
+            </Box>
+          </Box>
+        </Paper>
+        <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: '#0d9488', flex: 1, minWidth: 220 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Inventory2Icon sx={{ fontSize: 40, color: '#0d9488' }} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Box Shipped</Typography>
+              <Typography variant="h4" sx={{ color: '#0d9488', fontWeight: 'bold' }}>{shippedBoxes.toLocaleString()}</Typography>
+            </Box>
+          </Box>
+        </Paper>
+        <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: '#6b7280', flex: 1, minWidth: 220 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <WarehouseIcon sx={{ fontSize: 40, color: '#6b7280' }} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending Ship</Typography>
+              <Typography variant="h4" sx={{ color: '#6b7280', fontWeight: 'bold' }}>{pendingShipPieces.toLocaleString()}</Typography>
+            </Box>
+          </Box>
+        </Paper>
+        <Paper elevation={2} sx={{ p: 3, borderTop: 4, borderColor: '#6b7280', flex: 1, minWidth: 220 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <InventoryIcon sx={{ fontSize: 40, color: '#6b7280' }} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Pending Ship Box</Typography>
+              <Typography variant="h4" sx={{ color: '#6b7280', fontWeight: 'bold' }}>{pendingShipBoxes.toLocaleString()}</Typography>
             </Box>
           </Box>
         </Paper>

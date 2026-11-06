@@ -25,6 +25,11 @@ const mapPackingControl = (raw: any): PackingControl => ({
   packingVariance: raw.packingVariance ?? raw.PackingVariance ?? 0,
   pendingPacking: raw.pendingPacking ?? raw.PendingPacking ?? 0,
   overpackedQty: raw.overpackedQty ?? raw.OverpackedQty ?? 0,
+  isMix: raw.isMix ?? raw.IsMix ?? false,
+  mixLines: (raw.mixLines ?? raw.MixLines ?? []).map((l: any) => ({
+    size: l.size ?? l.Size ?? '',
+    quantity: l.quantity ?? l.Quantity ?? 0,
+  })),
   responsiblePersonId: raw.responsiblePersonId ?? raw.ResponsiblePersonId ?? undefined,
   responsiblePersonName: raw.responsiblePersonName ?? raw.ResponsiblePersonName ?? '',
   lastUpdated: raw.lastUpdated ?? raw.LastUpdated ?? '',

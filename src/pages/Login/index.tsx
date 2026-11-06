@@ -35,11 +35,14 @@ const Login: React.FC = () => {
   const [customerId, setCustomerId] = useState('');
   const [userType, setUserType] = useState<'Employee' | 'Client' | null>(null);
   const [profileCustomer, setProfileCustomer] = useState<{ id: number; name: string } | null>(null);
+  const [sessionExpired, setSessionExpired] = useState<boolean>(
+    () => sessionStorage.getItem('sessionExpired') === '1'
+  );
 
   React.useEffect(() => {
     authApi.getLoginCustomers()
       .then((res) => setCustomers(res.data ?? []))
-      .catch(() => setError('No se pudieron cargar los clientes.'));
+      .catch(() => setError('Could not load customers.'));
   }, []);
 
   const loadProfile = async () => {
@@ -71,7 +74,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
     if (userType !== 'Client' && !customerId) {
-      setError('Selecciona un cliente para continuar.');
+      setError('Select a customer to continue.');
       return;
     }
     setLoading(true);
@@ -161,6 +164,11 @@ const Login: React.FC = () => {
 
         {/* Form */}
         <Box component="form" onSubmit={handleSubmit} sx={{ p: 4 }}>
+          {sessionExpired && (
+            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }} onClose={() => { setSessionExpired(false); sessionStorage.removeItem('sessionExpired'); }}>
+              Your session has expired. Please sign in again.
+            </Alert>
+          )}
           {error && (
             <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
               {error}

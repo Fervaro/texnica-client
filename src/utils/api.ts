@@ -22,8 +22,11 @@ api.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      let customer: any = null;
       if (selectedCustomer) {
-        const customer = JSON.parse(selectedCustomer);
+        try { customer = JSON.parse(selectedCustomer); } catch { customer = null; }
+      }
+      if (customer) {
         config.headers['X-Customer-Id'] = String(customer.id);
 
         if (config.params && typeof config.params === 'object') {
@@ -31,8 +34,9 @@ api.interceptors.request.use(
         }
 
         if (config.data && typeof config.data === 'object' && !Array.isArray(config.data) && !(config.data instanceof FormData)) {
+          let user: any = null;
           const storedUser = localStorage.getItem('user');
-          const user = storedUser ? JSON.parse(storedUser) : null;
+          if (storedUser) { try { user = JSON.parse(storedUser); } catch { user = null; } }
           const isUserCreation = config.url?.endsWith('/auth/users') === true;
           config.data = {
             ...config.data,
@@ -59,10 +63,35 @@ api.interceptors.request.use(
 
 // Normaliza los 403 (sin permiso) a un mensaje amigable y consistente para
 // todos los consumidores que lean `response.data.message`.
+// Ante un 401 (token vencido o inválido) se limpia la sesión y se redirige al
+// login de forma controlada, en lugar de dejar la app en un estado roto.
+let redirectingToLogin = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 403 && !error.response?.data?.message) {
+    const status = error?.response?.status;
+    const url: string = error?.config?.url ?? '';
+
+    if (status === 401) {
+      const isAnonymousAuth = /\/auth\/(login|register|public-key)/.test(url);
+      if (!isAnonymousAuth) {
+        if (!redirectingToLogin) {
+          redirectingToLogin = true;
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('selectedCustomer');
+          sessionStorage.setItem('sessionExpired', '1');
+          if (!window.location.hash.startsWith('#/login')) {
+            window.location.hash = '#/login';
+          }
+          window.setTimeout(() => window.location.reload(), 100);
+        }
+        return Promise.reject(error);
+      }
+    }
+
+    if (status === 403 && !error?.response?.data?.message) {
       const friendly = 'You do not have access to this Module.';
       error.message = friendly;
       error.response.data = { message: friendly };
@@ -310,11 +339,15 @@ export const packingControlsApi = {
   getById: (id: number) => api.get(`/packing-controls/${id}`),
   getByFgpo: (fgpoId: number) => api.get(`/packing-controls/fgpo/${fgpoId}`),
   getWarehouseFgpos: () => api.get('/packing-controls/warehouse-fgpos'),
+  getFgpos: () => api.get('/packing-controls/fgpos'),
   create: (data: any) => api.post('/packing-controls', data),
   createBulk: (data: any) => api.post('/packing-controls/bulk', data),
   update: (id: number, data: any) => api.put(`/packing-controls/${id}`, data),
   delete: (id: number) => api.delete(`/packing-controls/${id}`),
   getPaged: (params: any) => api.get('/packing-controls/paged', { params }),
+  getMixOptions: (fgpoId: number) => api.get(`/packing-controls/mix-options/${fgpoId}`),
+  createMix: (data: any) => api.post('/packing-controls/mix', data),
+  deleteMix: (id: number) => api.delete(`/packing-controls/mix/${id}`),
 };
 
 // Packing Field Config API (etiquetas por cliente de los campos de cantidad)
