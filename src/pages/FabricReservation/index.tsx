@@ -20,7 +20,7 @@ import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useLotOptions } from '../../hooks/lots/useLotOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { fabricMovementsApi, fabricReservationsApi } from '../../utils/api';
-import { FabricReservation, RollBalance } from '../../types';
+import { FabricReservation, FabricReservationRoll, RollBalance } from '../../types';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 
 const RESERVATION_STATUS = ['Pending', 'Approved', 'Released for Cutting', 'Rejected', 'On Hold'];
@@ -64,6 +64,7 @@ const FabricReservationPage: React.FC = () => {
   const [rollSearch, setRollSearch] = useState('');
   const ROLLS_PER_PAGE = 30;
   const [rollVisible, setRollVisible] = useState(ROLLS_PER_PAGE);
+  const [lotSearch, setLotSearch] = useState('');
 
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseItem, setReleaseItem] = useState<FabricReservation | null>(null);
@@ -226,9 +227,35 @@ const FabricReservationPage: React.FC = () => {
     return (lotAvailableMap[o.id] ?? 0) > 0;
   });
 
-  // Primer rollo que pertenece a un lote seleccionado: provee la información
-  // de la tela (descripción, estilo, color, familia) para el panel informativo.
-  const selectedLotRoll = balances.find(b => b.lotId != null && form.LotIds.includes(b.lotId));
+  // Búsqueda en el campo Lots.
+  const filteredLotsForFgpo = lotSearch.trim()
+    ? lotsForFgpo.filter(o => (o.label ?? '').toLowerCase().includes(lotSearch.trim().toLowerCase()))
+    : lotsForFgpo;
+
+  // Información de tela de TODOS los lotes seleccionados (descripción, estilo,
+  // color, familia), agrupada por lote para mostrarla en el panel informativo.
+  const selectedLotInfos = (() => {
+    const map = new Map<number, { lotNumber?: string; fabricDescription?: string; style?: string; color?: string; family?: string }>();
+    balances.forEach(b => {
+      if (b.lotId == null || !form.LotIds.includes(b.lotId)) return;
+      if (!map.has(b.lotId)) {
+        map.set(b.lotId, {
+          lotNumber: b.lotNumber,
+          fabricDescription: b.fabricDescription,
+          style: b.style,
+          color: b.color,
+          family: b.family,
+        });
+      } else {
+        const cur = map.get(b.lotId)!;
+        cur.fabricDescription = cur.fabricDescription || b.fabricDescription;
+        cur.style = cur.style || b.style;
+        cur.color = cur.color || b.color;
+        cur.family = cur.family || b.family;
+      }
+    });
+    return Array.from(map.values());
+  })();
 
   // Vistas previas de columnas calculadas (fórmula del Excel)
   const n = (s: string) => s === '' ? 0 : Number(s);
@@ -310,7 +337,7 @@ const FabricReservationPage: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <IconButton size="small" color="success" title="Release" onClick={() => openRelease(r)}><UnarchiveIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="primary" onClick={() => { setViewItem(r); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="primary" onClick={() => { setViewItem(r); setViewOpen(true); loadBalances(r.fgpoId); }}><VisibilityIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="info" onClick={() => openEdit(r)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(r.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
@@ -375,34 +402,51 @@ const FabricReservationPage: React.FC = () => {
                       </Box>
                     );
                   }}>
-                  {lotsForFgpo.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
+                  <Box sx={{ p: 1, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
+                    <TextField fullWidth size="small" autoFocus placeholder="Search lot..."
+                      value={lotSearch}
+                      onChange={e => setLotSearch(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      onKeyDown={e => e.stopPropagation()} />
+                  </Box>
+                  {filteredLotsForFgpo.map((o) => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
+                  {filteredLotsForFgpo.length === 0 && <MenuItem disabled>No lots found</MenuItem>}
                 </Select>
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="Component (from Fabric PO)" value={derivedComponent} slotProps={{ input: { readOnly: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="UOM (from Fabric PO)" value={derivedUom} slotProps={{ input: { readOnly: true } }} /></Grid>
 
-            {selectedLotRoll && (
+            {selectedLotInfos.length > 0 && (
               <Grid size={{ xs: 12 }}>
                 <Paper elevation={1} sx={{ p: 2, backgroundColor: 'primary.light' }}>
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography variant="caption" color="text.secondary">Description</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.fabricDescription || '-'}</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography variant="caption" color="text.secondary">Style</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.style || '-'}</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography variant="caption" color="text.secondary">Color</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.color || '-'}</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                      <Typography variant="caption" color="text.secondary">Family</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{selectedLotRoll.family || '-'}</Typography>
-                    </Grid>
-                  </Grid>
+                  {selectedLotInfos.map((info, i) => (
+                    <Box key={info.lotNumber ?? i} sx={{ mb: i < selectedLotInfos.length - 1 ? 1.5 : 0 }}>
+                      {selectedLotInfos.length > 1 && (
+                        <Typography variant="overline" sx={{ display: 'block', fontWeight: 700, color: 'primary.main' }}>
+                          Lot {info.lotNumber || '-'}
+                        </Typography>
+                      )}
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Typography variant="caption" color="text.secondary">Description</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{info.fabricDescription || '-'}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Typography variant="caption" color="text.secondary">Style</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{info.style || '-'}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Typography variant="caption" color="text.secondary">Color</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{info.color || '-'}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Typography variant="caption" color="text.secondary">Family</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{info.family || '-'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  ))}
                 </Paper>
               </Grid>
             )}
@@ -516,11 +560,40 @@ const FabricReservationPage: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Reserved By</Typography><Typography>{viewItem.reservedByName || '-'}</Typography></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">Approved By</Typography><Typography>{viewItem.approvedByName || '-'}</Typography></Grid>
               <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Assigned rolls</Typography></Grid>
-              {(viewItem.rolls && viewItem.rolls.length > 0) ? viewItem.rolls.map(l => (
-                <Grid size={{ xs: 12, sm: 6 }} key={l.id}>
-                  <Typography variant="body2">{l.rollNumber} — reserved {l.reservedQuantity} / released {l.releasedQuantity}</Typography>
-                </Grid>
-              )) : (
+              {(viewItem.rolls && viewItem.rolls.length > 0) ? (() => {
+                // Agrupa los rollos por lote para mostrarlos como se seleccionaron en Reservation.
+                const groups = new Map<string, FabricReservationRoll[]>();
+                (viewItem.rolls ?? []).forEach(l => {
+                  const lot = l.lotNumber?.trim() || '(No lot)';
+                  if (!groups.has(lot)) groups.set(lot, []);
+                  groups.get(lot)!.push(l);
+                });
+                return Array.from(groups.entries()).map(([lot, rolls]) => {
+                  // Información de tela del lote desde los balances cargados.
+                  const info = balances.find(b =>
+                    (b.lotNumber?.trim() || '') === (lot === '(No lot)' ? '' : lot));
+                  return (
+                    <Grid size={{ xs: 12 }} key={lot}>
+                      <Typography variant="overline" sx={{ display: 'block', fontWeight: 700, color: 'primary.main' }}>
+                        Lot {lot}
+                      </Typography>
+                      <Grid container spacing={1} sx={{ mb: 1 }}>
+                        <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Description</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{info?.fabricDescription || '-'}</Typography></Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Style</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{info?.style || '-'}</Typography></Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Color</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{info?.color || '-'}</Typography></Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Family</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{info?.family || '-'}</Typography></Grid>
+                      </Grid>
+                      <Grid container spacing={1}>
+                        {rolls.map(l => (
+                          <Grid size={{ xs: 12, sm: 6 }} key={l.id}>
+                            <Typography variant="body2">{l.rollNumber || '-'} — reserved {l.reservedQuantity} / released {l.releasedQuantity}</Typography>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </Grid>
+                  );
+                });
+              })() : (
                 <Grid size={{ xs: 12 }}><Typography variant="body2" color="text.secondary">Historical reservation without an assigned roll</Typography></Grid>
               )}
               {viewItem.comments && <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Comments</Typography><Typography>{viewItem.comments}</Typography></Grid>}
@@ -545,6 +618,9 @@ const FabricReservationPage: React.FC = () => {
               <Grid size={{ xs: 12 }}>
                 <TextField fullWidth size="small" label="Quantity to release" type="number" value={releaseQty}
                   onChange={e => setReleaseQty(e.target.value)} slotProps={{ htmlInput: { min: 0, max: releaseItem.remainingReservation } }} />
+                <Button size="small" sx={{ mt: 1 }} onClick={() => setReleaseQty(String(releaseItem.remainingReservation ?? ''))}>
+                  Release all ({releaseItem.remainingReservation ?? 0})
+                </Button>
               </Grid>
             </Grid>
           )}
