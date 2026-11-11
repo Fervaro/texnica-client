@@ -367,13 +367,21 @@ const MasterDashboard: React.FC = () => {
                           border: s.status === 'pending' ? '2px solid #bdbdbd' : undefined,
                         }} />
                         <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.step}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {s.step}
+                            {s.quantity != null && (
+                              <Typography component="span" variant="body2" sx={{ fontWeight: 700, color: 'primary.main', ml: 0.5 }}>
+                                · {s.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}{s.unit ? ` ${s.unit}` : ''}
+                              </Typography>
+                            )}
+                          </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {s.status === 'pending' ? 'Pending'
+                            {s.detail
+                              ? s.detail
+                              : s.status === 'pending' ? 'Pending'
                               : s.status === 'active' ? 'In progress'
                               : s.status === 'not_applicable' ? 'Not applicable'
                               : s.date ? new Date(s.date).toLocaleDateString() : '-'}
-                            {s.detail ? ` · ${s.detail}` : ''}
                           </Typography>
                         </Box>
                       </Box>

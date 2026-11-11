@@ -45,6 +45,8 @@ export interface FgpoTimelineStep {
   status: 'done' | 'active' | 'pending' | 'not_applicable';
   date?: string | null;
   detail?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
 }
 
 export interface FgpoTimeline {
