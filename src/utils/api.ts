@@ -144,6 +144,7 @@ export const fgpoApi = {
   delete: (id: number) => api.delete(`/fgpo/${id}`),
   search: (term: string) => api.get('/fgpo/search', { params: { term } }),
   getPaged: (params: any) => api.get('/fgpo/paged', { params }),
+  getTimeline: (id: number) => api.get(`/fgpo/${id}/timeline`),
 };
 
 // Customers API

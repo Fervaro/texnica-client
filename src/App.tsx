@@ -56,7 +56,6 @@ import BoxTypesPage from './pages/BoxTypes';
 import StyleYieldsPage from './pages/StyleYields';
 import PricesPage from './pages/Prices';
 import FgpoLinesPage from './pages/FgpoLines';
-import FinishedGoods from './pages/FinishedGoods';
 import ShipmentControl from './pages/ShipmentControl';
 import FabricMovements from './pages/FabricMovements';
 
@@ -278,7 +277,6 @@ function App() {
                   <Route path="inventory-import" element={<InventoryImport />} />
                   <Route path="fabric-reservation" element={<FabricReservation />} />
                   <Route path="packing-control" element={<PackingControl />} />
-                  <Route path="finished-goods" element={<FinishedGoods />} />
                   <Route path="shipment-control" element={<ShipmentControl />} />
                   <Route path="warehouse" element={<Warehouse />} />
 

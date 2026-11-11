@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box, Typography, Paper, CircularProgress, Alert
+  Box, Typography, Paper, CircularProgress, Alert,
+  TextField, InputAdornment, Button, Dialog, DialogTitle, DialogContent, DialogActions, Chip,
 } from '@mui/material';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import SendIcon from '@mui/icons-material/Send';
-import { packingControlsApi, fabricShipmentsApi, fabricInventoriesApi, fabricReceivingsApi, shipmentControlsApi } from '../../utils/api';
+import SearchIcon from '@mui/icons-material/Search';
+import { packingControlsApi, fabricShipmentsApi, fabricInventoriesApi, fabricReceivingsApi, shipmentControlsApi, fgpoApi } from '../../utils/api';
 import { usePackingFieldConfigs } from '../../hooks/packingControls/usePackingFieldConfigs';
 import { visiblePackingFields, PACKING_FIELD_PROP } from '../../utils/packingFields';
+import { FgpoTimeline } from '../../types';
 
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
@@ -60,6 +63,54 @@ const AdminDashboard: React.FC = () => {
   const [shippedPieces, setShippedPieces] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Búsqueda de FGPO + línea de tiempo
+  const [fgpoSearch, setFgpoSearch] = useState('');
+  const [fgpoResults, setFgpoResults] = useState<{ id: number; fgpoNumber: string; style?: string; color?: string }[]>([]);
+  const [fgpoSearching, setFgpoSearching] = useState(false);
+  const [timeline, setTimeline] = useState<FgpoTimeline | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState('');
+
+  const handleFgpoSearch = async (query?: string) => {
+    const q = (query ?? fgpoSearch).trim().toLowerCase();
+    setFgpoSearching(true);
+    try {
+      const res = await fgpoApi.getAll();
+      const list = (Array.isArray(res.data) ? res.data : (res.data?.items ?? [])) as any[];
+      const matched = q
+        ? list.filter((f: any) => (f.fgpoNumber ?? f.FGPONumber ?? '').toLowerCase().includes(q))
+        : list;
+      setFgpoResults(matched
+        .slice(0, 5)
+        .map((f: any) => ({
+          id: f.id ?? f.ID ?? 0,
+          fgpoNumber: f.fgpoNumber ?? f.FGPONumber ?? '',
+          style: f.style ?? f.Style ?? '',
+          color: f.color ?? f.Color ?? '',
+        })));
+    } catch {
+      setFgpoResults([]);
+    } finally {
+      setFgpoSearching(false);
+    }
+  };
+
+  const openTimeline = async (id: number) => {
+    setTimelineOpen(true);
+    setTimeline(null);
+    setTimelineError('');
+    setTimelineLoading(true);
+    try {
+      const res = await fgpoApi.getTimeline(id);
+      setTimeline(res.data ?? res);
+    } catch (err: any) {
+      setTimelineError(err?.response?.data?.message || err?.message || 'Could not load timeline.');
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
 
   const { configs: fieldConfigs } = usePackingFieldConfigs();
   const visibleFields = useMemo(() => visiblePackingFields(fieldConfigs), [fieldConfigs]);
@@ -154,6 +205,35 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <Box>
+      {/* ── Búsqueda de FGPO + línea de tiempo ── */}
+      <Paper elevation={1} sx={{ p: 1.5, mb: 2, borderTop: 3, borderColor: 'primary.main' }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>Search FGPO</Typography>
+        <Box component="form" onSubmit={e => { e.preventDefault(); handleFgpoSearch(); }} sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            size="small" fullWidth
+            placeholder="Search by FGPO number..."
+            value={fgpoSearch}
+            onChange={e => { setFgpoSearch(e.target.value); handleFgpoSearch(e.target.value); }}
+            onFocus={() => { if (fgpoResults.length === 0) handleFgpoSearch(''); }}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+          />
+          <Button size="small" variant="contained" type="submit" disabled={fgpoSearching}>Search</Button>
+        </Box>
+        {fgpoResults.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1, maxHeight: 160, overflow: 'auto' }}>
+            {fgpoResults.map(f => (
+              <Chip
+                key={f.id}
+                size="small"
+                label={`${f.fgpoNumber}${f.style ? ` · ${f.style}` : ''}${f.color ? ` / ${f.color}` : ''}`}
+                onClick={() => openTimeline(f.id)}
+                variant="outlined"
+              />
+            ))}
+          </Box>
+        )}
+      </Paper>
+
       {/* ── Warehouse Overview ── */}
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
         <WarehouseIcon sx={{ mr: 1, verticalAlign: 'middle', color: 'primary.main' }} />
@@ -305,6 +385,65 @@ const AdminDashboard: React.FC = () => {
           </Box>
         </Paper>
       </Box>
+
+      {/* ── Línea de tiempo de la FGPO ── */}
+      <Dialog open={timelineOpen} onClose={() => setTimelineOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Process Timeline{timeline ? ` — ${timeline.fgpoNumber}` : ''}
+        </DialogTitle>
+        <DialogContent>
+          {timelineLoading ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress size={28} /></Box>
+          ) : timelineError ? (
+            <Alert severity="error">{timelineError}</Alert>
+          ) : timeline ? (
+            <>
+              {timeline.customerProvidedFabric && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Customer-provided fabric — supply steps skipped.
+                </Alert>
+              )}
+              <Box sx={{ position: 'relative', pl: 3 }}>
+                {timeline.steps.map((s, i) => {
+                  const color =
+                    s.status === 'done' ? 'success.main'
+                    : s.status === 'active' ? 'primary.main'
+                    : s.status === 'not_applicable' ? 'text.disabled'
+                    : 'grey.400';
+                  const isLast = i === timeline.steps.length - 1;
+                  return (
+                    <Box key={s.step} sx={{ position: 'relative', pb: isLast ? 0 : 2 }}>
+                      {!isLast && (
+                        <Box sx={{ position: 'absolute', left: 7, top: 18, bottom: 0, width: 2, bgcolor: 'grey.300' }} />
+                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                        <Box sx={{
+                          width: 16, height: 16, borderRadius: '50%', flexShrink: 0, mt: 0.4,
+                          bgcolor: color,
+                          border: s.status === 'pending' ? '2px solid #bdbdbd' : undefined,
+                        }} />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.step}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {s.status === 'pending' ? 'Pending'
+                              : s.status === 'active' ? 'In progress'
+                              : s.status === 'not_applicable' ? 'Not applicable'
+                              : s.date ? new Date(s.date).toLocaleDateString() : '-'}
+                            {s.detail ? ` · ${s.detail}` : ''}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTimelineOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

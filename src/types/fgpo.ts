@@ -38,3 +38,18 @@ export interface CreateFgpoInput {
   status?: string;
   remarks?: string;
 }
+
+/** Línea de tiempo de procesos de una FGPO. */
+export interface FgpoTimelineStep {
+  step: string;
+  status: 'done' | 'active' | 'pending' | 'not_applicable';
+  date?: string | null;
+  detail?: string | null;
+}
+
+export interface FgpoTimeline {
+  fgpoId: number;
+  fgpoNumber: string;
+  customerProvidedFabric: boolean;
+  steps: FgpoTimelineStep[];
+}

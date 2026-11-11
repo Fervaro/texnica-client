@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useContext } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -21,6 +21,7 @@ import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { visiblePackingFields } from '../../utils/packingFields';
 import { packingControlsApi } from '../../utils/api';
 import { PackingControl, PackingMixOptions } from '../../types';
+import { AuthContext } from '../../context/AuthContext';
 
 const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],
@@ -74,6 +75,10 @@ const PackingControlPage: React.FC = () => {
   const [mixError, setMixError] = useState('');
   const [mixSaving, setMixSaving] = useState(false);
   const [mixLoading, setMixLoading] = useState(false);
+  const [mixCapacityManual, setMixCapacityManual] = useState('');
+
+  const { selectedCustomer } = useContext(AuthContext);
+  const isVolcano = (selectedCustomer?.name ?? '').trim().toLowerCase() === 'volcano';
 
   const openMix = () => {
     setMixOpen(true);
@@ -84,6 +89,7 @@ const PackingControlPage: React.FC = () => {
     setMixResponsibleId(0);
     setMixRemarks('');
     setMixError('');
+    setMixCapacityManual('');
     loadMixFgpos();
   };
 
@@ -115,7 +121,8 @@ const PackingControlPage: React.FC = () => {
 
   const mixTotal = (mixOptions?.sizes ?? []).reduce(
     (sum, s) => sum + (Number(mixQuantities[s.size ?? ''] ?? '') || 0), 0);
-  const mixCapacity = mixOptions?.pcsPerCarton ?? 0;
+  // Para Volcano la capacidad la digita el usuario; para el resto es la automática (máximo).
+  const mixCapacity = isVolcano ? (Number(mixCapacityManual) || 0) : (mixOptions?.pcsPerCarton ?? 0);
 
   const autoFillMix = () => {
     if (!mixOptions || mixCapacity <= 0) return;
@@ -134,6 +141,7 @@ const PackingControlPage: React.FC = () => {
   const submitMix = async () => {
     setMixError('');
     if (!mixFgpoId) { setMixError('Select an FGPO.'); return; }
+    if (isVolcano && mixCapacity <= 0) { setMixError('Enter the box capacity (pcs).'); return; }
     const lines = (mixOptions?.sizes ?? [])
       .map(s => ({ size: s.size ?? '', quantity: Number(mixQuantities[s.size ?? ''] ?? '') || 0 }))
       .filter(l => l.quantity > 0);
@@ -146,6 +154,7 @@ const PackingControlPage: React.FC = () => {
         fgpoId: mixFgpoId,
         responsiblePersonId: mixResponsibleId || null,
         remarks: mixRemarks || null,
+        pcsPerCarton: isVolcano ? mixCapacity : null,
         lines,
       });
       setMixOpen(false);
@@ -427,7 +436,15 @@ const PackingControlPage: React.FC = () => {
               <TextField fullWidth size="small" label="Packing Date" type="date" value={mixDate} onChange={e => setMixDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="Box capacity (pcs)" value={mixCapacity || ''} disabled helperText="Highest Qty per box of this FGPO" />
+              {isVolcano ? (
+                <TextField fullWidth size="small" label="Box capacity (pcs) *" type="number"
+                  value={mixCapacityManual}
+                  onChange={e => setMixCapacityManual(e.target.value)}
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  helperText="Enter pieces per box manually" />
+              ) : (
+                <TextField fullWidth size="small" label="Box capacity (pcs)" value={mixCapacity || ''} disabled helperText="Highest Qty per box of this FGPO" />
+              )}
             </Grid>
 
             {mixLoading ? (

@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Tabs, Tab, Chip, CircularProgress, Alert
+  TableHead, TableRow, Tabs, Tab, Chip, CircularProgress, Alert,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
 } from '@mui/material';
 import {
   fgpoApi, ppSamplesApi, topSamplesApi, productionReadinessApi, cuttingReleasesApi,
   cuttingControlsApi, sewingProductionsApi, inlineQualitiesApi, aqlInspectionsApi,
-  packingControlsApi, finishedGoodsApi, shipmentControlsApi, fabricRequirementsApi,
+  packingControlsApi, shipmentControlsApi, fabricRequirementsApi,
   trimsControlsApi, fabricPOsApi, millProductionsApi, millTestsApi, fabricShipmentsApi,
   fabricReceivingsApi, fourPointApi, internalTestsApi, shadeMatchesApi,
   fabricInventoriesApi, fabricReservationsApi,
 } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContext';
 import AdminDashboard from './AdminDashboard';
+import { FgpoTimeline } from '../../types';
 
 // ── helpers ────────────────────────────────────────────────
 const pick = (o: any, camel: string, pascal: string) => o?.[camel] ?? o?.[pascal];
@@ -60,6 +62,27 @@ const MasterDashboard: React.FC = () => {
 
   const [data, setData] = useState<any>({});
 
+  // Línea de tiempo de una FGPO
+  const [timeline, setTimeline] = useState<FgpoTimeline | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState('');
+
+  const openTimeline = async (fgpoId: number) => {
+    setTimelineOpen(true);
+    setTimeline(null);
+    setTimelineError('');
+    setTimelineLoading(true);
+    try {
+      const res = await fgpoApi.getTimeline(fgpoId);
+      setTimeline(res.data ?? res);
+    } catch (err: any) {
+      setTimelineError(err?.response?.data?.message || err?.message || 'Could not load timeline.');
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       setLoading(true); setError('');
@@ -68,7 +91,7 @@ const MasterDashboard: React.FC = () => {
           fgpos: fgpoApi, pp: ppSamplesApi, top: topSamplesApi, prr: productionReadinessApi,
           cutRel: cuttingReleasesApi, cutCtrl: cuttingControlsApi, sew: sewingProductionsApi,
           inline: inlineQualitiesApi, aql: aqlInspectionsApi, pack: packingControlsApi,
-          fg: finishedGoodsApi, ship: shipmentControlsApi, fabReq: fabricRequirementsApi,
+          ship: shipmentControlsApi, fabReq: fabricRequirementsApi,
           trims: trimsControlsApi, fabPO: fabricPOsApi, millProd: millProductionsApi,
           millTest: millTestsApi, fabShip: fabricShipmentsApi, fabRec: fabricReceivingsApi,
           four: fourPointApi, intTest: internalTestsApi, shade: shadeMatchesApi,
@@ -115,7 +138,6 @@ const MasterDashboard: React.FC = () => {
 
   const masterRows = fgpos.map((f: any) => {
     const fid = pick(f, 'id', 'ID') ?? fgpoIdOf(f);
-    const fg = data.fg.filter((x: any) => fgpoIdOf(x) === fid);
     const sh = data.ship.filter((x: any) => fgpoIdOf(x) === fid);
     const shipDate = sh.map((s: any) => pick(s, 'etd', 'ETD') ?? '').filter(Boolean).sort().pop() ?? '';
     const late = shipDate ? (new Date(shipDate).getTime() - Date.now()) / 86400000 : 999;
@@ -137,7 +159,7 @@ const MasterDashboard: React.FC = () => {
       inlineQc: latest(data.inline, fid) ? (pick(latest(data.inline, fid), 'result', 'Result') ?? '') : '',
       finalQc: aql ? (pick(aql, 'result', 'Result') ?? '') : '',
       packedQty: sumBy(data.pack, fid, 'packedQty', 'PackedQty'),
-      readyToShip: fg.reduce((s: number, g: any) => s + num(pick(g, 'readyToShipQty', 'ReadyToShipQty')), 0),
+      readyToShip: sumBy(data.pack, fid, 'readyToShipQty', 'ReadyToShipQty'),
       inTransit: sh.reduce((s: number, g: any) => s + num(pick(g, 'inTransitQty', 'InTransitQty')), 0),
       receivedQty: sh.reduce((s: number, g: any) => s + num(pick(g, 'customerReceivedQty', 'CustomerReceivedQty')), 0),
       shipVariance: num(pick(f, 'shipmentVariance', 'ShipmentVariance')),
@@ -245,7 +267,10 @@ const MasterDashboard: React.FC = () => {
                   <TableRow><TableCell colSpan={masterHeaders.length} align="center" sx={{ py: 4, color: 'text.secondary' }}>No FGPO data.</TableCell></TableRow>
                 ) : masterRows.map((r: any) => (
                   <TableRow key={r.f} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{r.fgpo}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>
+                      <Button size="small" sx={{ textTransform: 'none', p: 0, fontWeight: 600 }}
+                        onClick={() => openTimeline(r.f)}>{r.fgpo}</Button>
+                    </TableCell>
                     <TableCell>{r.style || '-'}</TableCell>
                     <TableCell>{r.color || '-'}</TableCell>
                     <TableCell align="center">{fmtNum(r.orderQty)}</TableCell>
@@ -304,6 +329,65 @@ const MasterDashboard: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* ── Línea de tiempo de la FGPO ── */}
+      <Dialog open={timelineOpen} onClose={() => setTimelineOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Process Timeline{timeline ? ` — ${timeline.fgpoNumber}` : ''}
+        </DialogTitle>
+        <DialogContent>
+          {timelineLoading ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress size={28} /></Box>
+          ) : timelineError ? (
+            <Alert severity="error">{timelineError}</Alert>
+          ) : timeline ? (
+            <>
+              {timeline.customerProvidedFabric && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Customer-provided fabric — supply steps skipped.
+                </Alert>
+              )}
+              <Box sx={{ position: 'relative', pl: 3 }}>
+                {timeline.steps.map((s, i) => {
+                  const color =
+                    s.status === 'done' ? 'success.main'
+                    : s.status === 'active' ? 'primary.main'
+                    : s.status === 'not_applicable' ? 'text.disabled'
+                    : 'grey.400';
+                  const isLast = i === timeline.steps.length - 1;
+                  return (
+                    <Box key={s.step} sx={{ position: 'relative', pb: isLast ? 0 : 2 }}>
+                      {!isLast && (
+                        <Box sx={{ position: 'absolute', left: 7, top: 18, bottom: 0, width: 2, bgcolor: 'grey.300' }} />
+                      )}
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                        <Box sx={{
+                          width: 16, height: 16, borderRadius: '50%', flexShrink: 0, mt: 0.4,
+                          bgcolor: color,
+                          border: s.status === 'pending' ? '2px solid #bdbdbd' : undefined,
+                        }} />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.step}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {s.status === 'pending' ? 'Pending'
+                              : s.status === 'active' ? 'In progress'
+                              : s.status === 'not_applicable' ? 'Not applicable'
+                              : s.date ? new Date(s.date).toLocaleDateString() : '-'}
+                            {s.detail ? ` · ${s.detail}` : ''}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTimelineOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
