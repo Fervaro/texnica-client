@@ -10,6 +10,8 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SendIcon from '@mui/icons-material/Send';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import type { Borders } from 'exceljs';
 import { packingControlsApi, shipmentControlsApi } from '../../utils/api';
 import { usePackingFieldConfigs } from '../../hooks/packingControls/usePackingFieldConfigs';
 import { visiblePackingFields, PACKING_FIELD_PROP } from '../../utils/packingFields';
@@ -183,6 +185,98 @@ const Warehouse: React.FC = () => {
   const pendingShipPieces = Math.max(0, totalReady - shippedPieces);
   const pendingShipBoxes = Math.max(0, totalBoxes - shippedBoxes);
 
+  const handleDownloadExcel = async () => {
+    // Detalle de Packing Control en Excel con el formato del cliente: banda de
+    // título superior, encabezados en azul oscuro, bordes finos y fuente Segoe UI.
+    // Se usa exceljs porque la librería "xlsx" no persiste estilos de celda.
+    const baseHeaders = ['FGPO', 'Style', 'Color', 'Size', 'Total pieces', 'Qty per box', 'No. of boxes', 'Unpacked'];
+    const fieldHeaders = visibleFields.map(f => f.label);
+    const headers = [...baseHeaders, ...fieldHeaders];
+
+    const rows: (string | number)[][] = [];
+    fgpoSummary.forEach(g => {
+      g.boxRows.forEach(r => {
+        rows.push([
+          g.fgpoNumber || g.key,
+          r.style || '',
+          r.color || '',
+          r.size || '',
+          r.pieces,
+          r.perBox || '',
+          r.boxes,
+          r.unpacked,
+          ...visibleFields.map(f => r.fields[f.fieldNo] ?? 0),
+        ]);
+      });
+    });
+
+    const thinBorder = (argb: string): Partial<Borders> => ({
+      top: { style: 'thin', color: { argb } },
+      bottom: { style: 'thin', color: { argb } },
+      left: { style: 'thin', color: { argb } },
+      right: { style: 'thin', color: { argb } },
+    });
+
+    // Carga diferida: exceljs solo se descarga cuando el usuario exporta.
+    const { Workbook } = await import('exceljs');
+    const wb = new Workbook();
+    const ws = wb.addWorksheet('Packing Control Detail');
+
+    // Fila 1: título fusionado en toda la tabla.
+    ws.mergeCells(1, 1, 1, headers.length);
+    const titleCell = ws.getCell(1, 1);
+    titleCell.value = 'PACKING CONTROL DETAIL';
+    titleCell.font = { name: 'Segoe UI', size: 15, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B365D' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 26;
+
+    // Fila 2: encabezados.
+    const headerRow = ws.getRow(2);
+    headers.forEach((h, i) => { headerRow.getCell(i + 1).value = h; });
+    headerRow.eachCell(cell => {
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF34495E' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = thinBorder('FFFFFFFF');
+    });
+    headerRow.height = 18;
+
+    // Filas de datos.
+    rows.forEach((row, ri) => {
+      const r = ws.getRow(ri + 3);
+      row.forEach((val, ci) => {
+        const cell = r.getCell(ci + 1);
+        cell.value = val;
+        cell.font = { name: 'Segoe UI', size: 10 };
+        cell.border = thinBorder('FFD0D7E2');
+        cell.alignment = ci >= 4
+          ? { horizontal: 'right', vertical: 'middle' }
+          : ci === 3
+            ? { horizontal: 'center', vertical: 'middle' }
+            : { horizontal: 'left', vertical: 'middle' };
+      });
+    });
+
+    // Anchos de columna acordes al formato del cliente.
+    const colWidths = [14.4, 14.5, 12, 14.5, 12, 12, 12, 12, 11.6, 11.6];
+    headers.forEach((_, i) => { ws.getColumn(i + 1).width = colWidths[i] ?? 12; });
+
+    // Congelar título y encabezado.
+    ws.views = [{ state: 'frozen', ySplit: 2 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'packing-control-by-fgpo.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -295,9 +389,17 @@ const Warehouse: React.FC = () => {
 
           {/* Packing Control por FGPO */}
           <Paper elevation={2} sx={{ p: 2, borderTop: 4, borderColor: 'primary.main' }}>
-            <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold', mb: 2 }}>
-              <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control by FGPO
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                <InventoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> Packing Control by FGPO
+              </Typography>
+              <Button
+                size="small" variant="outlined" startIcon={<FileDownloadIcon />}
+                onClick={handleDownloadExcel} disabled={fgpoSummary.length === 0}
+              >
+                Download Excel
+              </Button>
+            </Box>
             <TableContainer>
               <Table size="small">
                 <TableHead sx={{ backgroundColor: 'primary.light' }}>
