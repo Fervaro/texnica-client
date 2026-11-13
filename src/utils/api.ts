@@ -376,6 +376,8 @@ export const shipmentControlsApi = {
   create: (data: any) => api.post('/shipment-controls', data),
   update: (id: number, data: any) => api.put(`/shipment-controls/${id}`, data),
   delete: (id: number) => api.delete(`/shipment-controls/${id}`),
+  close: (id: number) => api.post(`/shipment-controls/${id}/close`),
+  reopen: (id: number) => api.post(`/shipment-controls/${id}/reopen`),
   getPaged: (params: any) => api.get('/shipment-controls/paged', { params }),
 };
 

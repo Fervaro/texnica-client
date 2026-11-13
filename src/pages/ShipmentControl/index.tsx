@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useContext } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
@@ -13,11 +13,14 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { useShipmentControls } from '../../hooks/shipmentControls/useShipmentControls';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { useWarehouseFgpos } from '../../hooks/packingControls/useWarehouseFgpos';
-import { packingControlsApi } from '../../utils/api';
+import { AuthContext } from '../../context/AuthContext';
+import { packingControlsApi, shipmentControlsApi } from '../../utils/api';
 import { ShipmentControl } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
 
@@ -61,6 +64,9 @@ const ShipmentControlPage: React.FC = () => {
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
     create, update, remove,
   } = useShipmentControls();
+
+  const { user } = useContext(AuthContext);
+  const isSuperAdmin = !!user?.isSuperAdmin;
 
   const [searchInput, setSearchInput] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -171,6 +177,18 @@ const ShipmentControlPage: React.FC = () => {
     if (!window.confirm('Delete this shipment?')) return;
     try { await remove(id); }
     catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
+  };
+
+  const handleClose = async (id: number) => {
+    if (!window.confirm('Close this shipment? Once closed it cannot be edited or deleted.')) return;
+    try { await shipmentControlsApi.close(id); await refresh(); }
+    catch (err: any) { setError(err.response?.data?.message || err.response?.data || 'Error closing.'); }
+  };
+
+  const handleReopen = async (id: number) => {
+    if (!window.confirm('Reopen this shipment?')) return;
+    try { await shipmentControlsApi.reopen(id); await refresh(); }
+    catch (err: any) { setError(err.response?.data?.message || err.response?.data || 'Error reopening.'); }
   };
 
   const handleSave = async () => {
@@ -292,11 +310,23 @@ const ShipmentControlPage: React.FC = () => {
                   <TableCell>{item.containerType || '-'}<br /><Typography variant="caption" color="text.secondary">{item.containerNumber || ''}</Typography></TableCell>
                   <TableCell>{fmt(item.etd)}</TableCell>
                   <TableCell>{item.destination || '-'}</TableCell>
-                  <TableCell><Chip label={item.shipmentStatus || 'N/A'} size="small" color={sc(item.shipmentStatus ?? '')} /></TableCell>
+                  <TableCell>
+                    <Chip label={item.shipmentStatus || 'N/A'} size="small" color={sc(item.shipmentStatus ?? '')} />
+                    {item.isClosed && <Chip label="Closed" size="small" color="default" sx={{ ml: 0.5 }} icon={<LockIcon />} />}
+                  </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    {item.isClosed ? (
+                      isSuperAdmin && (
+                        <IconButton size="small" color="warning" title="Reopen" onClick={() => handleReopen(item.id)}><LockOpenIcon fontSize="small" /></IconButton>
+                      )
+                    ) : (
+                      <>
+                        <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="success" title="Close shipment" onClick={() => handleClose(item.id)}><LockIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

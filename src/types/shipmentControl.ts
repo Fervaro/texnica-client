@@ -31,6 +31,10 @@ export interface ShipmentControl {
   loadPlan?: string;
   dataOwnerId?: number;
   dataOwnerName?: string;
+  isClosed?: boolean;
+  closedAt?: string;
+  closedById?: number;
+  closedByName?: string;
   lastUpdated?: string;
   remarks?: string;
   active: boolean;

@@ -13,6 +13,7 @@ export interface User {
   userType?: 'Employee' | 'Client';
   roleId?: number | null;
   roleName?: string;
+  isSuperAdmin?: boolean;
 }
 
 
