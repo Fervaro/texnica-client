@@ -278,6 +278,7 @@ export const fabricReceivingsApi = {
 // Roll Receiving API
 export const rollReceivingsApi = {
   getAll: () => api.get('/roll-receivings'),
+  getFamilies: () => api.get('/roll-receivings/families'),
   getById: (id: number) => api.get(`/roll-receivings/${id}`),
   getByReceiving: (receivingId: number) => api.get(`/roll-receivings/receiving/${receivingId}`),
   create: (data: any) => api.post('/roll-receivings', data),

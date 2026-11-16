@@ -8,6 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { rollReceivingsApi, fabricReceivingsApi } from '../utils/api';
+import { useColorOptions } from '../hooks/colors/useColorOptions';
 import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../utils/validation';
 import RollBulkGrid, { type RollBulkReceivingOption } from './RollBulkGrid';
 import type { RollReceiving } from '../types';
@@ -23,7 +24,7 @@ interface ReceivingRollsDialogProps {
 }
 
 const emptyEdit = {
-  rollNumber: '', supplierRollNumber: '', lotNumber: '',
+  rollNumber: '', supplierRollNumber: '', lotNumber: '', color: '', shipmentLotId: null as number | null,
   grossWeight: 0, netWeight: 0, actualYardage: 0, actualWidth: 0, actualGSM: 0,
   shadeGroup: '', damagedQty: 0, condition: 'Good', warehouseLocation: '', receivedDate: '', comments: '',
 };
@@ -48,6 +49,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
   const [edit, setEdit] = useState(emptyEdit);
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const { options: colorOptions } = useColorOptions();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,6 +99,8 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
       rollNumber: r.rollNumber ?? '',
       supplierRollNumber: r.supplierRollNumber ?? '',
       lotNumber: r.lotNumber ?? '',
+      color: r.color ?? '',
+      shipmentLotId: r.shipmentLotId ?? null,
       grossWeight: r.grossWeight,
       netWeight: r.netWeight,
       actualYardage: r.actualYardage,
@@ -133,6 +137,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
         lotNumber: edit.lotNumber || null,
         rollNumber: edit.rollNumber.trim(),
         supplierRollNumber: edit.supplierRollNumber || null,
+        color: edit.color,
         grossWeight: edit.grossWeight,
         netWeight: edit.netWeight,
         actualYardage: edit.actualYardage,
@@ -187,7 +192,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                    {['Roll #', 'Supplier Roll #', 'Lot', 'Yardage', 'Width', 'Net Wt', 'GSM', 'Shade', 'Condition', 'Received', 'Actions'].map(h => (
+                    {['Roll #', 'Supplier Roll #', 'Lot', 'Color', 'Yardage', 'Width', 'Net Wt', 'GSM', 'Shade', 'Condition', 'Received', 'Actions'].map(h => (
                       <TableCell key={h} sx={{ color: 'white', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</TableCell>
                     ))}
                   </TableRow>
@@ -198,6 +203,7 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
                       <TableCell sx={{ fontWeight: 600 }}>{r.rollNumber || '-'}</TableCell>
                       <TableCell>{r.supplierRollNumber || '-'}</TableCell>
                       <TableCell>{r.lotNumber || '-'}</TableCell>
+                      <TableCell>{r.color || '-'}</TableCell>
                       <TableCell>{num(r.actualYardage)}</TableCell>
                       <TableCell>{num(r.actualWidth)}</TableCell>
                       <TableCell>{num(r.netWeight)}</TableCell>
@@ -242,6 +248,13 @@ const ReceivingRollsDialog: React.FC<ReceivingRollsDialogProps> = ({ open, onClo
             <TextField size="small" label="Roll Number *" value={edit.rollNumber} onChange={e => setEdit(p => ({ ...p, rollNumber: e.target.value }))} />
             <TextField size="small" label="Supplier Roll #" value={edit.supplierRollNumber} onChange={e => setEdit(p => ({ ...p, supplierRollNumber: e.target.value }))} />
             <TextField size="small" label="Lot Number" value={edit.lotNumber} onChange={e => setEdit(p => ({ ...p, lotNumber: e.target.value }))} />
+            <FormControl size="small">
+              <InputLabel>Color</InputLabel>
+              <Select value={edit.color} label="Color" disabled={!!edit.shipmentLotId} onChange={e => setEdit(p => ({ ...p, color: e.target.value }))}>
+                <MenuItem value=""><em>None</em></MenuItem>
+                {colorOptions.map(c => <MenuItem key={c.id} value={c.label}>{c.label}</MenuItem>)}
+              </Select>
+            </FormControl>
             <TextField size="small" label="Received Date" type="date" value={edit.receivedDate} onChange={e => setEdit(p => ({ ...p, receivedDate: e.target.value }))} slotProps={{ inputLabel: { shrink: true } }} />
             <TextField size="small" label="Gross Weight" type="number" value={edit.grossWeight || ''} onChange={e => setEdit(p => ({ ...p, grossWeight: Number(e.target.value) }))} onKeyDown={blockNegativeKey} slotProps={{ htmlInput: nonNegativeInputProps }} />
             <TextField size="small" label="Net Weight" type="number" value={edit.netWeight || ''} onChange={e => setEdit(p => ({ ...p, netWeight: Number(e.target.value) }))} onKeyDown={blockNegativeKey} slotProps={{ htmlInput: nonNegativeInputProps }} />

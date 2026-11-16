@@ -8,6 +8,8 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { fabricShipmentsApi, fabricInventoriesApi, fabricReceivingsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import { FabricControlTela } from '../../types';
@@ -31,9 +33,10 @@ const FabricInventoryPage: React.FC = () => {
   const [rows, setRows] = useState<FabricControlTela[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [expandedFgpo, setExpandedFgpo] = useState<string | null>(null);
 
   const [shipTotals, setShipTotals] = useState({ shipped: 0, received: 0, pending: 0 });
-  const [invTotals, setInvTotals] = useState({ physical: 0, reserved: 0, available: 0 });
+  const [invTotals, setInvTotals] = useState({ physical: 0, inTransit: 0, reserved: 0, available: 0 });
   const [receivedTotal, setReceivedTotal] = useState(0);
 
   const loadReceivedTotal = async () => {
@@ -62,6 +65,7 @@ const FabricInventoryPage: React.FC = () => {
       const t = res.data ?? {};
       setInvTotals({
         physical: num(t.physicalYards ?? t.PhysicalYards),
+        inTransit: num(t.pendingTransitYards ?? t.PendingTransitYards),
         reserved: num(t.reservedYards ?? t.ReservedYards),
         available: num(t.availableYards ?? t.AvailableYards),
       });
@@ -76,6 +80,7 @@ const FabricInventoryPage: React.FC = () => {
       setRows(list.map((r: any) => ({
         fgpoNumber: r.fgpoNumber ?? r.FGPONumber ?? '',
         color: r.color ?? r.Color ?? '',
+        family: r.family ?? r.Family ?? '',
         fabricDescription: r.fabricDescription ?? r.FabricDescription ?? '',
         shippedYards: num(r.shippedYards ?? r.ShippedYards),
         receivedYards: num(r.receivedYards ?? r.ReceivedYards),
@@ -94,16 +99,45 @@ const FabricInventoryPage: React.FC = () => {
   const handleSearch = (e: FormEvent) => { e.preventDefault(); };
   const handleClearSearch = () => setSearchInput('');
 
+  const fgpoGroups = useMemo(() => {
+    const groups = new Map<string, FabricControlTela[]>();
+    rows.forEach(row => {
+      const key = row.fgpoNumber || '(No FGPO)';
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    });
+    return Array.from(groups.entries()).map(([key, details]) => {
+      const descriptions = Array.from(new Set(details.map(row => row.fabricDescription?.trim()).filter(Boolean)));
+      const statuses = Array.from(new Set(details.map(row => row.status?.trim()).filter(Boolean)));
+      const dates = details.map(row => row.date).filter(Boolean).sort();
+      const latestDate = dates[dates.length - 1] ?? '';
+      return {
+        key,
+        fgpoNumber: details[0]?.fgpoNumber || '',
+        details,
+        description: descriptions.length === 1 ? descriptions[0]! : descriptions.length > 1 ? `${descriptions.length} fabric details` : '-',
+        shippedYards: details.reduce((sum, row) => sum + row.shippedYards, 0),
+        receivedYards: details.reduce((sum, row) => sum + row.receivedYards, 0),
+        pendingYards: details.reduce((sum, row) => sum + row.pendingYards, 0),
+        receivedRolls: details.reduce((sum, row) => sum + row.receivedRolls, 0),
+        status: statuses.length === 1 ? statuses[0] : statuses.length > 1 ? 'Mixed' : '',
+        date: latestDate,
+      };
+    });
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = searchInput.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(r =>
-      (r.fgpoNumber?.toLowerCase().includes(q)) ||
-      (r.color?.toLowerCase().includes(q)) ||
-      (r.fabricDescription?.toLowerCase().includes(q)) ||
-      (r.status?.toLowerCase().includes(q))
+    if (!q) return fgpoGroups;
+    return fgpoGroups.filter(group =>
+      group.fgpoNumber.toLowerCase().includes(q) ||
+      group.details.some(row =>
+        row.color?.toLowerCase().includes(q) ||
+        row.family?.toLowerCase().includes(q) ||
+        row.fabricDescription?.toLowerCase().includes(q) ||
+        row.status?.toLowerCase().includes(q)
+      )
     );
-  }, [rows, searchInput]);
+  }, [fgpoGroups, searchInput]);
 
   return (
     <Box>
@@ -122,7 +156,7 @@ const FabricInventoryPage: React.FC = () => {
       <ModuleTotalsBar
         suffix="yd"
         items={[
-          { label: 'Yards In Transit', value: shipTotals.shipped.toLocaleString(), color: 'primary.main' },
+          { label: 'Yards In Transit', value: invTotals.inTransit.toLocaleString(), color: 'primary.main' },
           { label: 'Physical Inventory', value: receivedTotal.toLocaleString(), color: 'info.main' },
           { label: 'Reserved', value: invTotals.reserved.toLocaleString(), color: 'warning.main' },
           { label: 'Available', value: invTotals.available.toLocaleString(), color: 'success.main' },
@@ -132,7 +166,7 @@ const FabricInventoryPage: React.FC = () => {
 
       <Paper sx={{ mb: 2, p: 1.5, display: 'flex', gap: 1 }}>
         <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, flex: 1 }}>
-          <TextField size="small" placeholder="Search by FGPO, color, description..."
+          <TextField size="small" placeholder="Search by FGPO, color, family, description..."
             value={searchInput} onChange={e => setSearchInput(e.target.value)}
             slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>, endAdornment: searchInput ? <InputAdornment position="end"><IconButton size="small" onClick={handleClearSearch}><ClearIcon /></IconButton></InputAdornment> : null } }}
             sx={{ flex: 1, maxWidth: 500 }} />
@@ -147,30 +181,73 @@ const FabricInventoryPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['FGPO', 'Color', 'Description', 'Shipped (yd)', 'Received (yd)', 'Pending (yd)', 'Rolls', 'Status', 'Date'].map(h =>
+                {['FGPO', 'Description', 'Shipped (yd)', 'Received (yd)', 'Pending (yd)', 'Rolls', 'Status', 'Date'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No fabric control records</Typography>
                 </TableCell></TableRow>
-              ) : filtered.map((r, i) => (
-                <TableRow key={i} hover>
-                  <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{r.fgpoNumber || '-'}</Typography></TableCell>
-                  <TableCell>{r.color || '-'}</TableCell>
-                  <TableCell>{r.fabricDescription || '-'}</TableCell>
-                  <TableCell>{fmtNum(r.shippedYards)}</TableCell>
-                  <TableCell>{fmtNum(r.receivedYards)}</TableCell>
-                  <TableCell><Typography sx={{ fontWeight: 600 }}>{fmtNum(r.pendingYards)}</Typography></TableCell>
-                  <TableCell>{r.receivedRolls}</TableCell>
-                  <TableCell><Chip label={r.status || 'N/A'} size="small" color={statusColor(r.status ?? '')} variant="outlined" /></TableCell>
-                  <TableCell>{fmtDate(r.date)}</TableCell>
-                </TableRow>
+              ) : filtered.map(group => (
+                <React.Fragment key={group.key}>
+                  <TableRow hover>
+                    <TableCell sx={{ fontWeight: 600 }}>
+                      <Button
+                        size="small"
+                        onClick={() => setExpandedFgpo(expandedFgpo === group.key ? null : group.key)}
+                        startIcon={expandedFgpo === group.key ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        sx={{ fontWeight: 600, textTransform: 'none' }}
+                      >
+                        {group.fgpoNumber || '(No FGPO)'}
+                      </Button>
+                    </TableCell>
+                    <TableCell>{group.description}</TableCell>
+                    <TableCell>{fmtNum(group.shippedYards)}</TableCell>
+                    <TableCell>{fmtNum(group.receivedYards)}</TableCell>
+                    <TableCell><Typography sx={{ fontWeight: 600 }}>{fmtNum(group.pendingYards)}</Typography></TableCell>
+                    <TableCell>{group.receivedRolls}</TableCell>
+                    <TableCell><Chip label={group.status || 'N/A'} size="small" color={statusColor(group.status ?? '')} variant="outlined" /></TableCell>
+                    <TableCell>{fmtDate(group.date)}</TableCell>
+                  </TableRow>
+                  {expandedFgpo === group.key && (
+                    <TableRow>
+                      <TableCell colSpan={8} sx={{ bgcolor: 'grey.50', p: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                          Fabric details: {group.fgpoNumber || '(No FGPO)'}
+                        </Typography>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              {['Color', 'Family', 'Description', 'Shipped (yd)', 'Received (yd)', 'Pending (yd)', 'Rolls', 'Status', 'Date'].map(h => (
+                                <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
+                              ))}
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {group.details.map((detail, index) => (
+                              <TableRow key={`${group.key}-${detail.date}-${detail.color}-${detail.family}-${index}`} hover>
+                                <TableCell>{detail.color || '-'}</TableCell>
+                                <TableCell>{detail.family || '-'}</TableCell>
+                                <TableCell>{detail.fabricDescription || '-'}</TableCell>
+                                <TableCell>{fmtNum(detail.shippedYards)}</TableCell>
+                                <TableCell>{fmtNum(detail.receivedYards)}</TableCell>
+                                <TableCell>{fmtNum(detail.pendingYards)}</TableCell>
+                                <TableCell>{detail.receivedRolls}</TableCell>
+                                <TableCell><Chip label={detail.status || 'N/A'} size="small" color={statusColor(detail.status ?? '')} variant="outlined" /></TableCell>
+                                <TableCell>{fmtDate(detail.date)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               ))}
             </TableBody>
           </Table>

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, CircularProgress, Alert, FormControl, InputLabel, Select, MenuItem, TextField,
@@ -33,10 +33,18 @@ type RowDto = {
   anchoReal?: number;
   gms?: number;
   orden?: string;
+  shippedRolls?: number;
 };
+
+type ImportReceivingStatus = 'In Transit' | 'Fully Received';
 
 const norm = (s: string) =>
   s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+const transitGroupKey = (row: RowDto) => {
+  const normalize = (value: string | undefined) => (value ?? '').trim().split(/\s+/).filter(Boolean).join(' ').toUpperCase();
+  return `${normalize(row.contenedor)}::${normalize(row.bacht)}`;
+};
 
 const HEADER_MAP: Record<string, keyof RowDto> = {
   fecha: 'fecha',
@@ -98,6 +106,8 @@ const InventoryImport: React.FC = () => {
   const { options: fgpoList } = useFgpoOptions();
   const [mode, setMode] = useState<'import' | 'update'>('import');
   const [fgpoId, setFgpoId] = useState(0);
+  const [receivingStatus, setReceivingStatus] = useState<ImportReceivingStatus>('Fully Received');
+  const [transitRollCounts, setTransitRollCounts] = useState<Record<string, string>>({});
   const [campoMaster, setCampoMaster] = useState('');
   const [rows, setRows] = useState<RowDto[]>([]);
   const [fileName, setFileName] = useState('');
@@ -105,11 +115,33 @@ const InventoryImport: React.FC = () => {
   const [result, setResult] = useState<any>(null);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const transitGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; container: string; batch: string; rows: number; yards: number; firstIndex: number }>();
+    rows.forEach((row, index) => {
+      const key = transitGroupKey(row);
+      const group = groups.get(key);
+      if (group) {
+        group.rows += 1;
+        group.yards += row.yardasRecibidas ?? 0;
+      } else {
+        groups.set(key, {
+          key,
+          container: row.contenedor ?? '',
+          batch: row.bacht ?? '',
+          rows: 1,
+          yards: row.yardasRecibidas ?? 0,
+          firstIndex: index,
+        });
+      }
+    });
+    return Array.from(groups.values());
+  }, [rows]);
 
   const handleFile = async (file: File) => {
     setError('');
     setResult(null);
     setRows([]);
+    setTransitRollCounts({});
     setFileName(file.name);
     try {
       const buf = await file.arrayBuffer();
@@ -162,12 +194,32 @@ const InventoryImport: React.FC = () => {
       setError('There are no rows to import.');
       return;
     }
+    let rowsToImport = rows;
+    if (receivingStatus === 'In Transit') {
+      const missingCount = transitGroups.find(group => {
+        const count = Number(transitRollCounts[group.key]);
+        return !Number.isInteger(count) || count <= 0;
+      });
+      if (missingCount) {
+        setError(`Enter a positive whole number of rolls shipped for container ${missingCount.container}, batch ${missingCount.batch}.`);
+        return;
+      }
+      const countByGroup = new Map(transitGroups.map(group => [group.key, Number(transitRollCounts[group.key])]));
+      const firstIndexByGroup = new Map(transitGroups.map(group => [group.key, group.firstIndex]));
+      rowsToImport = rows.map((row, index) => {
+        const key = transitGroupKey(row);
+        return firstIndexByGroup.get(key) === index
+          ? { ...row, shippedRolls: countByGroup.get(key) }
+          : row;
+      });
+    }
     setImporting(true);
     try {
       const res = await fabricInventoryImportApi.import({
         fgpoId: campoMaster.trim() ? 0 : fgpoId,
         campoMaster: campoMaster.trim() || null,
-        rows,
+        receivingStatus,
+        rows: rowsToImport,
       });
       setResult(res.data ?? res);
     } catch (e: any) {
@@ -231,7 +283,9 @@ const InventoryImport: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {mode === 'update'
               ? 'Updates the physical fields of existing rolls (key: ID Ticket + Batch + ID).'
-              : 'Loads the fabric warehouse inventory Excel. One row = one received roll.'}
+              : receivingStatus === 'In Transit'
+                ? 'Enter total rolls shipped for each container and batch. No physical rolls are registered until Receiving.'
+                : 'Loads the fabric warehouse inventory Excel. One row = one received roll.'}
           </Typography>
         </Box>
       </Box>
@@ -264,6 +318,20 @@ const InventoryImport: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+
+        {mode === 'import' && (
+          <FormControl size="small" sx={{ minWidth: 190 }}>
+            <InputLabel>Inventory Status</InputLabel>
+            <Select
+              value={receivingStatus}
+              label="Inventory Status"
+              onChange={e => setReceivingStatus(e.target.value as ImportReceivingStatus)}
+            >
+              <MenuItem value="In Transit">In Transit</MenuItem>
+              <MenuItem value="Fully Received">Fully Received</MenuItem>
+            </Select>
+          </FormControl>
+        )}
 
         <TextField
           size="small"
@@ -302,11 +370,16 @@ const InventoryImport: React.FC = () => {
             </>
           ) : (
             <>
-              Import completed: {result.createdRolls ?? result.CreatedRolls ?? 0} rolls,{' '}
+              {(result.processedShipments ?? result.ProcessedShipments ?? result.createdShipments ?? result.CreatedShipments ?? 0) > 0 ? (
+                <>Transit import completed: {result.processedShipments ?? result.ProcessedShipments ?? result.createdShipments ?? result.CreatedShipments} shipments,{' '}
+                  {result.createdShipmentLots ?? result.CreatedShipmentLots ?? 0} lots,{' '}
+                  {result.shippedRolls ?? result.ShippedRolls ?? 0} rolls and{' '}
+                  {result.shippedYards ?? result.ShippedYards ?? 0} yards recorded in transit.</>
+              ) : <>Import completed: {result.createdRolls ?? result.CreatedRolls ?? 0} rolls,{' '}
               {result.createdReceivings ?? result.CreatedReceivings ?? 0} receivings,{' '}
               {result.createdLots ?? result.CreatedLots ?? 0} lots,{' '}
               {result.createdFamilies ?? result.CreatedFamilies ?? 0} families,{' '}
-              {result.skippedRolls ?? result.SkippedRolls ?? 0} skipped (already existed).
+              {result.skippedRolls ?? result.SkippedRolls ?? 0} skipped (already existed).</>}
             </>
           )}
         </Alert>
@@ -314,6 +387,41 @@ const InventoryImport: React.FC = () => {
 
       {rows.length > 0 && (
         <>
+          {mode === 'import' && receivingStatus === 'In Transit' ? (
+            <Paper sx={{ overflow: 'hidden', mb: 2 }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: 'primary.main' }}>
+                      {['Container', 'Batch', 'Excel rows', 'Yards shipped', 'Rolls shipped'].map(h => (
+                        <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {transitGroups.map(group => (
+                      <TableRow key={group.key} hover>
+                        <TableCell>{group.container || '-'}</TableCell>
+                        <TableCell>{group.batch || '-'}</TableCell>
+                        <TableCell>{group.rows}</TableCell>
+                        <TableCell>{fmt(group.yards)}</TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            type="number"
+                            label="Rolls shipped"
+                            value={transitRollCounts[group.key] ?? ''}
+                            onChange={e => setTransitRollCounts(prev => ({ ...prev, [group.key]: e.target.value }))}
+                            slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          ) : (
           <Paper sx={{ overflow: 'hidden', mb: 2 }}>
             <TableContainer sx={{ maxHeight: 440 }}>
               <Table size="small" stickyHeader>
@@ -343,6 +451,7 @@ const InventoryImport: React.FC = () => {
               </Table>
             </TableContainer>
           </Paper>
+          )}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button
@@ -353,7 +462,11 @@ const InventoryImport: React.FC = () => {
             >
               {importing
                 ? (mode === 'update' ? 'Updating...' : 'Importing...')
-                : `${mode === 'update' ? 'Update' : 'Import'} ${rows.length} roll(s)`}
+                : mode === 'update'
+                  ? `Update ${rows.length} roll(s)`
+                  : receivingStatus === 'In Transit'
+                    ? `Import ${transitGroups.reduce((sum, group) => sum + (Number(transitRollCounts[group.key]) || 0), 0)} shipped roll(s)`
+                    : `Import ${rows.length} roll(s)`}
             </Button>
           </Box>
         </>

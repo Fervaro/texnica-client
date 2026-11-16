@@ -48,7 +48,7 @@ const emptyForm = {
   ShipmentNumber: '', FabricPONumber: '', FGPONumber: '', Supplier: '',
     RollQty: 0, ShippedQuantity: 0, ShippedRolls: 0, UOM: 'Yards', ShippedWeight: 0,
   PackingList: '', InvoiceNumber: '', ContainerAWB: '', ShippingMethod: '',
-  ETD: new Date().toISOString().split('T')[0], ETA: new Date().toISOString().split('T')[0],
+  ETD: '', ETA: '',
   ShipmentStatus: 'Planned', DeliveredToTexnicaDate: '', DataOwnerId: 0, Remarks: '',
 };
 
@@ -139,8 +139,8 @@ const FabricShipmentPage: React.FC = () => {
         FGPONumber: form.FGPONumber.trim() || null,
         Supplier: form.Supplier.trim() || null,
         DataOwnerId: form.DataOwnerId || null,
-        ETD: form.ETD ? new Date(form.ETD).toISOString() : new Date().toISOString(),
-        ETA: form.ETA ? new Date(form.ETA).toISOString() : new Date().toISOString(),
+        ETD: form.ETD ? new Date(form.ETD).toISOString() : null,
+        ETA: form.ETA ? new Date(form.ETA).toISOString() : null,
         DeliveredToTexnicaDate: form.DeliveredToTexnicaDate ? new Date(form.DeliveredToTexnicaDate).toISOString() : null,
       };
       if (editingId) {
@@ -159,7 +159,7 @@ const FabricShipmentPage: React.FC = () => {
     } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
   };
 
-  const fmt = (v?: string) => v?.split('T')[0] || '-';
+  const fmt = (v?: string | null) => v?.split('T')[0] || '-';
   const setF = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
   // ── Lotes del embarque ──
@@ -456,8 +456,8 @@ const FabricShipmentPage: React.FC = () => {
 
             {/* ── Dates & Status ── */}
             <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Dates & Status</Typography></Divider></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="ETD *" type="date" value={form.ETD} onChange={e => setF('ETD', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="ETA *" type="date" value={form.ETA} onChange={e => setF('ETA', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="ETD" type="date" value={form.ETD} onChange={e => setF('ETD', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="ETA" type="date" value={form.ETA} onChange={e => setF('ETA', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small"><InputLabel>Shipment Status</InputLabel>
                 <Select value={form.ShipmentStatus} label="Shipment Status" onChange={e => setF('ShipmentStatus', e.target.value)}>

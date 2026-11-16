@@ -15,8 +15,8 @@ export interface FabricShipment {
   invoiceNumber?: string;
   containerAWB?: string;
   shippingMethod?: string;
-  etd: string;
-  eta: string;
+  etd: string | null;
+  eta: string | null;
   shipmentStatus?: string;
   deliveredToTexnicaDate?: string;
   inTransitQuantity: number;
@@ -40,8 +40,8 @@ export interface CreateFabricShipmentInput {
   invoiceNumber?: string;
   containerAWB?: string;
   shippingMethod?: string;
-  etd: string;
-  eta: string;
+  etd?: string | null;
+  eta?: string | null;
   shipmentStatus?: string;
   deliveredToTexnicaDate?: string;
   dataOwner?: string;
@@ -52,6 +52,7 @@ export interface CreateFabricShipmentInput {
 export interface FabricControlTela {
   fgpoNumber: string;
   color?: string | null;
+  family?: string | null;
   fabricDescription?: string | null;
   shippedYards: number;
   receivedYards: number;

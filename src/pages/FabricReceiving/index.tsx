@@ -19,6 +19,7 @@ import { useFabricReceivings } from '../../hooks/fabricReceivings/useFabricRecei
 import { useFabricPOOptions } from '../../hooks/fabricPOs/useFabricPOOptions';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useCatalogs } from '../../hooks/catalogs/useCatalogs';
+import { useColorOptions } from '../../hooks/colors/useColorOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { FabricReceiving } from '../../types';
 import { getCurrentUserName } from '../../utils/session';
@@ -28,13 +29,13 @@ import ReceivingRollsDialog from '../../components/ReceivingRollsDialog';
 import { RollGridTable, newRollRow, validateRollRows, buildRollsPayload } from '../../components/RollBulkGrid';
 import type { RollRowDraft } from '../../components/RollBulkGrid';
 
-const DEFAULT_STATUSES = ['Pending', 'Partially Received', 'Fully Received', 'Quantity Difference', 'Rejected'];
+const DEFAULT_STATUSES = ['Pending', 'Partially Received', 'Fully Received', 'In Transit', 'Quantity Difference', 'Rejected'];
 const ROLL_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];
 const ROLL_SHADES = ['A', 'B', 'C', 'D'];
 
 const sc = (s: string) => {
   const m: Record<string, any> = {
-    'Fully Received': 'success', 'Partially Received': 'warning',
+    'Fully Received': 'success', 'In Transit': 'info', 'Partially Received': 'warning',
     Pending: 'default', 'Quantity Difference': 'error', Rejected: 'error',
   };
   return m[s] ?? 'default';
@@ -62,13 +63,29 @@ const FabricReceivingPage: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [formSaving, setFormSaving] = useState(false);
   const [rollRows, setRollRows] = useState<RollRowDraft[]>([]);
+  const [familyOptions, setFamilyOptions] = useState<{ id: number; name: string }[]>([]);
   const [rollsDialog, setRollsDialog] = useState<{ id: number; number: string } | null>(null);
 
   const { options: poList } = useFabricPOOptions();
   const { options: fgpoList } = useFgpoOptions();
   const { options: userList } = useUserOptions();
   const { catalogs } = useCatalogs();
+  const { options: colorOptions } = useColorOptions();
   const STATUS_OPTIONS = catalogs['ReceivingStatus']?.length ? catalogs['ReceivingStatus'] : DEFAULT_STATUSES;
+
+  useEffect(() => {
+    let cancelled = false;
+    rollReceivingsApi.getFamilies().then(res => {
+      if (cancelled) return;
+      setFamilyOptions((res.data ?? []).map((f: any) => ({
+        id: Number(f.id ?? f.ID),
+        name: String(f.name ?? f.Name ?? ''),
+      })).filter((f: { id: number; name: string }) => f.id > 0 && !!f.name));
+    }).catch(() => {
+      if (!cancelled) setFamilyOptions([]);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const [form, setForm] = useState(emptyForm);
 
@@ -84,7 +101,7 @@ const FabricReceivingPage: React.FC = () => {
   }, []);
   const shipmentOptions = Array.from(new Set(shipments.map((s: any) => s.shipmentNumber ?? s.ShipmentNumber ?? '').filter(Boolean)));
 
-  const [shipmentLots, setShipmentLots] = useState<{ id: number; lotNumber: string }[]>([]);
+  const [shipmentLots, setShipmentLots] = useState<{ id: number; lotNumber: string; colorName?: string }[]>([]);
   const [selectedLotId, setSelectedLotId] = useState<number | null>(null);
   const shipmentLot = shipmentLots.find(l => l.id === selectedLotId) ?? shipmentLots[0] ?? null;
 
@@ -101,7 +118,7 @@ const FabricReceivingPage: React.FC = () => {
         const res = await fabricShipmentLotsApi.getByShipment(sid);
         const lots = (res.data ?? [])
           .filter((l: any) => (l.active ?? l.Active ?? true) !== false)
-          .map((l: any) => ({ id: l.id ?? l.ID, lotNumber: l.lotNumber ?? l.LotNumber ?? '' }))
+          .map((l: any) => ({ id: l.id ?? l.ID, lotNumber: l.lotNumber ?? l.LotNumber ?? '', colorName: l.colorName ?? l.ColorName ?? '' }))
           .filter((l: { lotNumber: string }) => !!l.lotNumber);
         if (cancelled) return;
         setShipmentLots(lots);
@@ -249,6 +266,15 @@ const FabricReceivingPage: React.FC = () => {
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
   const setF = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
+  const setWarehouseLocation = (value: string) => {
+    const previous = form.WarehouseLocation;
+    setF('WarehouseLocation', value);
+    setRollRows(rows => rows.map(row => (
+      !row.warehouseLocation || row.warehouseLocation === previous
+        ? { ...row, warehouseLocation: value }
+        : row
+    )));
+  };
 
   return (
     <Box>
@@ -422,7 +448,7 @@ const FabricReceivingPage: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Warehouse Location" value={form.WarehouseLocation} onChange={e => setF('WarehouseLocation', e.target.value)} /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><TextField fullWidth size="small" label="Warehouse Location" value={form.WarehouseLocation} onChange={e => setWarehouseLocation(e.target.value)} /></Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <FormControl fullWidth size="small">
                 <InputLabel>Received By</InputLabel>
@@ -448,9 +474,11 @@ const FabricReceivingPage: React.FC = () => {
                     onChange={setRollRows}
                     shadeOptions={ROLL_SHADES}
                     conditionOptions={ROLL_CONDITIONS}
+                    familyOptions={familyOptions}
+                    colorOptions={colorOptions}
                     autoRollNumber
                     lotOptions={shipmentLots}
-                    makeRow={() => newRollRow({ shipmentLotId: shipmentLot?.id ?? null, lotNumber: shipmentLot?.lotNumber ?? '', warehouseLocation: form.WarehouseLocation })}
+                    makeRow={() => newRollRow({ shipmentLotId: shipmentLot?.id ?? null, lotNumber: shipmentLot?.lotNumber ?? '', color: shipmentLot?.colorName ?? '', warehouseLocation: form.WarehouseLocation })}
                   />
                 </Grid>
               </>
