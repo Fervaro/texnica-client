@@ -38,6 +38,7 @@ interface PackingRowDraft {
   boxes: string;
   pendingPacking: string;
   remarks: string;
+  fqQty: string;
   qty: Record<number, string>;
 }
 
@@ -48,6 +49,7 @@ interface PackingBulkGridProps {
   fgpoOptions: PackingFgpoOption[];
   userOptions: PackingUserOption[];
   fieldConfigs: PackingFieldConfig[];
+  fqEnabled: boolean;
   onSaved: () => void | Promise<void>;
 }
 
@@ -70,7 +72,7 @@ const cellStyle: React.CSSProperties = {
 const cellErrStyle: React.CSSProperties = { ...cellStyle, borderColor: '#d32f2f', backgroundColor: '#fff7f7' };
 const cellReadonlyStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f1f5f9', color: '#64748b' };
 
-const makeRow = (): PackingRowDraft => ({ key: newKey(), fgpoId: 0, boxTypeId: 0, boxes: '', pendingPacking: '', remarks: '', qty: {} });
+const makeRow = (): PackingRowDraft => ({ key: newKey(), fgpoId: 0, boxTypeId: 0, boxes: '', pendingPacking: '', fqQty: '', remarks: '', qty: {} });
 
 const fmtNum = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -81,12 +83,13 @@ interface RowProps {
   fgpoOptions: PackingFgpoOption[];
   boxOptions: PackingBoxOption[];
   fields: PackingFieldConfig[];
+  fqEnabled: boolean;
   onChange: (key: string, patch: Partial<PackingRowDraft>) => void;
   onRemove: (key: string) => void;
 }
 
 const PackingRow = React.memo(function PackingRow({
-  row, index, isOnlyRow, fgpoOptions, boxOptions, fields, onChange, onRemove,
+  row, index, isOnlyRow, fgpoOptions, boxOptions, fields, fqEnabled, onChange, onRemove,
 }: RowProps) {
   const set = (patch: Partial<PackingRowDraft>) => onChange(row.key, patch);
 
@@ -147,6 +150,7 @@ const PackingRow = React.memo(function PackingRow({
           />
         </TableCell>
       ))}
+      {fqEnabled && <TableCell sx={{ p: 0.5 }}><input style={cellStyle} inputMode="decimal" aria-label="FQ quantity" value={row.fqQty} onChange={e => set({ fqQty: e.target.value })} onKeyDown={blockNegativeKey} /></TableCell>}
       <TableCell sx={{ p: 0.5 }}>
         <input style={cellStyle} inputMode="decimal" value={row.pendingPacking} onChange={e => set({ pendingPacking: e.target.value })} onKeyDown={blockNegativeKey} />
       </TableCell>
@@ -164,7 +168,7 @@ const PackingRow = React.memo(function PackingRow({
   );
 });
 
-const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title, fgpoOptions, userOptions, fieldConfigs, onSaved }) => {
+const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title, fgpoOptions, userOptions, fieldConfigs, fqEnabled, onSaved }) => {
   const [packingDate, setPackingDate] = useState(today());
   const [responsiblePersonId, setResponsiblePersonId] = useState(0);
   const [boxOptions, setBoxOptions] = useState<PackingBoxOption[]>([]);
@@ -239,6 +243,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
             receivedByPackingQty: quantities.receivedByPackingQty ?? 0,
             foldedQty: quantities.foldedQty ?? 0,
             polybaggedQty: quantities.polybaggedQty ?? 0,
+            fqQty: fqEnabled ? Number(r.fqQty) || 0 : 0,
             pendingPacking: Number(r.pendingPacking) || 0,
             packedQty: qpb * boxes,
             pcsPerCarton: qpb,
@@ -288,7 +293,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.light' }}>
-                {['#', 'FGPO *', 'Box Type *', 'Boxes *', 'Packed Qty', ...fields.map(f => f.label), 'Pending Packing', 'Remarks', ''].map(h => (
+                {['#', 'FGPO *', 'Box Type *', 'Boxes *', 'Packed Qty', ...fields.map(f => f.label), ...(fqEnabled ? ['FQ'] : []), 'Pending Packing', 'Remarks', ''].map(h => (
                   <TableCell key={h} sx={{ fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
@@ -303,6 +308,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
                   fgpoOptions={fgpoOptions}
                   boxOptions={boxOptions}
                   fields={fields}
+                  fqEnabled={fqEnabled}
                   onChange={handleRowChange}
                   onRemove={handleRowRemove}
                 />

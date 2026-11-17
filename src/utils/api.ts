@@ -350,6 +350,11 @@ export const packingControlsApi = {
   getMixOptions: (fgpoId: number) => api.get(`/packing-controls/mix-options/${fgpoId}`),
   createMix: (data: any) => api.post('/packing-controls/mix', data),
   deleteMix: (id: number) => api.delete(`/packing-controls/mix/${id}`),
+    getIrrBoxOptions: (fgpoId: number) => api.get(`/packing-controls/irr-box-options/${fgpoId}`),
+    createIrrBox: (data: any) => api.post('/packing-controls/irr-box', data),
+    getFqPackingEnabled: () => api.get('/packing-controls/fq-enabled'),
+    getFqBoxOptions: (fgpoId: number) => api.get(`/packing-controls/fq-box-options/${fgpoId}`),
+    createFqBox: (data: any) => api.post('/packing-controls/fq-box', data),
 };
 
 // Packing Field Config API (etiquetas por cliente de los campos de cantidad)
