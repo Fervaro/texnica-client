@@ -1,4 +1,4 @@
-import  { useState, useContext, useEffect } from 'react';
+import { lazy, Suspense, useState, useContext, useEffect } from 'react';
 
 import { HashRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -12,57 +12,54 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ChangePasswordModal from './components/ChangePasswordModal';
 import { authApi } from './utils/api';
 
-import Admin from './pages/Admin';
-import AdminUsuarios from './pages/AdminUsuarios';
-import AdminRoles from './pages/AdminRoles';
-import AdminPermisos from './pages/AdminPermisos';
-import Customers from './pages/Customers';
-import Factories from './pages/Factories';
-import Suppliers from './pages/Suppliers';
-import Production from './pages/Production';
-import Warehouse from './pages/Warehouse';
-import PurchaseOrder from './pages/PurchaseOrder';
-import CreatePO from './pages/CreatePO';
-import Fgpo from './pages/Fgpo';
-import FabricRequirement from './pages/FabricRequirement';
-import FabricPO from './pages/FabricPO';
-import MillProduction from './pages/MillProduction';
-import MillTest from './pages/MillTest';
-import FabricShipment from './pages/FabricShipment';
-import FabricReceiving from './pages/FabricReceiving';
-import FourPoint from './pages/FourPoint';
-import InternalTest from './pages/InternalTest';
-import ShadeMatch from './pages/ShadeMatch';
-import InlineQuality from './pages/InlineQuality';
-import AqlInspection from './pages/AqlInspection';
-import PPSample from './pages/PPSample';
-import TOPSample from './pages/TOPSample';
-import ProductionReadiness from './pages/ProductionReadiness';
-import CuttingRelease from './pages/CuttingRelease';
-import CuttingControl from './pages/CuttingControl';
-import CuttingPanelQC from './pages/CuttingPanelQC';
-import TrimsControl from './pages/TrimsControl';
-import SewingProduction from './pages/SewingProduction';
-import FabricInventoryHub from './pages/FabricInventoryHub';
-import InventoryImport from './pages/InventoryImport';
-import FabricReservation from './pages/FabricReservation';
-import PackingControl from './pages/PackingControl';
-import StylesPage from './pages/Styles';
-import FabricsPage from './pages/Fabrics';
-import ColorsPage from './pages/Colors';
-import SizesPage from './pages/Sizes';
-import ComponentsPage from './pages/Components';
-import BoxTypesPage from './pages/BoxTypes';
-import StyleYieldsPage from './pages/StyleYields';
-import PricesPage from './pages/Prices';
-import FgpoLinesPage from './pages/FgpoLines';
-import ShipmentControl from './pages/ShipmentControl';
-import FabricMovements from './pages/FabricMovements';
-
-
-
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
+const Admin = lazy(() => import('./pages/Admin'));
+const AdminUsuarios = lazy(() => import('./pages/AdminUsuarios'));
+const AdminRoles = lazy(() => import('./pages/AdminRoles'));
+const AdminPermisos = lazy(() => import('./pages/AdminPermisos'));
+const Customers = lazy(() => import('./pages/Customers'));
+const Factories = lazy(() => import('./pages/Factories'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
+const Production = lazy(() => import('./pages/Production'));
+const Warehouse = lazy(() => import('./pages/Warehouse'));
+const PurchaseOrder = lazy(() => import('./pages/PurchaseOrder'));
+const CreatePO = lazy(() => import('./pages/CreatePO'));
+const Fgpo = lazy(() => import('./pages/Fgpo'));
+const FabricRequirement = lazy(() => import('./pages/FabricRequirement'));
+const FabricPO = lazy(() => import('./pages/FabricPO'));
+const MillProduction = lazy(() => import('./pages/MillProduction'));
+const MillTest = lazy(() => import('./pages/MillTest'));
+const FabricShipment = lazy(() => import('./pages/FabricShipment'));
+const FabricReceiving = lazy(() => import('./pages/FabricReceiving'));
+const FourPoint = lazy(() => import('./pages/FourPoint'));
+const InternalTest = lazy(() => import('./pages/InternalTest'));
+const ShadeMatch = lazy(() => import('./pages/ShadeMatch'));
+const InlineQuality = lazy(() => import('./pages/InlineQuality'));
+const AqlInspection = lazy(() => import('./pages/AqlInspection'));
+const PPSample = lazy(() => import('./pages/PPSample'));
+const TOPSample = lazy(() => import('./pages/TOPSample'));
+const ProductionReadiness = lazy(() => import('./pages/ProductionReadiness'));
+const CuttingRelease = lazy(() => import('./pages/CuttingRelease'));
+const CuttingControl = lazy(() => import('./pages/CuttingControl'));
+const CuttingPanelQC = lazy(() => import('./pages/CuttingPanelQC'));
+const TrimsControl = lazy(() => import('./pages/TrimsControl'));
+const SewingProduction = lazy(() => import('./pages/SewingProduction'));
+const FabricInventoryHub = lazy(() => import('./pages/FabricInventoryHub'));
+const InventoryImport = lazy(() => import('./pages/InventoryImport'));
+const FabricReservation = lazy(() => import('./pages/FabricReservation'));
+const PackingControl = lazy(() => import('./pages/PackingControl'));
+const StylesPage = lazy(() => import('./pages/Styles'));
+const FabricsPage = lazy(() => import('./pages/Fabrics'));
+const ColorsPage = lazy(() => import('./pages/Colors'));
+const SizesPage = lazy(() => import('./pages/Sizes'));
+const ComponentsPage = lazy(() => import('./pages/Components'));
+const BoxTypesPage = lazy(() => import('./pages/BoxTypes'));
+const StyleYieldsPage = lazy(() => import('./pages/StyleYields'));
+const PricesPage = lazy(() => import('./pages/Prices'));
+const FgpoLinesPage = lazy(() => import('./pages/FgpoLines'));
+const ShipmentControl = lazy(() => import('./pages/ShipmentControl'));
+const FabricMovements = lazy(() => import('./pages/FabricMovements'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Login = lazy(() => import('./pages/Login'));
 import { DataProvider } from './context/DataContext';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 
@@ -224,6 +221,7 @@ function App() {
       <AuthProvider>
         <DataProvider>
           <HashRouter>
+            <Suspense fallback={<Box sx={{ p: 4, textAlign: 'center' }}>Loading page...</Box>}>
             <Routes>
               {/* Public routes */}
               <Route path="/login" element={<Login />} />
@@ -289,6 +287,7 @@ function App() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           </HashRouter>
         </DataProvider>
       </AuthProvider>

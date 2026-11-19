@@ -6,7 +6,6 @@ import {
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
-import * as XLSX from 'xlsx';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { fabricInventoryImportApi } from '../../utils/api';
 
@@ -144,6 +143,7 @@ const InventoryImport: React.FC = () => {
     setTransitRollCounts({});
     setFileName(file.name);
     try {
+      const XLSX = await import('xlsx');
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, { type: 'array', cellDates: true });
       const ws = wb.Sheets['INGRESOS'] ?? wb.Sheets[wb.SheetNames[0]];

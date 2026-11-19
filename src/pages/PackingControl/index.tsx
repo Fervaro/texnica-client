@@ -444,7 +444,7 @@ const PackingControlPage: React.FC = () => {
                 <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">{viewItem.irrCategoryLabel || 'IRR'} box breakdown</Typography><Typography>{(viewItem.irrBoxLines ?? []).map(l => `${l.size ?? '?'}: ${l.quantity}`).join(' · ')}</Typography></Grid>
               )}
               {viewItem.isFqBox && (viewItem.fqBoxLines ?? []).length > 0 && (
-                <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">FQ box breakdown</Typography><Typography>{(viewItem.fqBoxLines ?? []).map(l => `${l.size ?? '?'}: ${l.quantity}`).join(' · ')}</Typography></Grid>
+                <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">FQ box breakdown by FGPO</Typography><Typography>{(viewItem.fqBoxLines ?? []).map(l => `${l.sourceFgpoNumber || `FGPO ${l.sourceFgpoId ?? ''}`} · ${l.size ?? '?'}: ${l.quantity}`).join(' · ')}</Typography></Grid>
               )}
               {viewItem.remarks && <Grid size={{ xs: 12 }}><Divider sx={{ my: 0.5 }} /><Typography variant="caption" color="text.secondary">Remarks</Typography><Typography>{viewItem.remarks}</Typography></Grid>}
             </Grid>

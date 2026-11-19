@@ -1,0 +1,1 @@
+var e=e=>{if(e==null||e===``)return null;let t=typeof e==`number`?e:Number(e);return Number.isFinite(t)?t:null},t=t=>{let n=e(t);return n!==null&&n<0};function n(e){for(let n of e)if(t(n.value))return n.name;return null}function r(e,t=!0){let n=e.key;if(n===`-`){e.preventDefault();return}!t&&(n===`e`||n===`E`)&&e.preventDefault()}var i={min:0,step:`any`};export{n,i as r,r as t};

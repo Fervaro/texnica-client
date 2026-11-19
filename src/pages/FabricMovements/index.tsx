@@ -7,6 +7,8 @@ import {
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { fabricMovementsApi, rollReceivingsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import { FabricMovement, RollReceiving } from '../../types';
@@ -28,6 +30,29 @@ const emptyForm = {
   ReferenceType: '', ReferenceNumber: '', Comments: '', IsReversalOfId: 0,
 };
 
+interface ExitImportRow {
+  rowNumber: number;
+  sourceRows: number[];
+  rollReceivingId: number;
+  uniqueId: string;
+  rollNumber: string;
+  quantity: number;
+  error?: string;
+}
+
+interface ExitImportRejectedRow {
+  uniqueId: string;
+  rollNumber: string;
+  quantity: number;
+  availableYards: number;
+  shortageYards: number;
+  sourceRows: number[];
+  reason: string;
+}
+
+const normalizeHeader = (value: unknown) => String(value ?? '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
 const FabricMovementsPage: React.FC = () => {
   const [movements, setMovements] = useState<FabricMovement[]>([]);
   const [rolls, setRolls] = useState<RollReceiving[]>([]);
@@ -40,6 +65,15 @@ const FabricMovementsPage: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [idempotencyKey, setIdempotencyKey] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFileName, setImportFileName] = useState('');
+  const [importRows, setImportRows] = useState<ExitImportRow[]>([]);
+  const [rejectedImportRows, setRejectedImportRows] = useState<ExitImportRejectedRow[]>([]);
+  const [importDate, setImportDate] = useState(new Date().toISOString().split('T')[0]);
+  const [importReference, setImportReference] = useState('');
+  const [importComments, setImportComments] = useState('');
+  const [importError, setImportError] = useState('');
 
   // Filtros (cliente)
   const [filterRoll, setFilterRoll] = useState(0);
@@ -128,6 +162,143 @@ const FabricMovementsPage: React.FC = () => {
     }
   };
 
+  const openImport = () => {
+    setImportRows([]); setImportFileName(''); setImportError(''); setImportReference(''); setImportComments('');
+    setImportDate(new Date().toISOString().split('T')[0]); setImportOpen(true);
+  };
+
+  const downloadExitTemplate = async () => {
+    const XLSX = await import('xlsx');
+    const sheet = XLSX.utils.aoa_to_sheet([['ID', 'SALIDA EN YDS']]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'SALIDAS');
+    XLSX.writeFile(workbook, 'fabric-exit-template.xlsx');
+  };
+
+  const downloadRejectedExits = async () => {
+    const XLSX = await import('xlsx');
+    const rows = rejectedImportRows.map(row => ({
+      ID: row.uniqueId,
+      'SALIDA EN YDS': row.quantity,
+      'ROLL NUMBER': row.rollNumber,
+      'AVAILABLE YDS': row.availableYards,
+      'OVERAGE YDS': row.shortageYards,
+      'EXCEL ROWS': row.sourceRows.join(', '),
+      REASON: row.reason,
+    }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), 'SALIDAS');
+    XLSX.writeFile(workbook, 'fabric-exit-rejected-rolls.xlsx');
+  };
+
+  const handleImportFile = async (file?: File) => {
+    if (!file) return;
+    setImportError(''); setImportRows([]); setRejectedImportRows([]); setImportFileName(file.name);
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const sheetName = workbook.SheetNames.find(name => normalizeHeader(name) === 'salidas');
+      const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
+      if (!sheet) throw new Error('The workbook must contain the SALIDAS worksheet.');
+      const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+      const headerIndex = matrix.findIndex(row => {
+        const headers = row.map(normalizeHeader);
+        return headers.includes('id') && headers.includes('salidaenyds');
+      });
+      if (headerIndex < 0) throw new Error('The SALIDAS worksheet must include the ID and SALIDA EN YDS columns. ID Ticket is not the roll ID.');
+      const headers = matrix[headerIndex].map(value => String(value ?? '').trim());
+      const idIndex = headers.findIndex(value => normalizeHeader(value) === 'id');
+      const quantityIndex = headers.findIndex(value => normalizeHeader(value) === 'salidaenyds');
+
+      const rollMap = new Map<string, RollReceiving[]>();
+      rolls.forEach(roll => {
+        const key = String(roll.uniqueId ?? '').trim().toLowerCase();
+        if (key) rollMap.set(key, [...(rollMap.get(key) ?? []), roll]);
+      });
+      const rows: ExitImportRow[] = [];
+      const rowsByRollId = new Map<number, ExitImportRow>();
+      matrix.slice(headerIndex + 1).forEach((record, index) => {
+        const rowNumber = headerIndex + index + 2;
+        const rawId = String(record[idIndex] ?? '').trim();
+        const rawQuantity = record[quantityIndex];
+        if (!rawId && (rawQuantity === '' || rawQuantity == null)) return;
+        const matches = rollMap.get(rawId.toLowerCase()) ?? [];
+        const quantity = typeof rawQuantity === 'number' ? rawQuantity : Number(String(rawQuantity).replace(/,/g, '').trim());
+        let error = '';
+        if (!rawId) error = 'ID is required.';
+        else if (matches.length === 0) error = 'ID was not found in active roll receipts.';
+        else if (matches.length > 1) error = 'ID is ambiguous; it appears more than once.';
+        else if (!(quantity > 0) || !Number.isFinite(quantity)) error = 'Quantity must be greater than zero.';
+        if (!error && matches.length === 1) {
+          const existing = rowsByRollId.get(matches[0].id);
+          if (existing) {
+            existing.quantity += quantity;
+            existing.sourceRows.push(rowNumber);
+            return;
+          }
+        }
+        const parsedRow: ExitImportRow = {
+          rowNumber,
+          sourceRows: [rowNumber],
+          rollReceivingId: matches.length === 1 ? matches[0].id : 0,
+          uniqueId: rawId,
+          rollNumber: matches.length === 1 ? String(matches[0].rollNumber ?? '') : '',
+          quantity,
+          error: error || undefined,
+        };
+        rows.push(parsedRow);
+        if (!error && matches.length === 1) rowsByRollId.set(matches[0].id, parsedRow);
+      });
+      if (!rows.length) throw new Error('The SALIDAS worksheet has no non-empty data rows.');
+      setImportRows(rows);
+    } catch (err: any) {
+      setImportError(err?.message || 'Could not read the Excel file.');
+    }
+  };
+
+  const handleImport = async () => {
+    setImportError('');
+    if (!importDate) { setImportError('Movement date is required.'); return; }
+    const invalid = importRows.filter(row => row.error);
+    if (invalid.length) { setImportError(`Correct the ${invalid.length} invalid row(s) before importing.`); return; }
+    if (!importRows.length) { setImportError('Select an Excel file with valid rows first.'); return; }
+    const batchKey = `EXCEL-OUT-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    setImporting(true);
+    try {
+      const result = await fabricMovementsApi.importAdjustmentOut({
+        movementDate: new Date(importDate).toISOString(),
+        referenceNumber: importReference || null,
+        comments: importComments || `Bulk fabric exit from ${importFileName}`,
+        rows: importRows.map((row, index) => ({
+          rollReceivingId: row.rollReceivingId,
+          quantity: row.quantity,
+          excelRows: row.sourceRows,
+          idempotencyKey: `${batchKey}-${index + 1}`,
+        })),
+      });
+      const data = result.data ?? {};
+      const rejected = data.rejected ?? data.Rejected ?? [];
+      const rejectedRows: ExitImportRejectedRow[] = rejected.map((row: any) => ({
+        uniqueId: row.uniqueId ?? row.UniqueId ?? '',
+        rollNumber: row.rollNumber ?? row.RollNumber ?? '',
+        quantity: Number(row.quantity ?? row.Quantity ?? 0),
+        availableYards: Number(row.availableYards ?? row.AvailableYards ?? 0),
+        shortageYards: Number(row.shortageYards ?? row.ShortageYards ?? 0),
+        sourceRows: row.excelRows ?? row.ExcelRows ?? [],
+        reason: row.reason ?? row.Reason ?? 'Requested yards exceed the available balance.',
+      }));
+      setRejectedImportRows(rejectedRows);
+      setImportRows([]);
+      const created = data.created ?? data.Created ?? 0;
+      const totalYards = data.totalYards ?? data.TotalYards ?? 0;
+      setSuccess(`Fabric exit imported: ${created} roll(s), ${num(totalYards)} yd. ${rejectedRows.length} roll(s) rejected for insufficient balance.`);
+      if (rejectedRows.length === 0) setImportOpen(false);
+      await Promise.all([load(), loadMovTotals()]);
+    } catch (err: any) {
+      setImportError(err?.response?.data?.message || err?.response?.data || err?.message || 'Error importing fabric exit. No rows were imported.');
+    } finally { setImporting(false); }
+  };
+
   const filtered = movements.filter(m => {
     if (filterRoll && m.rollReceivingId !== filterRoll) return false;
     if (filterType && m.movementType !== filterType) return false;
@@ -154,6 +325,7 @@ const FabricMovementsPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
+          <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={openImport}>Import Exit Excel</Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Movement</Button>
         </Box>
       </Box>
@@ -286,6 +458,86 @@ const FabricMovementsPage: React.FC = () => {
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
             {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={importOpen} onClose={() => !importing && setImportOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Import Fabric Exit</DialogTitle>
+        <DialogContent>
+          {importError && <Alert severity="error" sx={{ mb: 2 }}>{importError}</Alert>}
+          {rejectedImportRows.length > 0 && <Alert severity="warning" sx={{ mb: 2 }}>
+            {rejectedImportRows.length} roll(s) exceeded their available balance. The other rolls were imported. Download the rejected rows to review or correct them.
+          </Alert>}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Upload the SALIDAS worksheet. Each row is matched by its unique ID (not ID Ticket), and SALIDA EN YDS is deducted from that roll. Rolls with enough balance are imported; overages are returned for review and download.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+            <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadExitTemplate}>Download Template</Button>
+            {rejectedImportRows.length > 0 && <Button variant="outlined" color="warning" startIcon={<FileDownloadIcon />} onClick={downloadRejectedExits}>Download Rejected Rolls ({rejectedImportRows.length})</Button>}
+            <Button component="label" variant="contained" startIcon={<UploadFileIcon />}>
+              Select Excel
+              <input hidden type="file" accept=".xlsx,.xls" onChange={event => {
+                void handleImportFile(event.target.files?.[0]);
+                event.target.value = '';
+              }} />
+            </Button>
+            {importFileName && <Typography variant="body2" sx={{ alignSelf: 'center' }}>{importFileName}</Typography>}
+          </Box>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField fullWidth size="small" label="Movement Date *" type="date" value={importDate} onChange={event => setImportDate(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField fullWidth size="small" label="Reference Number" value={importReference} onChange={event => setImportReference(event.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <TextField fullWidth size="small" label="Comments" value={importComments} onChange={event => setImportComments(event.target.value)} />
+            </Grid>
+          </Grid>
+          {rejectedImportRows.length > 0 && <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 240, mb: 2 }}>
+            <Table size="small" stickyHeader>
+              <TableHead><TableRow>
+                {['Excel Row(s)', 'ID', 'Roll Number', 'Requested (yd)', 'Available (yd)', 'Overage (yd)'].map(label => <TableCell key={label}>{label}</TableCell>)}
+              </TableRow></TableHead>
+              <TableBody>{rejectedImportRows.map((row, index) => (
+                <TableRow key={`${row.uniqueId}-${index}`}>
+                  <TableCell>{row.sourceRows.join(', ')}</TableCell>
+                  <TableCell>{row.uniqueId || '-'}</TableCell>
+                  <TableCell>{row.rollNumber || '-'}</TableCell>
+                  <TableCell>{num(row.quantity)}</TableCell>
+                  <TableCell>{num(row.availableYards)}</TableCell>
+                  <TableCell>{num(row.shortageYards)}</TableCell>
+                </TableRow>
+              ))}</TableBody>
+            </Table>
+          </TableContainer>}
+          {importRows.length > 0 && <>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              {importRows.length} roll(s) to import from {importRows.reduce((total, row) => total + row.sourceRows.length, 0)} Excel row(s) · {importRows.filter(row => !row.error).length} valid · {importRows.filter(row => row.error).length} invalid
+            </Typography>
+            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 320 }}>
+              <Table size="small" stickyHeader>
+                <TableHead><TableRow>
+                  {['Excel Row(s)', 'ID', 'Roll Number', 'Quantity (yd)', 'Validation'].map(label => <TableCell key={label}>{label}</TableCell>)}
+                </TableRow></TableHead>
+                <TableBody>{importRows.map(row => (
+                  <TableRow key={`${row.rowNumber}-${row.rollReceivingId}`}>
+                    <TableCell>{row.sourceRows.join(', ')}</TableCell>
+                    <TableCell>{row.uniqueId || '-'}</TableCell>
+                    <TableCell>{row.rollNumber || '-'}</TableCell>
+                    <TableCell>{Number.isFinite(row.quantity) ? num(row.quantity) : '-'}</TableCell>
+                    <TableCell sx={{ color: row.error ? 'error.main' : 'success.main' }}>{row.error || 'Ready'}</TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </TableContainer>
+          </>}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setImportOpen(false)} disabled={importing}>{rejectedImportRows.length > 0 ? 'Close' : 'Cancel'}</Button>
+          <Button variant="contained" onClick={handleImport} disabled={importing || importRows.length === 0 || importRows.some(row => !!row.error)} startIcon={importing ? <CircularProgress size={18} /> : <UploadFileIcon />}>
+            {importing ? 'Importing...' : `Import ${importRows.length} row(s)`}
           </Button>
         </DialogActions>
       </Dialog>

@@ -45,6 +45,8 @@ const mapPackingControl = (raw: any): PackingControl => ({
   })),
   fqBoxLines: (raw.fqBoxLines ?? raw.FqBoxLines ?? []).map((l: any) => ({
     sourcePackingControlId: l.sourcePackingControlId ?? l.SourcePackingControlId ?? 0,
+    sourceFgpoId: l.sourceFGPOId ?? l.SourceFGPOId ?? 0,
+    sourceFgpoNumber: l.sourceFGPONumber ?? l.SourceFGPONumber ?? '',
     size: l.size ?? l.Size ?? '',
     quantity: l.quantity ?? l.Quantity ?? 0,
   })),

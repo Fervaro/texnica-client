@@ -17,6 +17,7 @@ export interface RollReceiving {
   fabricDescription?: string;
   shippedYards?: number;
   receivingStatus?: string;
+  uniqueId?: string | null;
   rollNumber?: string;
   supplierRollNumber?: string;
   color?: string;

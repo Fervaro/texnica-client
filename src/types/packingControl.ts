@@ -69,21 +69,24 @@ export interface PackingIrrBoxLine {
 
 export interface PackingFqBoxLine {
   sourcePackingControlId: number;
+  sourceFgpoId?: number;
+  sourceFgpoNumber?: string;
   size?: string;
   quantity: number;
 }
 
 export interface PackingFqSizeOption { size: string; availableQty: number; }
 export interface PackingFqVariantOption {
+  fgpoIds: number[];
   style: string;
   color: string;
   pcsPerCarton: number;
   sizes: PackingFqSizeOption[];
 }
-export interface PackingFqBoxOptions { fgpoId: number; variants: PackingFqVariantOption[]; }
+export interface PackingFqBoxOptions { fgpoIds: number[]; variants: PackingFqVariantOption[]; }
 export interface CreatePackingFqBoxInput {
   packingDate: string;
-  fgpoId: number;
+  fgpoIds: number[];
   style: string;
   color: string;
   pcsPerCarton?: number | null;

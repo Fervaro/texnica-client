@@ -1,0 +1,1 @@
+var e=()=>{try{let e=localStorage.getItem(`user`);return e?JSON.parse(e).userName??``:``}catch{return``}};export{e as t};

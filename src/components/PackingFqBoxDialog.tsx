@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
+  Alert, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Divider, FormControl, Grid, InputLabel, MenuItem, Select, TextField,
-  Typography,
+  Typography, ListItemText,
 } from '@mui/material';
 import { packingControlsApi } from '../utils/api';
 import { PackingFqBoxOptions } from '../types';
@@ -21,7 +21,7 @@ const today = () => new Date().toISOString().split('T')[0];
 const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVolcano, onSaved }) => {
   const [fgpos, setFgpos] = useState<Option[]>([]);
   const [fgpoLoading, setFgpoLoading] = useState(false);
-  const [fgpoId, setFgpoId] = useState(0);
+  const [selectedFgpoIds, setSelectedFgpoIds] = useState<number[]>([]);
   const [options, setOptions] = useState<PackingFqBoxOptions | null>(null);
   const [variantKey, setVariantKey] = useState('');
   const [quantities, setQuantities] = useState<Record<string, string>>({});
@@ -32,11 +32,13 @@ const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVol
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const optionsRequestId = useRef(0);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setFgpos([]); setFgpoLoading(true); setFgpoId(0); setOptions(null); setVariantKey('');
+    optionsRequestId.current++;
+    setFgpos([]); setFgpoLoading(true); setSelectedFgpoIds([]); setOptions(null); setVariantKey('');
     setQuantities({}); setPackingDate(today()); setResponsiblePersonId(0); setRemarks('');
     setManualCapacity(''); setError('');
     packingControlsApi.getFgpos()
@@ -56,16 +58,19 @@ const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVol
   const capacity = isVolcano ? (Number(manualCapacity) || 0) : (variant?.pcsPerCarton ?? 0);
   const total = sizes.reduce((sum, size) => sum + (Number(quantities[size.size] ?? '') || 0), 0);
 
-  const loadOptions = async (id: number) => {
-    setFgpoId(id); setOptions(null); setVariantKey(''); setQuantities({}); setManualCapacity(''); setError('');
-    if (!id) return;
+  const loadOptions = async (ids: number[]) => {
+    const requestId = ++optionsRequestId.current;
+    setSelectedFgpoIds(ids); setOptions(null); setVariantKey(''); setQuantities({}); setManualCapacity(''); setError('');
+    if (ids.length === 0) return;
     setLoading(true);
     try {
-      const res = await packingControlsApi.getFqBoxOptions(id);
+      const res = await packingControlsApi.getFqBoxOptions(ids);
       const raw = res.data ?? res;
+      if (requestId !== optionsRequestId.current) return;
       setOptions({
-        fgpoId: raw.fgpoId ?? raw.FGPOId ?? id,
+        fgpoIds: raw.fgpoIds ?? raw.FGPOIds ?? ids,
         variants: (raw.variants ?? raw.Variants ?? []).map((v: any) => ({
+          fgpoIds: v.fgpoIds ?? v.FGPOIds ?? [],
           style: v.style ?? v.Style ?? '', color: v.color ?? v.Color ?? '',
           pcsPerCarton: v.pcsPerCarton ?? v.PcsPerCarton ?? 0,
           sizes: (v.sizes ?? v.Sizes ?? []).map((s: any) => ({
@@ -74,8 +79,8 @@ const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVol
         })),
       });
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.response?.data || err?.message || 'Could not load FQ availability.');
-    } finally { setLoading(false); }
+      if (requestId === optionsRequestId.current) setError(err?.response?.data?.message || err?.response?.data || err?.message || 'Could not load FQ availability.');
+    } finally { if (requestId === optionsRequestId.current) setLoading(false); }
   };
 
   const autoFill = () => {
@@ -92,7 +97,7 @@ const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVol
 
   const submit = async () => {
     setError('');
-    if (!fgpoId || !variant) { setError('Select an FGPO, style and color.'); return; }
+    if (selectedFgpoIds.length === 0 || !variant) { setError('Select one or more FGPOs, style and color.'); return; }
     if (!packingDate) { setError('Packing Date is required.'); return; }
     if (capacity <= 0) { setError('Box capacity must be greater than zero.'); return; }
     const lines = sizes.map(s => ({ size: s.size, quantity: Number(quantities[s.size] ?? '') || 0 })).filter(line => line.quantity > 0);
@@ -103,7 +108,7 @@ const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVol
     setSaving(true);
     try {
       await packingControlsApi.createFqBox({
-        packingDate: new Date(packingDate).toISOString(), fgpoId,
+        packingDate: new Date(packingDate).toISOString(), fgpoIds: selectedFgpoIds,
         style: variant.style, color: variant.color,
         pcsPerCarton: isVolcano ? capacity : null,
         responsiblePersonId: responsiblePersonId || null, remarks: remarks || null, lines,
@@ -122,14 +127,24 @@ const PackingFqBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVol
       <Grid container spacing={2} sx={{ mt: 0.5 }}>
         <Grid size={{ xs: 12, sm: 6 }}>
           <FormControl fullWidth size="small" disabled={fgpoLoading}><InputLabel>FGPO *</InputLabel>
-            <Select value={fgpoId || ''} label="FGPO *" onChange={e => loadOptions(Number(e.target.value))}>
-              <MenuItem value=""><em>Select an FGPO...</em></MenuItem>
-              {fgpos.map(f => <MenuItem key={f.id} value={f.id}>{f.label}</MenuItem>)}
+            <Select
+              multiple
+              value={selectedFgpoIds}
+              label="FGPO *"
+              onChange={e => {
+                const value = e.target.value;
+                const ids = (Array.isArray(value) ? value : String(value).split(',')).map(Number);
+                void loadOptions(ids);
+              }}
+              renderValue={selected => <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>{(selected as number[]).map(id => <Chip key={id} size="small" label={fgpos.find(f => f.id === id)?.label ?? String(id)} />)}</Box>}
+            >
+              {fgpos.map(f => <MenuItem key={f.id} value={f.id}><Checkbox checked={selectedFgpoIds.includes(f.id)} /><ListItemText primary={f.label} /></MenuItem>)}
             </Select>
           </FormControl>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth size="small" label="Packing Date *" type="date" value={packingDate} onChange={e => setPackingDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
         {fgpoLoading && <Grid size={{ xs: 12 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={16} /><Typography variant="caption">Loading FGPOs...</Typography></Box></Grid>}
+        {variant && variant.fgpoIds.length > 1 && <Grid size={{ xs: 12 }}><Typography variant="caption" color="text.secondary">This box will use FQ from {variant.fgpoIds.map(id => fgpos.find(f => f.id === id)?.label ?? id).join(', ')} and will be listed under the first contributing FGPO.</Typography></Grid>}
         {loading && <Grid size={{ xs: 12 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CircularProgress size={16} /><Typography variant="caption">Loading available FQ quantities...</Typography></Box></Grid>}
         {options && <>
           <Grid size={{ xs: 12, sm: 6 }}><FormControl fullWidth size="small" disabled={!options.variants.length}><InputLabel>Style / Color *</InputLabel>

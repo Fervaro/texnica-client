@@ -28,10 +28,14 @@ interface PkRow {
   receivedByPackingQty: number;
   foldedQty: number;
   polybaggedQty: number;
+  fqQty: number;
   packedQty: number;
   fullCartons: number;
   partialCartons: number;
   pcsPerCarton: number;
+  isIrrBox: boolean;
+  isFqBox: boolean;
+  irrFieldNo?: number | null;
   readyToShipQty: number;
   packingVariance: number;
   pendingPacking: number;
@@ -49,6 +53,7 @@ const Warehouse: React.FC = () => {
   const [expandedFgpo, setExpandedFgpo] = useState<string | null>(null);
   const [shippedBoxes, setShippedBoxes] = useState(0);
   const [shippedPieces, setShippedPieces] = useState(0);
+  const [fqEnabled, setFqEnabled] = useState(false);
 
   const { configs: fieldConfigs } = usePackingFieldConfigs();
   const visibleFields = useMemo(() => visiblePackingFields(fieldConfigs), [fieldConfigs]);
@@ -57,10 +62,12 @@ const Warehouse: React.FC = () => {
     const load = async () => {
       setLoading(true); setError('');
       try {
-        const [res, shipRes] = await Promise.all([
+        const [res, shipRes, fqFeatureRes] = await Promise.all([
           packingControlsApi.getAll(),
           shipmentControlsApi.getAll().catch(() => ({ data: [] })),
+          packingControlsApi.getFqPackingEnabled().catch(() => ({ data: { enabled: false } })),
         ]);
+        setFqEnabled(Boolean(fqFeatureRes.data?.enabled ?? fqFeatureRes.data?.Enabled));
         setPackingItems((res.data ?? []).map((p: any) => ({
           id: p.id ?? p.ID ?? 0,
           fgpoId: p.fgpoId ?? p.FGPOId ?? 0,
@@ -73,10 +80,14 @@ const Warehouse: React.FC = () => {
           receivedByPackingQty: p.receivedByPackingQty ?? p.ReceivedByPackingQty ?? 0,
           foldedQty: p.foldedQty ?? p.FoldedQty ?? 0,
           polybaggedQty: p.polybaggedQty ?? p.PolybaggedQty ?? 0,
+          fqQty: p.fqQty ?? p.FqQty ?? 0,
           packedQty: p.packedQty ?? p.PackedQty ?? 0,
           fullCartons: p.fullCartons ?? p.FullCartons ?? 0,
           partialCartons: p.partialCartons ?? p.PartialCartons ?? 0,
           pcsPerCarton: p.pcsPerCarton ?? p.PcsPerCarton ?? 0,
+          isIrrBox: p.isIrrBox ?? p.IsIrrBox ?? false,
+          isFqBox: p.isFqBox ?? p.IsFqBox ?? false,
+          irrFieldNo: p.irrFieldNo ?? p.IrrFieldNo ?? null,
           readyToShipQty: p.readyToShipQty ?? p.ReadyToShipQty ?? 0,
           packingVariance: p.packingVariance ?? p.PackingVariance ?? 0,
           pendingPacking: p.pendingPacking ?? p.PendingPacking ?? 0,
@@ -103,11 +114,23 @@ const Warehouse: React.FC = () => {
   const totalPacked = packingItems.reduce((s, p) => s + p.packedQty, 0);
   const totalReady = packingItems.reduce((s, p) => s + p.readyToShipQty, 0);
   const totalPending = packingItems.reduce((s, p) => s + p.pendingPacking, 0);
+  const totalFq = packingItems.reduce((s, p) => s + p.fqQty, 0);
 
   // Totales globales de los campos configurables (p. ej. IRR 2nd, IRR 3rd).
   const totalFields: Record<number, number> = {};
   visibleFields.forEach(f => {
     totalFields[f.fieldNo] = packingItems.reduce((s, p) => s + qtyFor(p, f.fieldNo), 0);
+  });
+
+  // Cajas físicas creadas desde cada categoría IRR, separadas de las cantidades del campo.
+  const irrBoxCounts: Record<number, number> = {};
+  let fqBoxCount = 0;
+  packingItems.forEach(p => {
+    const cartons = p.fullCartons + p.partialCartons;
+    if (p.isIrrBox && p.irrFieldNo) {
+      irrBoxCounts[p.irrFieldNo] = (irrBoxCounts[p.irrFieldNo] ?? 0) + cartons;
+    }
+    if (p.isFqBox) fqBoxCount += cartons;
   });
 
   // Agrupa los registros de empaque por FGPO (una fila por FGPO, expandible),
@@ -132,6 +155,7 @@ const Warehouse: React.FC = () => {
       const totalPacked = g.items.reduce((s, p) => s + p.packedQty, 0);
       const totalReady = g.items.reduce((s, p) => s + p.readyToShipQty, 0);
       const totalPending = g.items.reduce((s, p) => s + p.pendingPacking, 0);
+      const totalFq = g.items.reduce((s, p) => s + p.fqQty, 0);
 
       // Totales de los campos configurables (p. ej. IRR 2nd, IRR 3rd).
       const fieldTotals: Record<number, number> = {};
@@ -139,7 +163,7 @@ const Warehouse: React.FC = () => {
         fieldTotals[f.fieldNo] = g.items.reduce((s, p) => s + qtyFor(p, f.fieldNo), 0);
       });
 
-      type BoxAgg = { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number; fields: Record<number, number> };
+      type BoxAgg = { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number; fqQty: number; fields: Record<number, number> };
       const boxMap = new Map<string, BoxAgg>();
       g.items.forEach(p => {
         const key = `${p.style || ''}|${p.color || ''}|${p.size || ''}`;
@@ -147,6 +171,7 @@ const Warehouse: React.FC = () => {
         if (cur) {
           cur.pieces += p.packedQty;
           cur.unpacked += p.pendingPacking;
+          cur.fqQty += p.fqQty;
           if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
           visibleFields.forEach(f => { cur.fields[f.fieldNo] += qtyFor(p, f.fieldNo); });
         } else {
@@ -159,6 +184,7 @@ const Warehouse: React.FC = () => {
             pieces: p.packedQty,
             perBox: p.pcsPerCarton || 0,
             unpacked: p.pendingPacking,
+            fqQty: p.fqQty,
             fields,
           });
         }
@@ -174,6 +200,7 @@ const Warehouse: React.FC = () => {
         totalPacked,
         totalReady,
         totalPending,
+        totalFq,
         fieldTotals,
         totalBoxes: boxRows.reduce((s, r) => s + r.boxes, 0),
         boxRows,
@@ -191,7 +218,7 @@ const Warehouse: React.FC = () => {
     // Se usa exceljs porque la librería "xlsx" no persiste estilos de celda.
     const baseHeaders = ['FGPO', 'Style', 'Color', 'Size', 'Total pieces', 'Qty per box', 'No. of boxes', 'Unpacked'];
     const fieldHeaders = visibleFields.map(f => f.label);
-    const headers = [...baseHeaders, ...fieldHeaders];
+    const headers = [...baseHeaders, ...fieldHeaders, ...(fqEnabled ? ['FQ'] : [])];
 
     const rows: (string | number)[][] = [];
     fgpoSummary.forEach(g => {
@@ -206,6 +233,7 @@ const Warehouse: React.FC = () => {
           r.boxes,
           r.unpacked,
           ...visibleFields.map(f => r.fields[f.fieldNo] ?? 0),
+          ...(fqEnabled ? [r.fqQty] : []),
         ]);
       });
     });
@@ -371,8 +399,8 @@ const Warehouse: React.FC = () => {
           </Box>
 
           {/* Tarjetas pequeñas: campos configurables (IRR 2nd, IRR 3rd, etc.) */}
-          {visibleFields.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+          {(visibleFields.length > 0 || fqEnabled) && (
+            <Box sx={{ display: 'flex', gap: 2, mb: visibleFields.length > 0 ? 1 : 3, flexWrap: 'wrap' }}>
               {visibleFields.map(f => (
                 <Paper key={f.fieldNo} elevation={2} sx={{ p: 1.5, px: 2.5, borderTop: 3, borderColor: 'info.main', minWidth: 170 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -384,6 +412,43 @@ const Warehouse: React.FC = () => {
                   </Box>
                 </Paper>
               ))}
+              {fqEnabled && (
+              <Paper elevation={2} sx={{ p: 1.5, px: 2.5, borderTop: 3, borderColor: 'success.main', minWidth: 170 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Inventory2Icon sx={{ fontSize: 24, color: 'success.main' }} />
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>FQ</Typography>
+                    <Typography variant="h6" sx={{ color: 'success.main', fontWeight: 'bold' }}>{totalFq.toLocaleString()}</Typography>
+                  </Box>
+                </Box>
+              </Paper>
+              )}
+            </Box>
+          )}
+          {(visibleFields.length > 0 || fqEnabled) && (
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+              {visibleFields.map(f => (
+                <Paper key={f.fieldNo} elevation={2} sx={{ p: 1.5, px: 2.5, borderTop: 3, borderColor: 'primary.main', minWidth: 170 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Inventory2Icon sx={{ fontSize: 24, color: 'primary.main' }} />
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>{f.label} Boxes</Typography>
+                      <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold' }}>{(irrBoxCounts[f.fieldNo] ?? 0).toLocaleString()}</Typography>
+                    </Box>
+                  </Box>
+                </Paper>
+              ))}
+              {fqEnabled && (
+                <Paper elevation={2} sx={{ p: 1.5, px: 2.5, borderTop: 3, borderColor: 'success.main', minWidth: 170 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Inventory2Icon sx={{ fontSize: 24, color: 'success.main' }} />
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>FQ Boxes</Typography>
+                      <Typography variant="h6" sx={{ color: 'success.main', fontWeight: 'bold' }}>{fqBoxCount.toLocaleString()}</Typography>
+                    </Box>
+                  </Box>
+                </Paper>
+              )}
             </Box>
           )}
 
@@ -409,6 +474,7 @@ const Warehouse: React.FC = () => {
                     {visibleFields.map(f => (
                       <TableCell key={f.fieldNo} sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">{f.label}</TableCell>
                     ))}
+                    {fqEnabled && <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">FQ</TableCell>}
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Ready to Ship</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Pending</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }} align="right">Boxes</TableCell>
@@ -416,7 +482,7 @@ const Warehouse: React.FC = () => {
                 </TableHead>
                 <TableBody>
                   {fgpoSummary.length === 0 ? (
-                    <TableRow><TableCell colSpan={5 + visibleFields.length} align="center" sx={{ color: 'text.secondary', py: 3 }}>No packing records yet.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5 + visibleFields.length + (fqEnabled ? 1 : 0)} align="center" sx={{ color: 'text.secondary', py: 3 }}>No packing records yet.</TableCell></TableRow>
                   ) : fgpoSummary.map(g => (
                     <React.Fragment key={g.key}>
                       <TableRow hover>
@@ -434,13 +500,14 @@ const Warehouse: React.FC = () => {
                         {visibleFields.map(f => (
                           <TableCell key={f.fieldNo} align="right" sx={{ fontWeight: 600 }}>{(g.fieldTotals[f.fieldNo] ?? 0).toLocaleString()}</TableCell>
                         ))}
+                        {fqEnabled && <TableCell align="right" sx={{ color: 'success.main', fontWeight: 600 }}>{g.totalFq.toLocaleString()}</TableCell>}
                         <TableCell align="right" sx={{ color: 'success.main', fontWeight: 600 }}>{g.totalReady.toLocaleString()}</TableCell>
                         <TableCell align="right" sx={{ color: 'warning.main', fontWeight: 600 }}>{g.totalPending.toLocaleString()}</TableCell>
                         <TableCell align="right" sx={{ color: 'primary.main', fontWeight: 600 }}>{g.totalBoxes.toLocaleString()}</TableCell>
                       </TableRow>
                       {expandedFgpo === g.key && (
                         <TableRow>
-                          <TableCell colSpan={5 + visibleFields.length} sx={{ bgcolor: 'grey.50', p: 2 }}>
+                          <TableCell colSpan={5 + visibleFields.length + (fqEnabled ? 1 : 0)} sx={{ bgcolor: 'grey.50', p: 2 }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                               Packing: {g.fgpoNumber || g.key}
                             </Typography>
@@ -450,7 +517,7 @@ const Warehouse: React.FC = () => {
                               <Table size="small">
                                 <TableHead>
                                   <TableRow>
-                                    {['Style', 'Color', 'Size', 'Total pieces', ...visibleFields.map(f => f.label), 'Qty per box', 'No. of boxes', 'Unpacked'].map(h => (
+                                    {['Style', 'Color', 'Size', 'Total pieces', ...visibleFields.map(f => f.label), ...(fqEnabled ? ['FQ'] : []), 'Qty per box', 'No. of boxes', 'Unpacked'].map(h => (
                                       <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
                                     ))}
                                   </TableRow>
@@ -465,6 +532,7 @@ const Warehouse: React.FC = () => {
                                       {visibleFields.map(f => (
                                         <TableCell key={f.fieldNo}>{(r.fields[f.fieldNo] ?? 0).toLocaleString()}</TableCell>
                                       ))}
+                                      {fqEnabled && <TableCell>{r.fqQty.toLocaleString()}</TableCell>}
                                       <TableCell>{r.perBox || '-'}</TableCell>
                                       <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>{r.boxes.toLocaleString()}</TableCell>
                                       <TableCell sx={{ color: 'warning.main', fontWeight: 600 }}>{r.unpacked.toLocaleString()}</TableCell>

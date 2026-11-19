@@ -321,6 +321,7 @@ export const fabricMovementsApi = {
   getByRoll: (rollReceivingId: number) => api.get(`/fabric-movements/roll/${rollReceivingId}`),
   getBalances: (fgpoId?: number) => api.get('/fabric-movements/balances', { params: fgpoId ? { fgpoId } : undefined }),
   create: (data: any) => api.post('/fabric-movements', data),
+  importAdjustmentOut: (data: any) => api.post('/fabric-movements/import-adjustment-out', data),
 };
 
 // Fabric Inventory Import API (importación desde Excel INGRESOS)
@@ -353,7 +354,7 @@ export const packingControlsApi = {
     getIrrBoxOptions: (fgpoId: number) => api.get(`/packing-controls/irr-box-options/${fgpoId}`),
     createIrrBox: (data: any) => api.post('/packing-controls/irr-box', data),
     getFqPackingEnabled: () => api.get('/packing-controls/fq-enabled'),
-    getFqBoxOptions: (fgpoId: number) => api.get(`/packing-controls/fq-box-options/${fgpoId}`),
+    getFqBoxOptions: (fgpoIds: number[]) => api.get(`/packing-controls/fq-box-options/${fgpoIds.join(',')}`),
     createFqBox: (data: any) => api.post('/packing-controls/fq-box', data),
 };
 
