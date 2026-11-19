@@ -1,0 +1,1 @@
+import{X as e,Y as t,et as n}from"./Button-CTWwhsqs.js";var r=e();function i(e){let{theme:n,name:r,props:i}=e;return!n||!n.components||!n.components[r]||!n.components[r].defaultProps?i:t(n.components[r].defaultProps,i)}function a(e){let{props:t,name:r,defaultTheme:a,themeId:o}=e,s=n(a);return o&&(s=s[o]||s),i({theme:s,name:r,props:t})}export{r as n,a as t};
