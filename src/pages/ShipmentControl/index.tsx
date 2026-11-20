@@ -54,8 +54,10 @@ interface BoxOption {
   size: string;
   boxCode: string;
   cartons: number;
+  fqCartons: number;
   pcsPerCarton: number;
   packedQty: number;
+  isFqBox: boolean;
 }
 
 const ShipmentControlPage: React.FC = () => {
@@ -84,6 +86,7 @@ const ShipmentControlPage: React.FC = () => {
   const [boxes, setBoxes] = useState<BoxOption[]>([]);
   const [selectedFgpoIds, setSelectedFgpoIds] = useState<number[]>([]);
   const [boxQuantities, setBoxQuantities] = useState<Record<string, string>>({});
+  const [fqBoxQuantities, setFqBoxQuantities] = useState<Record<string, string>>({});
 
   const handleSearch = (e: FormEvent) => { e.preventDefault(); setSearchQuery(searchInput); };
   const handleClearSearch = () => setSearchInput('');
@@ -91,7 +94,7 @@ const ShipmentControlPage: React.FC = () => {
   const resetForm = () => setForm(emptyForm);
 
   const openCreate = () => {
-    setEditingId(null); resetForm(); setBoxes([]); setSelectedFgpoIds([]); setBoxQuantities({});
+    setEditingId(null); resetForm(); setBoxes([]); setSelectedFgpoIds([]); setBoxQuantities({}); setFqBoxQuantities({});
     setFormError(''); setDialogOpen(true);
   };
 
@@ -102,7 +105,11 @@ const ShipmentControlPage: React.FC = () => {
     try {
       const res = await packingControlsApi.getByFgpo(fgpoId);
       const label = warehouseFgpoOptions.find(f => f.id === fgpoId)?.label ?? '';
-      const rows: BoxOption[] = (res.data ?? []).map((p: any): BoxOption => ({
+      const rows: BoxOption[] = (res.data ?? []).map((p: any): BoxOption => {
+        const isFqBox = p.isFqBox ?? p.IsFqBox ?? false;
+        const availableCartons = p.availableCartons ?? ((p.fullCartons ?? p.FullCartons ?? 0) + (p.partialCartons ?? p.PartialCartons ?? 0));
+        const availableFqBoxes = p.availableFqBoxes ?? p.AvailableFqBoxes ?? 0;
+        return ({
         id: p.id ?? p.ID ?? 0,
         fgpoId,
         fgpoNumber: label,
@@ -110,10 +117,13 @@ const ShipmentControlPage: React.FC = () => {
         color: p.color ?? p.Color ?? '',
         size: p.size ?? p.Size ?? '',
         boxCode: p.boxCode ?? p.BoxCode ?? '',
-        cartons: p.availableCartons ?? ((p.fullCartons ?? p.FullCartons ?? 0) + (p.partialCartons ?? p.PartialCartons ?? 0)),
+        cartons: isFqBox ? 0 : availableCartons,
+        fqCartons: isFqBox ? (availableFqBoxes || availableCartons) : availableFqBoxes,
         pcsPerCarton: p.pcsPerCarton ?? p.PcsPerCarton ?? 0,
         packedQty: p.packedQty ?? p.PackedQty ?? 0,
-      }));
+        isFqBox,
+        });
+      }).filter((b: BoxOption) => b.cartons > 0 || b.fqCartons > 0);
       setBoxes(prev => [...prev.filter(b => b.fgpoId !== fgpoId), ...rows]);
     } catch { /* vacío */ }
   };
@@ -132,13 +142,24 @@ const ShipmentControlPage: React.FC = () => {
         });
         return next;
       });
+      setFqBoxQuantities(q => {
+        const next = { ...q };
+        Object.keys(next).forEach(k => {
+          removed.forEach(id => { if (k.startsWith(`${id}-`)) delete next[k]; });
+        });
+        return next;
+      });
     }
     added.forEach(id => loadBoxesForFgpo(id));
   };
 
   const setBoxQty = (b: BoxOption, value: string) => setBoxQuantities(prev => ({ ...prev, [boxKey(b)]: value }));
+  const setFqBoxQty = (b: BoxOption, value: string) => setFqBoxQuantities(prev => ({ ...prev, [boxKey(b)]: value }));
 
-  const totalPieces = boxes.reduce((s, b) => s + (Number(boxQuantities[boxKey(b)] ?? '') || 0) * b.pcsPerCarton, 0);
+  const piecesPerBox = (box: BoxOption) => box.isFqBox ? box.packedQty : box.pcsPerCarton;
+  const totalPieces = boxes.reduce((s, b) => s
+    + (Number(boxQuantities[boxKey(b)] ?? '') || 0) * piecesPerBox(b)
+    + (Number(fqBoxQuantities[boxKey(b)] ?? '') || 0) * (b.isFqBox ? b.packedQty : b.pcsPerCarton), 0);
 
   const handleFgpoChange = (val: number) => {
     setForm(prev => ({ ...prev, FGPOId: val }));
@@ -146,6 +167,7 @@ const ShipmentControlPage: React.FC = () => {
       setSelectedFgpoIds([]);
       setBoxes([]);
       setBoxQuantities({});
+      setFqBoxQuantities({});
       setForm(prev => ({ ...prev, PlannedQty: 0, ActualLoadedQty: 0, InTransitQty: 0, CustomerReceivedQty: 0, TotalShippedQty: 0 }));
     }
   };
@@ -200,8 +222,12 @@ const ShipmentControlPage: React.FC = () => {
     }
 
     const lines = boxes
-      .map(b => ({ b, qty: Number(boxQuantities[boxKey(b)] ?? '') || 0 }))
-      .filter(x => x.qty > 0)
+      .map(b => ({
+        b,
+        qty: Number(boxQuantities[boxKey(b)] ?? '') || 0,
+        fqQty: Number(fqBoxQuantities[boxKey(b)] ?? '') || 0,
+      }))
+      .filter(x => x.qty > 0 || x.fqQty > 0)
       .map(x => ({
         fgpoId: x.b.fgpoId,
         packingControlId: x.b.id,
@@ -210,6 +236,7 @@ const ShipmentControlPage: React.FC = () => {
         size: x.b.size,
         boxCode: x.b.boxCode,
         boxesToShip: x.qty,
+        fqBoxesToShip: x.fqQty,
         pcsPerCarton: x.b.pcsPerCarton,
       }));
 
@@ -391,12 +418,14 @@ const ShipmentControlPage: React.FC = () => {
                       <Table size="small" stickyHeader>
                         <TableHead>
                           <TableRow>
-                            {['FGPO', 'Style / Color', 'Size', 'Box', 'Cartons', 'Pcs/Box', 'Boxes to ship', 'Pieces'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
+                            {['FGPO', 'Style / Color', 'Size', 'Box', 'Cartons', 'FQ Boxes', 'Pcs/Box', 'Boxes to ship', 'FQ Boxes to ship', 'Pieces'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {boxes.map(b => {
                             const qty = Number(boxQuantities[boxKey(b)] ?? '') || 0;
+                            const fqQty = Number(fqBoxQuantities[boxKey(b)] ?? '') || 0;
+                            const fqPiecesPerBox = b.isFqBox ? b.packedQty : b.pcsPerCarton;
                             return (
                               <TableRow key={boxKey(b)} hover>
                                 <TableCell>{b.fgpoNumber}</TableCell>
@@ -404,13 +433,19 @@ const ShipmentControlPage: React.FC = () => {
                                 <TableCell>{b.size || '-'}</TableCell>
                                 <TableCell>{b.boxCode || '-'}</TableCell>
                                 <TableCell>{b.cartons}</TableCell>
-                                <TableCell>{b.pcsPerCarton}</TableCell>
+                                <TableCell>{b.fqCartons}</TableCell>
+                                <TableCell>{num(piecesPerBox(b))}</TableCell>
                                 <TableCell>
                                   <TextField size="small" type="number" value={boxQuantities[boxKey(b)] ?? ''}
                                     onChange={e => setBoxQty(b, e.target.value)}
                                     slotProps={{ htmlInput: { min: 0, max: b.cartons } }} sx={{ width: 90 }} />
                                 </TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>{num(qty * b.pcsPerCarton)}</TableCell>
+                                <TableCell>
+                                  <TextField size="small" type="number" value={fqBoxQuantities[boxKey(b)] ?? ''}
+                                    onChange={e => setFqBoxQty(b, e.target.value)}
+                                    slotProps={{ htmlInput: { min: 0, max: b.fqCartons } }} sx={{ width: 90 }} />
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{num(qty * piecesPerBox(b) + fqQty * fqPiecesPerBox)}</TableCell>
                               </TableRow>
                             );
                           })}

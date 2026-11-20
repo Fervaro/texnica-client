@@ -1,9 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
   Toolbar, Typography, Box, Collapse, SxProps, Theme, Divider,
-  Avatar,
+  Avatar, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -44,7 +44,9 @@ import WidgetsIcon from '@mui/icons-material/Widgets';
 import PercentIcon from '@mui/icons-material/Percent';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import LogoutIcon from '@mui/icons-material/Logout';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { AuthContext } from '../context/AuthContextValue';
+import { systemUpdates } from '../utils/systemUpdates';
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -68,7 +70,29 @@ interface NavSection {
 const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawerWidth }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, selectedCustomer } = useContext(AuthContext);
+  const [updatesOpen, setUpdatesOpen] = useState(false);
+  const userId = user?.id;
+  const customerId = selectedCustomer?.id ?? user?.customerId ?? 0;
+  const updatesStorageKey = `texnica-system-updates:${customerId}:${userId ?? 'guest'}`;
+
+  useEffect(() => {
+    if (userId == null || systemUpdates.changes.length === 0) return;
+    try {
+      setUpdatesOpen(window.localStorage.getItem(updatesStorageKey) !== systemUpdates.id);
+    } catch {
+      setUpdatesOpen(true);
+    }
+  }, [updatesStorageKey, userId]);
+
+  const closeUpdates = () => {
+    setUpdatesOpen(false);
+    try {
+      window.localStorage.setItem(updatesStorageKey, systemUpdates.id);
+    } catch {
+      // The dialog remains usable when browser storage is unavailable.
+    }
+  };
 
   // ===== Nueva estructura de módulos =====
   const navSections: NavSection[] = [
@@ -291,11 +315,11 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
       {/* User info and logout at bottom */}
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)' }} />
       <Box sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, minWidth: 0 }}>
           <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.25)', width: 36, height: 36, mr: 1.5, fontSize: '1rem', fontWeight: 700 }}>
             {avatarLetter}
           </Avatar>
-          <Box sx={{ overflow: 'hidden' }}>
+          <Box sx={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }} noWrap>
               {user?.userName || 'User'}
             </Typography>
@@ -303,6 +327,25 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
               {user?.email || ''}
             </Typography>
           </Box>
+          {systemUpdates.changes.length > 0 && (
+            <Tooltip title="Últimos cambios del sistema">
+              <IconButton
+                size="small"
+                aria-label="Ver últimos cambios del sistema"
+                onClick={() => setUpdatesOpen(true)}
+                sx={{
+                  ml: 0.5,
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.7)',
+                  width: 28,
+                  height: 28,
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                }}
+              >
+                <PriorityHighIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         <ListItemButton
@@ -349,6 +392,27 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, handleDrawerToggle, drawe
       >
         {drawer}
       </Drawer>
+      {systemUpdates.changes.length > 0 && (
+        <Dialog open={updatesOpen} onClose={closeUpdates} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ color: 'primary.main', fontWeight: 700 }}>
+            Últimos cambios del sistema
+            <Typography component="div" variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Actualización del {systemUpdates.date}
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            {systemUpdates.changes.map((change) => (
+              <Box key={change.title} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+                <Typography sx={{ fontWeight: 700 }}>{change.title}</Typography>
+                <Typography variant="body2" color="text.secondary">{change.description}</Typography>
+              </Box>
+            ))}
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button variant="contained" onClick={closeUpdates}>Entendido</Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };

@@ -54,6 +54,7 @@ export interface ShipmentControlLine {
   size?: string;
   boxCode?: string;
   boxesToShip: number;
+  fqBoxesToShip?: number;
   pcsPerCarton: number;
   pieces?: number;
 }
@@ -66,6 +67,7 @@ export interface CreateShipmentControlLineInput {
   size?: string;
   boxCode?: string;
   boxesToShip: number;
+  fqBoxesToShip: number;
   pcsPerCarton: number;
 }
 

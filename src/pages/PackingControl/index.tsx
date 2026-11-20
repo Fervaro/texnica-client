@@ -31,7 +31,7 @@ const emptyForm = {
   FGPOId: 0,
   BoxTypeId: 0,
   QcPassedQty: 0, ReceivedByPackingQty: 0, FoldedQty: 0, PolybaggedQty: 0, PendingPacking: 0, PackedQty: 0,
-  FqQty: 0,
+  FqBoxes: 0, FqPartialQty: 0,
   PcsPerCarton: 0, Cajas: 0,
   ResponsiblePersonId: 0, Remarks: '',
 };
@@ -189,6 +189,9 @@ const PackingControlPage: React.FC = () => {
 
   const openCreate = () => { setBulkOpen(true); };
   const openEdit = (item: PackingControl) => {
+    const fqQty = item.fqQty ?? 0;
+    const fqCapacity = item.pcsPerCarton > 0 ? item.pcsPerCarton : 0;
+    const fqBoxes = fqCapacity > 0 ? Math.floor(fqQty / fqCapacity) : 0;
     setEditingId(item.id);
     setForm({
       PackingDate: item.packingDate?.split('T')[0] || '',
@@ -196,7 +199,8 @@ const PackingControlPage: React.FC = () => {
       BoxTypeId: item.boxTypeId ?? 0,
       QcPassedQty: item.qcPassedQty, ReceivedByPackingQty: item.receivedByPackingQty,
       FoldedQty: item.foldedQty, PolybaggedQty: item.polybaggedQty, PendingPacking: item.pendingPacking, PackedQty: item.packedQty,
-      FqQty: item.fqQty ?? 0,
+      FqBoxes: fqBoxes,
+      FqPartialQty: fqQty - fqBoxes * fqCapacity,
       PcsPerCarton: item.pcsPerCarton,
       Cajas: item.pcsPerCarton > 0 ? item.packedQty / item.pcsPerCarton : 0,
       ResponsiblePersonId: userList.find(o => o.label === item.responsiblePersonName)?.id ?? 0,
@@ -219,11 +223,13 @@ const PackingControlPage: React.FC = () => {
   const handleSave = async () => {
     setFormError('');
     if (!form.FGPOId) { setFormError('FGPO is required.'); return; }
-    if (form.PackedQty < 0 || form.QcPassedQty < 0 || form.PendingPacking < 0 || form.FqQty < 0) { setFormError('Quantities cannot be negative.'); return; }
+    if (form.PackedQty < 0 || form.QcPassedQty < 0 || form.PendingPacking < 0 || form.FqBoxes < 0 || form.FqPartialQty < 0) { setFormError('Quantities cannot be negative.'); return; }
     if (!form.PcsPerCarton || Number(form.PcsPerCarton) <= 0) { setFormError('Pcs per Carton must be greater than 0.'); return; }
+    if (form.FqPartialQty >= form.PcsPerCarton) { setFormError('FQ Partial Qty must be less than the carton capacity.'); return; }
     try {
       const payload = {
         ...form,
+        FqQty: form.FqBoxes * form.PcsPerCarton + form.FqPartialQty,
         BoxTypeId: form.BoxTypeId || null,
         ResponsiblePersonId: form.ResponsiblePersonId || null,
         PackingDate: form.PackingDate ? new Date(form.PackingDate).toISOString() : new Date().toISOString(),
@@ -286,16 +292,16 @@ const PackingControlPage: React.FC = () => {
           <Table size="small">
             <TableHead sx={{ bgcolor: 'grey.100' }}>
               <TableRow>
-                {['Date', 'FGPO', 'Style / Color', 'Size', ...visibleFields.map(f => f.label), ...(fqEnabled ? ['FQ'] : []), 'Packed', 'Cartons', 'Pcs/Carton', 'Ready', 'Variance', 'Pending', 'Overpacked', 'Responsible', 'Actions'].map(h =>
+                {['Date', 'FGPO', 'Style / Color', 'Size', ...visibleFields.map(f => f.label), ...(fqEnabled ? ['FQ Boxes', 'FQ Partial Qty'] : []), 'Packed', 'Cartons', 'Pcs/Carton', 'Ready', 'Variance', 'Pending', 'Overpacked', 'Responsible', 'Actions'].map(h =>
                   <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
                 )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={13 + visibleFields.length + (fqEnabled ? 1 : 0)} align="center"><CircularProgress size={28} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={13 + visibleFields.length + (fqEnabled ? 2 : 0)} align="center"><CircularProgress size={28} /></TableCell></TableRow>
               ) : items.length === 0 ? (
-                <TableRow><TableCell colSpan={13 + visibleFields.length + (fqEnabled ? 1 : 0)} align="center" sx={{ color: 'text.secondary', py: 4 }}>No records found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13 + visibleFields.length + (fqEnabled ? 2 : 0)} align="center" sx={{ color: 'text.secondary', py: 4 }}>No records found.</TableCell></TableRow>
               ) : items.map((item) => (
                 <TableRow key={item.id} hover>
                   <TableCell>{fmt(item.packingDate)}</TableCell>
@@ -314,7 +320,16 @@ const PackingControlPage: React.FC = () => {
                   {visibleFields.map(f => (
                     <TableCell key={f.fieldNo}>{num(item[FIELD_ITEM_KEY[f.fieldNo]] as number)}</TableCell>
                   ))}
-                  {fqEnabled && <TableCell>{num(item.fqQty ?? 0)}</TableCell>}
+                  {fqEnabled && (() => {
+                    const fqQty = item.fqQty ?? 0;
+                    const capacity = item.pcsPerCarton;
+                    const fqBoxes = capacity > 0 ? Math.floor(fqQty / capacity) : 0;
+                    const fqPartialQty = capacity > 0 ? fqQty - fqBoxes * capacity : fqQty;
+                    return <>
+                      <TableCell>{num(fqBoxes)}</TableCell>
+                      <TableCell>{num(fqPartialQty)}</TableCell>
+                    </>;
+                  })()}
                   <TableCell sx={{ fontWeight: 600 }}>{num(item.packedQty)}</TableCell>
                   <TableCell>{item.fullCartons} + {item.partialCartons}</TableCell>
                   <TableCell>{item.pcsPerCarton}</TableCell>
@@ -379,7 +394,14 @@ const PackingControlPage: React.FC = () => {
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField fullWidth size="small" label="Pending Packing" type="number" value={form.PendingPacking} onChange={e => setF('PendingPacking', Number(e.target.value))} slotProps={{ htmlInput: { min: 0 } }} helperText="Pieces not yet packed (do not complete a box)" />
             </Grid>
-            {fqEnabled && <Grid size={{ xs: 12, sm: 6, md: 4 }}><TextField fullWidth size="small" label="FQ" type="number" value={form.FqQty} onChange={e => setF('FqQty', Number(e.target.value))} slotProps={{ htmlInput: { min: 0 } }} helperText="FQ pieces available for FQ boxes" /></Grid>}
+            {fqEnabled && <>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField fullWidth size="small" label="FQ Boxes" type="number" value={form.FqBoxes} onChange={e => setF('FqBoxes', Number(e.target.value))} slotProps={{ htmlInput: { min: 0, step: 1 } }} helperText="Complete FQ cartons" />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <TextField fullWidth size="small" label="FQ Partial Qty" type="number" value={form.FqPartialQty} onChange={e => setF('FqPartialQty', Number(e.target.value))} slotProps={{ htmlInput: { min: 0, max: Math.max(0, form.PcsPerCarton - 1) } }} helperText="FQ pieces left over, below one carton" />
+              </Grid>
+            </>}
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField fullWidth size="small" label="Packed Qty" type="number" value={form.PackedQty} disabled helperText="Auto: Qty/Box × boxes" />
             </Grid>

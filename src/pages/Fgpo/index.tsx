@@ -754,11 +754,16 @@ const Fgpo: React.FC = () => {
                 {expandedFgpo === fgpo.ID && (
                   <TableRow>
                     <TableCell colSpan={23} sx={{ bgcolor: 'grey.50', p: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                           FGPO Lines: {fgpo.FGPONumber || '-'}
                         </Typography>
-                        <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => openLineDialog(fgpo.ID)}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<AddIcon />}
+                          onClick={() => openLineDialog(fgpo.ID)}
+                        >
                           Add Line
                         </Button>
                       </Box>

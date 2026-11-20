@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   CircularProgress, Alert, Button
@@ -36,6 +36,7 @@ interface PkRow {
   isMix: boolean;
   isIrrBox: boolean;
   isFqBox: boolean;
+  fqBoxLines: { sourcePackingControlId: number; quantity: number }[];
   irrFieldNo?: number | null;
   readyToShipQty: number;
   packingVariance: number;
@@ -89,6 +90,10 @@ const Warehouse: React.FC = () => {
           isMix: p.isMix ?? p.IsMix ?? false,
           isIrrBox: p.isIrrBox ?? p.IsIrrBox ?? false,
           isFqBox: p.isFqBox ?? p.IsFqBox ?? false,
+          fqBoxLines: (p.fqBoxLines ?? p.FqBoxLines ?? []).map((line: any) => ({
+            sourcePackingControlId: line.sourcePackingControlId ?? line.SourcePackingControlId ?? 0,
+            quantity: line.quantity ?? line.Quantity ?? 0,
+          })),
           irrFieldNo: p.irrFieldNo ?? p.IrrFieldNo ?? null,
           readyToShipQty: p.readyToShipQty ?? p.ReadyToShipQty ?? 0,
           packingVariance: p.packingVariance ?? p.PackingVariance ?? 0,
@@ -99,7 +104,9 @@ const Warehouse: React.FC = () => {
         let boxes = 0, pieces = 0;
         shipments.forEach((sc: any) => {
           const lines = sc.lines ?? sc.Lines ?? [];
-          const lineBoxes = lines.reduce((a: number, l: any) => a + (l.boxesToShip ?? l.BoxesToShip ?? 0), 0);
+          const lineBoxes = lines.reduce((a: number, l: any) => a
+            + (l.boxesToShip ?? l.BoxesToShip ?? 0)
+            + (l.fqBoxesToShip ?? l.FqBoxesToShip ?? 0), 0);
           const linePieces = lines.reduce((a: number, l: any) =>
             a + (l.pieces ?? l.Pieces ?? (l.boxesToShip ?? l.BoxesToShip ?? 0) * (l.pcsPerCarton ?? l.PcsPerCarton ?? 0)), 0);
           boxes += lineBoxes;
@@ -118,6 +125,20 @@ const Warehouse: React.FC = () => {
   const totalPending = packingItems.reduce((s, p) => s + p.pendingPacking, 0);
   const totalFq = packingItems.reduce((s, p) => s + p.fqQty, 0);
 
+  const allocatedFqBySource = useMemo(() => {
+    const allocations = new Map<number, number>();
+    packingItems.forEach(item => item.fqBoxLines.forEach(line => {
+      allocations.set(line.sourcePackingControlId,
+        (allocations.get(line.sourcePackingControlId) ?? 0) + line.quantity);
+    }));
+    return allocations;
+  }, [packingItems]);
+  const availableFullFqBoxes = useCallback((item: PkRow) => {
+    if (item.isFqBox || item.isMix || item.isIrrBox || item.pcsPerCarton <= 0) return 0;
+    const remaining = Math.max(0, item.fqQty - (allocatedFqBySource.get(item.id) ?? 0));
+    return Math.floor(remaining / item.pcsPerCarton);
+  }, [allocatedFqBySource]);
+
   // Totales globales de los campos configurables (p. ej. IRR 2nd, IRR 3rd).
   const totalFields: Record<number, number> = {};
   visibleFields.forEach(f => {
@@ -126,13 +147,13 @@ const Warehouse: React.FC = () => {
 
   // Cajas físicas creadas desde cada categoría IRR, separadas de las cantidades del campo.
   const irrBoxCounts: Record<number, number> = {};
-  let fqBoxCount = 0;
+  let fqBoxCount = packingItems.reduce((sum, item) => sum
+    + (item.isFqBox ? item.fullCartons + item.partialCartons : availableFullFqBoxes(item)), 0);
   packingItems.forEach(p => {
     const cartons = p.fullCartons + p.partialCartons;
     if (p.isIrrBox && p.irrFieldNo) {
       irrBoxCounts[p.irrFieldNo] = (irrBoxCounts[p.irrFieldNo] ?? 0) + cartons;
     }
-    if (p.isFqBox) fqBoxCount += cartons;
   });
 
   // Agrupa los registros de empaque por FGPO (una fila por FGPO, expandible),
@@ -165,16 +186,17 @@ const Warehouse: React.FC = () => {
         fieldTotals[f.fieldNo] = g.items.reduce((s, p) => s + qtyFor(p, f.fieldNo), 0);
       });
 
-      type BoxAgg = { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number; fqQty: number; fields: Record<number, number>; isMix: boolean; mixBoxes: number };
+      type BoxAgg = { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number; fqQty: number; fqBoxes: number; fields: Record<number, number>; isMix: boolean; mixBoxes: number };
       const boxMap = new Map<string, BoxAgg>();
       g.items.forEach(p => {
         const size = p.isMix ? 'MIX' : p.size || '';
         const key = `${p.style || ''}|${p.color || ''}|${size}`;
         const cur = boxMap.get(key);
         if (cur) {
-          cur.pieces += p.packedQty;
+          cur.pieces += p.isFqBox ? 0 : p.packedQty;
           cur.unpacked += p.pendingPacking;
           cur.fqQty += p.fqQty;
+          cur.fqBoxes += p.isFqBox ? p.fullCartons + p.partialCartons : availableFullFqBoxes(p);
           if (p.isMix) cur.mixBoxes += p.fullCartons + p.partialCartons;
           else if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
           visibleFields.forEach(f => { cur.fields[f.fieldNo] += qtyFor(p, f.fieldNo); });
@@ -185,10 +207,11 @@ const Warehouse: React.FC = () => {
             style: p.style || '',
             color: p.color || '',
             size,
-            pieces: p.packedQty,
+            pieces: p.isFqBox ? 0 : p.packedQty,
             perBox: p.isMix ? 0 : p.pcsPerCarton || 0,
             unpacked: p.pendingPacking,
             fqQty: p.fqQty,
+            fqBoxes: p.isFqBox ? p.fullCartons + p.partialCartons : availableFullFqBoxes(p),
             fields,
             isMix: p.isMix,
             mixBoxes: p.isMix ? p.fullCartons + p.partialCartons : 0,
@@ -197,7 +220,7 @@ const Warehouse: React.FC = () => {
       });
       const boxRows = Array.from(boxMap.values()).map(r => ({
         ...r,
-        boxes: r.isMix ? r.mixBoxes : r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0,
+        boxes: r.isMix ? r.mixBoxes : (r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0) + r.fqBoxes,
       }));
 
       return {
@@ -212,7 +235,7 @@ const Warehouse: React.FC = () => {
         boxRows,
       };
     });
-  }, [fgpoGroups, visibleFields]);
+  }, [fgpoGroups, visibleFields, availableFullFqBoxes]);
 
   const totalBoxes = fgpoSummary.reduce((s, g) => s + g.totalBoxes, 0);
   const pendingShipPieces = Math.max(0, totalReady - shippedPieces);

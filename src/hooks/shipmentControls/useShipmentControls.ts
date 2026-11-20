@@ -52,6 +52,7 @@ const mapShipmentControl = (raw: any): ShipmentControl => ({
     size: l.size ?? l.Size ?? '',
     boxCode: l.boxCode ?? l.BoxCode ?? '',
     boxesToShip: l.boxesToShip ?? l.BoxesToShip ?? 0,
+    fqBoxesToShip: l.fqBoxesToShip ?? l.FqBoxesToShip ?? 0,
     pcsPerCarton: l.pcsPerCarton ?? l.PcsPerCarton ?? 0,
     pieces: l.pieces ?? l.Pieces ?? 0,
   })),

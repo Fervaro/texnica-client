@@ -38,7 +38,8 @@ interface PackingRowDraft {
   boxes: string;
   pendingPacking: string;
   remarks: string;
-  fqQty: string;
+  fqBoxes: string;
+  fqPartialQty: string;
   qty: Record<number, string>;
 }
 
@@ -72,7 +73,7 @@ const cellStyle: React.CSSProperties = {
 const cellErrStyle: React.CSSProperties = { ...cellStyle, borderColor: '#d32f2f', backgroundColor: '#fff7f7' };
 const cellReadonlyStyle: React.CSSProperties = { ...cellStyle, backgroundColor: '#f1f5f9', color: '#64748b' };
 
-const makeRow = (): PackingRowDraft => ({ key: newKey(), fgpoId: 0, boxTypeId: 0, boxes: '', pendingPacking: '', fqQty: '', remarks: '', qty: {} });
+const makeRow = (): PackingRowDraft => ({ key: newKey(), fgpoId: 0, boxTypeId: 0, boxes: '', pendingPacking: '', fqBoxes: '', fqPartialQty: '', remarks: '', qty: {} });
 
 const fmtNum = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -104,7 +105,9 @@ const PackingRow = React.memo(function PackingRow({
   const box = boxOptions.find(b => b.id === row.boxTypeId);
   const boxErr = !row.boxTypeId;
   const boxes = Number(row.boxes) || 0;
-  const boxesErr = boxes <= 0;
+  const fqBoxes = Number(row.fqBoxes) || 0;
+  const fqPartialQty = Number(row.fqPartialQty) || 0;
+  const boxesErr = boxes <= 0 && fqBoxes <= 0 && fqPartialQty <= 0;
   const qtyPerBox = box?.qtyPerBox ?? 0;
   const packedQty = qtyPerBox * boxes;
 
@@ -150,7 +153,10 @@ const PackingRow = React.memo(function PackingRow({
           />
         </TableCell>
       ))}
-      {fqEnabled && <TableCell sx={{ p: 0.5 }}><input style={cellStyle} inputMode="decimal" aria-label="FQ quantity" value={row.fqQty} onChange={e => set({ fqQty: e.target.value })} onKeyDown={blockNegativeKey} /></TableCell>}
+      {fqEnabled && <>
+        <TableCell sx={{ p: 0.5 }}><input style={cellStyle} type="number" min="0" step="1" inputMode="numeric" aria-label="FQ boxes" value={row.fqBoxes} onChange={e => set({ fqBoxes: e.target.value })} onKeyDown={blockNegativeKey} /></TableCell>
+        <TableCell sx={{ p: 0.5 }}><input style={cellStyle} type="number" min="0" step="any" inputMode="decimal" aria-label="FQ partial quantity" value={row.fqPartialQty} onChange={e => set({ fqPartialQty: e.target.value })} onKeyDown={blockNegativeKey} /></TableCell>
+      </>}
       <TableCell sx={{ p: 0.5 }}>
         <input style={cellStyle} inputMode="decimal" value={row.pendingPacking} onChange={e => set({ pendingPacking: e.target.value })} onKeyDown={blockNegativeKey} />
       </TableCell>
@@ -222,7 +228,12 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
       const box = boxOptions.find(b => b.id === r.boxTypeId);
       if (box && box.qtyPerBox <= 0) errs.push(`Row ${i + 1}: box "${box.boxCode}" has no Qty/Box configured.`);
       const boxes = Number(r.boxes) || 0;
-      if (boxes <= 0) errs.push(`Row ${i + 1}: box quantity must be greater than 0.`);
+      const fqBoxes = Number(r.fqBoxes) || 0;
+      const fqPartialQty = Number(r.fqPartialQty) || 0;
+      if (boxes < 0 || fqBoxes < 0 || fqPartialQty < 0) errs.push(`Row ${i + 1}: quantities cannot be negative.`);
+      if (!Number.isInteger(fqBoxes)) errs.push(`Row ${i + 1}: FQ boxes must be a whole number.`);
+      if (fqPartialQty > 0 && box && fqPartialQty >= box.qtyPerBox) errs.push(`Row ${i + 1}: FQ Partial Qty must be less than ${box.qtyPerBox} pieces per box.`);
+      if (boxes <= 0 && fqBoxes <= 0 && fqPartialQty <= 0) errs.push(`Row ${i + 1}: enter normal boxes or FQ boxes/partial quantity.`);
     });
     if (errs.length) { setError(errs.slice(0, 6).join(' | ') + (errs.length > 6 ? ' …' : '')); return; }
 
@@ -233,6 +244,8 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           const box = boxOptions.find(b => b.id === r.boxTypeId);
           const qpb = box?.qtyPerBox ?? 0;
           const boxes = Number(r.boxes) || 0;
+          const fqBoxes = fqEnabled ? Number(r.fqBoxes) || 0 : 0;
+          const fqPartialQty = fqEnabled ? Number(r.fqPartialQty) || 0 : 0;
           const quantities: Record<string, number> = {};
           fields.forEach(f => { quantities[PACKING_FIELD_PROP[f.fieldNo]] = Number(r.qty[f.fieldNo]) || 0; });
           return {
@@ -243,7 +256,9 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
             receivedByPackingQty: quantities.receivedByPackingQty ?? 0,
             foldedQty: quantities.foldedQty ?? 0,
             polybaggedQty: quantities.polybaggedQty ?? 0,
-            fqQty: fqEnabled ? Number(r.fqQty) || 0 : 0,
+            fqQty: fqBoxes * qpb + fqPartialQty,
+            fqBoxes,
+            fqPartialQty,
             pendingPacking: Number(r.pendingPacking) || 0,
             packedQty: qpb * boxes,
             pcsPerCarton: qpb,
@@ -293,7 +308,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.light' }}>
-                {['#', 'FGPO *', 'Box Type *', 'Boxes *', 'Packed Qty', ...fields.map(f => f.label), ...(fqEnabled ? ['FQ'] : []), 'Pending Packing', 'Remarks', ''].map(h => (
+                {['#', 'FGPO *', 'Box Type *', 'Boxes', 'Packed Qty', ...fields.map(f => f.label), ...(fqEnabled ? ['FQ Boxes', 'FQ Partial Qty'] : []), 'Pending Packing', 'Remarks', ''].map(h => (
                   <TableCell key={h} sx={{ fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>{h}</TableCell>
                 ))}
               </TableRow>
@@ -318,7 +333,7 @@ const PackingBulkGrid: React.FC<PackingBulkGridProps> = ({ open, onClose, title,
         </TableContainer>
 
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          {rows.length} row(s) — Packed Qty = Qty/Box × boxes. The date and responsible person apply to all rows.
+          {rows.length} row(s) — Packed Qty = Qty/Box × Boxes. FQ boxes use the selected Box Type; FQ Partial Qty is entered in pieces. The date and responsible person apply to all rows.
         </Typography>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
