@@ -308,6 +308,7 @@ const PackingControlPage: React.FC = () => {
                       <Chip size="small" color="primary" variant="outlined" label={`${item.irrCategoryLabel || 'IRR'} · ${item.size || '-'}`} />
                     ) : item.isMix ? (
                       <Chip size="small" color="secondary" variant="outlined"
+                        sx={{ color: 'secondary.dark' }}
                         label={(item.mixLines ?? []).map(l => `${l.size ?? '?'} ${l.quantity}`).join(' · ') || 'Mix'} />
                     ) : (item.size || '-')}
                   </TableCell>
