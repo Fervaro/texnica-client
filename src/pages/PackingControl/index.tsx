@@ -307,9 +307,8 @@ const PackingControlPage: React.FC = () => {
                     ) : item.isIrrBox ? (
                       <Chip size="small" color="primary" variant="outlined" label={`${item.irrCategoryLabel || 'IRR'} · ${item.size || '-'}`} />
                     ) : item.isMix ? (
-                      <Chip size="small" color="secondary" variant="outlined"
-                        sx={{ color: 'secondary.dark' }}
-                        label={(item.mixLines ?? []).map(l => `${l.size ?? '?'} ${l.quantity}`).join(' · ') || 'Mix'} />
+                      <Chip size="small" color="primary" variant="outlined"
+                        label={`Mix · ${(item.mixLines ?? []).map(l => `${l.size ?? '?'}: ${num(l.quantity)}`).join(', ') || 'Mix'}`} />
                     ) : (item.size || '-')}
                   </TableCell>
                   {visibleFields.map(f => (
