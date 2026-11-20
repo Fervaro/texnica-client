@@ -26,8 +26,8 @@ import { getCurrentUserName } from '../../utils/session';
 import { fabricReceivingsApi, rollReceivingsApi, fabricShipmentsApi, fabricShipmentLotsApi } from '../../utils/api';
 import ModuleTotalsBar from '../../components/ModuleTotalsBar';
 import ReceivingRollsDialog from '../../components/ReceivingRollsDialog';
-import { RollGridTable, newRollRow, validateRollRows, buildRollsPayload } from '../../components/RollBulkGrid';
-import type { RollRowDraft } from '../../components/RollBulkGrid';
+import { RollGridTable } from '../../components/RollBulkGrid';
+import { newRollRow, validateRollRows, buildRollsPayload, type RollRowDraft } from '../../utils/rollBulkGrid';
 
 const DEFAULT_STATUSES = ['Pending', 'Partially Received', 'Fully Received', 'In Transit', 'Quantity Difference', 'Rejected'];
 const ROLL_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];

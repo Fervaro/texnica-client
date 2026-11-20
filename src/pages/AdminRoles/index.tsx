@@ -12,7 +12,7 @@ import KeyIcon from '@mui/icons-material/VpnKey';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { rolesApi, permissionsApi, usersApi } from '../../utils/api';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 
 const SUPER_ADMIN = 'super admin';
 const ACTION_ORDER = ['VER', 'CREAR', 'EDITAR', 'ANULAR', 'APROBAR', 'ADMINISTRAR'];

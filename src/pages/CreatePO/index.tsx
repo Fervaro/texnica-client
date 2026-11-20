@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { fgpoApi, customersApi } from '../../utils/api';
 import { getCurrentUserName } from '../../utils/session';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 
 const STATUS_OPTIONS = [
   'Not Started', 'Pending', 'In Progress', 'Partially Completed', 'Completed',

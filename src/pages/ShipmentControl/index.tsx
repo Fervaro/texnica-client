@@ -19,7 +19,7 @@ import { useShipmentControls } from '../../hooks/shipmentControls/useShipmentCon
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { useWarehouseFgpos } from '../../hooks/packingControls/useWarehouseFgpos';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 import { packingControlsApi, shipmentControlsApi } from '../../utils/api';
 import { ShipmentControl } from '../../types';
 import { getCurrentUserName } from '../../utils/session';

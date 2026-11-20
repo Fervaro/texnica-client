@@ -10,6 +10,8 @@ export interface FabricMovement {
   movementDate: string;
   referenceType?: string;
   referenceNumber?: string;
+  usagePONumber?: string;
+  usageDate?: string;
   idempotencyKey: string;
   isReversalOfId?: number;
   comments?: string;
@@ -26,6 +28,8 @@ export interface CreateFabricMovementInput {
   movementDate?: string;
   referenceType?: string;
   referenceNumber?: string;
+  usagePONumber?: string;
+  usageDate?: string;
   idempotencyKey: string;
   isReversalOfId?: number;
   comments?: string;

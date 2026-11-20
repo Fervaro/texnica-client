@@ -16,7 +16,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 import api, { authApi } from '../../utils/api';
 import { encryptRsaOaep } from '../../utils/crypto';
 

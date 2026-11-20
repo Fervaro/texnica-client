@@ -9,36 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { rollReceivingsApi } from '../utils/api';
 import { blockNegativeKey } from '../utils/validation';
-
-export interface RollBulkReceivingOption {
-  id: number;
-  label: string;
-  supplier?: string;
-  warehouseLocation?: string;
-  fabricPONumber?: string;
-  fgpoNumber?: string;
-  customerName?: string;
-}
-
-export interface RollRowDraft {
-  key: string;
-  rollNumber: string;
-  supplierRollNumber: string;
-  lotNumber: string;
-  shipmentLotId: number | null;
-  color: string;
-  grossWeight: string;
-  netWeight: string;
-  actualYardage: string;
-  actualWidth: string;
-  actualGSM: string;
-  shadeGroup: string;
-  damagedQty: string;
-  condition: string;
-  familyId: number | null;
-  warehouseLocation: string;
-  comments: string;
-}
+import { buildRollsPayload, newKey, today, validateRollRows, type RollBulkReceivingOption, type RollRowDraft } from '../utils/rollBulkGrid';
 
 interface RollBulkGridProps {
   open: boolean;
@@ -59,81 +30,6 @@ interface RollBulkGridProps {
   onSaved: (createdIds: number[]) => void | Promise<void>;
 }
 
-const newKey = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-
-const today = () => new Date().toISOString().split('T')[0];
-
-const NEGATIVE_FIELDS: { key: keyof RollRowDraft; name: string }[] = [
-  { key: 'grossWeight', name: 'Gross Weight' },
-  { key: 'netWeight', name: 'Net Weight' },
-  { key: 'actualYardage', name: 'Actual Yardage' },
-  { key: 'actualWidth', name: 'Actual Width' },
-  { key: 'actualGSM', name: 'Actual GSM' },
-  { key: 'damagedQty', name: 'Damaged Qty' },
-];
-
-/** Crea una fila de rollo vacía (para grids embebidas). */
-export const newRollRow = (opts: { lotNumber?: string; shipmentLotId?: number | null; color?: string; condition?: string; warehouseLocation?: string } = {}): RollRowDraft => ({
-  key: newKey(),
-  rollNumber: '',
-  supplierRollNumber: '',
-  lotNumber: opts.lotNumber ?? '',
-  shipmentLotId: opts.shipmentLotId ?? null,
-  color: opts.color ?? '',
-  grossWeight: '',
-  netWeight: '',
-  actualYardage: '',
-  actualWidth: '',
-  actualGSM: '',
-  shadeGroup: '',
-  damagedQty: '',
-  condition: opts.condition ?? 'Good',
-  familyId: null,
-  warehouseLocation: opts.warehouseLocation ?? '',
-  comments: '',
-});
-
-/** Valida las filas: devuelve un mensaje de error o '' si todo está bien. */
-export const validateRollRows = (rows: RollRowDraft[]): string => {
-  const errs: string[] = [];
-  const seen = new Set<string>();
-  rows.forEach((r, i) => {
-    if (!r.rollNumber.trim()) errs.push(`Row ${i + 1}: Roll Number is required.`);
-    else {
-      const k = r.rollNumber.trim().toLowerCase();
-      if (seen.has(k)) errs.push(`Row ${i + 1}: Roll Number "${r.rollNumber.trim()}" duplicated.`);
-      seen.add(k);
-    }
-    for (const f of NEGATIVE_FIELDS) {
-      if (Number(r[f.key]) < 0) errs.push(`Row ${i + 1}: ${f.name} cannot be negative.`);
-    }
-  });
-  return errs.length ? errs.slice(0, 6).join(' | ') + (errs.length > 6 ? ' …' : '') : '';
-};
-
-/** Construye el payload del endpoint de alta masiva de rollos. */
-export const buildRollsPayload = (receivingId: number, rows: RollRowDraft[], receivedDate: string, shipmentLotId?: number | null) => ({
-  rolls: rows.map(r => ({
-    receivingId,
-    shipmentLotId: r.shipmentLotId ?? shipmentLotId ?? null,
-    color: r.color || null,
-    lotNumber: r.lotNumber || null,
-    rollNumber: r.rollNumber.trim(),
-    supplierRollNumber: r.supplierRollNumber || null,
-    grossWeight: Number(r.grossWeight) || 0,
-    netWeight: Number(r.netWeight) || 0,
-    actualYardage: Number(r.actualYardage) || 0,
-    actualWidth: Number(r.actualWidth) || 0,
-    actualGSM: Number(r.actualGSM) || 0,
-    shadeGroup: r.shadeGroup || null,
-    damagedQty: Number(r.damagedQty) || 0,
-    condition: r.condition,
-    familyId: r.familyId,
-    warehouseLocation: r.warehouseLocation || null,
-    receivedDate: receivedDate ? new Date(receivedDate).toISOString() : new Date().toISOString(),
-    comments: r.comments || null,
-  })),
-});
 
 const cellStyle: React.CSSProperties = {
   width: '100%',

@@ -24,7 +24,7 @@ import { useUserOptions } from '../../hooks/users/useUserOptions';
 import { visiblePackingFields } from '../../utils/packingFields';
 import { packingControlsApi } from '../../utils/api';
 import { PackingControl, PackingMixOptions } from '../../types';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 
 const emptyForm = {
   PackingDate: new Date().toISOString().split('T')[0],

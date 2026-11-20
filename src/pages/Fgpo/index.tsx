@@ -16,7 +16,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { fgpoApi, fgpoLinesApi, customersApi, pricesApi } from '../../utils/api';
 import CatalogAutocomplete from '../../components/CatalogAutocomplete';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 import { getCurrentUserName } from '../../utils/session';
 import { useStyleOptions } from '../../hooks/styles/useStyleOptions';
 import { useColorOptions } from '../../hooks/colors/useColorOptions';

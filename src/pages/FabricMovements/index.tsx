@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, Paper, Chip, CircularProgress, Alert, Dialog, DialogTitle,
-  DialogContent, DialogActions, MenuItem, FormControl, InputLabel, Grid, Select
+  DialogContent, DialogActions, MenuItem, FormControl, InputLabel, Grid, Select, TablePagination
 } from '@mui/material';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AddIcon from '@mui/icons-material/Add';
@@ -27,7 +27,7 @@ const sc = (s: string) => {
 const emptyForm = {
   RollReceivingId: 0, MovementType: 'AdjustmentIn', Quantity: '',
   UnitOfMeasure: '', MovementDate: new Date().toISOString().split('T')[0],
-  ReferenceType: '', ReferenceNumber: '', Comments: '', IsReversalOfId: 0,
+  UsagePONumber: '', UsageDate: '', ReferenceType: '', ReferenceNumber: '', Comments: '', IsReversalOfId: 0,
 };
 
 interface ExitImportRow {
@@ -36,11 +36,15 @@ interface ExitImportRow {
   rollReceivingId: number;
   uniqueId: string;
   rollNumber: string;
+  usagePONumber: string;
+  usageDate: string;
   quantity: number;
   error?: string;
 }
 
 interface ExitImportRejectedRow {
+  usagePONumber: string;
+  usageDate: string;
   uniqueId: string;
   rollNumber: string;
   quantity: number;
@@ -80,6 +84,9 @@ const FabricMovementsPage: React.FC = () => {
   const [filterType, setFilterType] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+  const [movementPage, setMovementPage] = useState(0);
+
+  useEffect(() => { setMovementPage(0); }, [filterRoll, filterType, filterFrom, filterTo]);
 
   const load = async () => {
     setLoading(true); setError('');
@@ -145,6 +152,8 @@ const FabricMovementsPage: React.FC = () => {
         movementType: form.MovementType,
         quantity: qty,
         unitOfMeasure: form.UnitOfMeasure || null,
+        usagePONumber: form.UsagePONumber.trim() || null,
+        usageDate: form.UsageDate ? new Date(form.UsageDate).toISOString() : null,
         movementDate: form.MovementDate ? new Date(form.MovementDate).toISOString() : new Date().toISOString(),
         referenceType: form.ReferenceType || null,
         referenceNumber: form.ReferenceNumber || null,
@@ -164,12 +173,13 @@ const FabricMovementsPage: React.FC = () => {
 
   const openImport = () => {
     setImportRows([]); setImportFileName(''); setImportError(''); setImportReference(''); setImportComments('');
+    setRejectedImportRows([]);
     setImportDate(new Date().toISOString().split('T')[0]); setImportOpen(true);
   };
 
   const downloadExitTemplate = async () => {
     const XLSX = await import('xlsx');
-    const sheet = XLSX.utils.aoa_to_sheet([['ID', 'SALIDA EN YDS']]);
+    const sheet = XLSX.utils.aoa_to_sheet([['ID', 'PO', 'SALIDA EN YDS', 'FECHA SALIDA A CORTE']]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, 'SALIDAS');
     XLSX.writeFile(workbook, 'fabric-exit-template.xlsx');
@@ -178,8 +188,10 @@ const FabricMovementsPage: React.FC = () => {
   const downloadRejectedExits = async () => {
     const XLSX = await import('xlsx');
     const rows = rejectedImportRows.map(row => ({
+      PO: row.usagePONumber,
       ID: row.uniqueId,
       'SALIDA EN YDS': row.quantity,
+      'FECHA SALIDA A CORTE': row.usageDate,
       'ROLL NUMBER': row.rollNumber,
       'AVAILABLE YDS': row.availableYards,
       'OVERAGE YDS': row.shortageYards,
@@ -196,19 +208,22 @@ const FabricMovementsPage: React.FC = () => {
     setImportError(''); setImportRows([]); setRejectedImportRows([]); setImportFileName(file.name);
     try {
       const XLSX = await import('xlsx');
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
       const sheetName = workbook.SheetNames.find(name => normalizeHeader(name) === 'salidas');
       const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
       if (!sheet) throw new Error('The workbook must contain the SALIDAS worksheet.');
       const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
       const headerIndex = matrix.findIndex(row => {
         const headers = row.map(normalizeHeader);
-        return headers.includes('id') && headers.includes('salidaenyds');
+        return headers.includes('id') && headers.includes('salidaenyds') && headers.includes('fechasalidaacorte');
       });
-      if (headerIndex < 0) throw new Error('The SALIDAS worksheet must include the ID and SALIDA EN YDS columns. ID Ticket is not the roll ID.');
+      if (headerIndex < 0) throw new Error('The SALIDAS worksheet must include ID, SALIDA EN YDS, and FECHA SALIDA A CORTE. ID Ticket is not the roll ID.');
       const headers = matrix[headerIndex].map(value => String(value ?? '').trim());
       const idIndex = headers.findIndex(value => normalizeHeader(value) === 'id');
+      const poIndex = headers.findIndex(value => normalizeHeader(value) === 'po');
       const quantityIndex = headers.findIndex(value => normalizeHeader(value) === 'salidaenyds');
+      const usageDateIndex = headers.findIndex(value => normalizeHeader(value) === 'fechasalidaacorte');
+      if (poIndex < 0) throw new Error('The SALIDAS worksheet must include the PO column.');
 
       const rollMap = new Map<string, RollReceiving[]>();
       rolls.forEach(roll => {
@@ -216,21 +231,36 @@ const FabricMovementsPage: React.FC = () => {
         if (key) rollMap.set(key, [...(rollMap.get(key) ?? []), roll]);
       });
       const rows: ExitImportRow[] = [];
-      const rowsByRollId = new Map<number, ExitImportRow>();
+      const rowsByRollAndPo = new Map<string, ExitImportRow>();
       matrix.slice(headerIndex + 1).forEach((record, index) => {
         const rowNumber = headerIndex + index + 2;
         const rawId = String(record[idIndex] ?? '').trim();
+        const usagePONumber = String(record[poIndex] ?? '').trim();
         const rawQuantity = record[quantityIndex];
-        if (!rawId && (rawQuantity === '' || rawQuantity == null)) return;
+        const rawUsageDate = record[usageDateIndex];
+        if (!rawId && !usagePONumber && (rawQuantity === '' || rawQuantity == null) && !rawUsageDate) return;
         const matches = rollMap.get(rawId.toLowerCase()) ?? [];
         const quantity = typeof rawQuantity === 'number' ? rawQuantity : Number(String(rawQuantity).replace(/,/g, '').trim());
+        let usageDate = '';
+        if (rawUsageDate instanceof Date && !Number.isNaN(rawUsageDate.getTime())) {
+          usageDate = `${rawUsageDate.getFullYear()}-${String(rawUsageDate.getMonth() + 1).padStart(2, '0')}-${String(rawUsageDate.getDate()).padStart(2, '0')}`;
+        } else if (typeof rawUsageDate === 'number' && rawUsageDate > 0) {
+          const parsed = XLSX.SSF.parse_date_code(rawUsageDate);
+          if (parsed) usageDate = `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+        } else if (rawUsageDate) {
+          const parsed = new Date(String(rawUsageDate));
+          if (!Number.isNaN(parsed.getTime())) usageDate = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+        }
         let error = '';
         if (!rawId) error = 'ID is required.';
+        else if (!usagePONumber) error = 'PO is required.';
+        else if (!usageDate) error = 'FECHA SALIDA A CORTE is required or invalid.';
         else if (matches.length === 0) error = 'ID was not found in active roll receipts.';
         else if (matches.length > 1) error = 'ID is ambiguous; it appears more than once.';
         else if (!(quantity > 0) || !Number.isFinite(quantity)) error = 'Quantity must be greater than zero.';
         if (!error && matches.length === 1) {
-          const existing = rowsByRollId.get(matches[0].id);
+          const groupKey = `${matches[0].id}|${usagePONumber.toLowerCase()}|${usageDate}`;
+          const existing = rowsByRollAndPo.get(groupKey);
           if (existing) {
             existing.quantity += quantity;
             existing.sourceRows.push(rowNumber);
@@ -243,11 +273,16 @@ const FabricMovementsPage: React.FC = () => {
           rollReceivingId: matches.length === 1 ? matches[0].id : 0,
           uniqueId: rawId,
           rollNumber: matches.length === 1 ? String(matches[0].rollNumber ?? '') : '',
+          usagePONumber,
+          usageDate,
           quantity,
           error: error || undefined,
         };
         rows.push(parsedRow);
-        if (!error && matches.length === 1) rowsByRollId.set(matches[0].id, parsedRow);
+        if (!error && matches.length === 1) {
+          const groupKey = `${matches[0].id}|${usagePONumber.toLowerCase()}|${usageDate}`;
+          rowsByRollAndPo.set(groupKey, parsedRow);
+        }
       });
       if (!rows.length) throw new Error('The SALIDAS worksheet has no non-empty data rows.');
       setImportRows(rows);
@@ -272,6 +307,8 @@ const FabricMovementsPage: React.FC = () => {
         rows: importRows.map((row, index) => ({
           rollReceivingId: row.rollReceivingId,
           quantity: row.quantity,
+          usagePONumber: row.usagePONumber,
+          usageDate: new Date(row.usageDate).toISOString(),
           excelRows: row.sourceRows,
           idempotencyKey: `${batchKey}-${index + 1}`,
         })),
@@ -279,6 +316,8 @@ const FabricMovementsPage: React.FC = () => {
       const data = result.data ?? {};
       const rejected = data.rejected ?? data.Rejected ?? [];
       const rejectedRows: ExitImportRejectedRow[] = rejected.map((row: any) => ({
+        usagePONumber: row.usagePONumber ?? row.UsagePONumber ?? '',
+        usageDate: String(row.usageDate ?? row.UsageDate ?? '').split('T')[0],
         uniqueId: row.uniqueId ?? row.UniqueId ?? '',
         rollNumber: row.rollNumber ?? row.RollNumber ?? '',
         quantity: Number(row.quantity ?? row.Quantity ?? 0),
@@ -291,7 +330,7 @@ const FabricMovementsPage: React.FC = () => {
       setImportRows([]);
       const created = data.created ?? data.Created ?? 0;
       const totalYards = data.totalYards ?? data.TotalYards ?? 0;
-      setSuccess(`Fabric exit imported: ${created} roll(s), ${num(totalYards)} yd. ${rejectedRows.length} roll(s) rejected for insufficient balance.`);
+      setSuccess(`Fabric exit imported: ${created} movement(s), ${num(totalYards)} yd. ${rejectedRows.length} roll/PO row(s) rejected for insufficient balance.`);
       if (rejectedRows.length === 0) setImportOpen(false);
       await Promise.all([load(), loadMovTotals()]);
     } catch (err: any) {
@@ -307,9 +346,36 @@ const FabricMovementsPage: React.FC = () => {
     if (filterTo && d > filterTo) return false;
     return true;
   });
+  const movementsPerPage = 20;
+  const visibleMovements = filtered.slice(movementPage * movementsPerPage, (movementPage + 1) * movementsPerPage);
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
   const num = (v: number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const movementById = new Map(movements.map(movement => [movement.id, movement]));
+  const poUsageMap = new Map<string, { po: string; usageDate: string; yards: number; movements: number }>();
+  const addPoUsage = (po: string | undefined, usageDate: string | undefined, yards: number) => {
+    if (!po?.trim()) return;
+    const date = fmt(usageDate);
+    const key = `${po}|${date}`;
+    const current = poUsageMap.get(key) ?? { po, usageDate: date, yards: 0, movements: 0 };
+    current.yards += yards;
+    current.movements += 1;
+    poUsageMap.set(key, current);
+  };
+  movements.forEach(movement => {
+    if (movement.movementType === 'AdjustmentOut' || movement.movementType === 'Consumption') {
+      addPoUsage(movement.usagePONumber, movement.usageDate, movement.quantity);
+    } else if (movement.movementType === 'Reversal' && movement.isReversalOfId) {
+      const original = movementById.get(movement.isReversalOfId);
+      if (original && (original.movementType === 'AdjustmentOut' || original.movementType === 'Consumption')) {
+        addPoUsage(original.usagePONumber || movement.usagePONumber, original.usageDate || movement.usageDate, -movement.quantity);
+      }
+    }
+  });
+  const poUsage = [...poUsageMap.entries()]
+    .map(([, totals]) => totals)
+    .filter(row => row.yards > 0)
+    .sort((a, b) => b.yards - a.yards);
 
   return (
     <Box>
@@ -341,6 +407,31 @@ const FabricMovementsPage: React.FC = () => {
         ]}
       />
 
+      <Paper sx={{ mb: 2, overflow: 'hidden' }}>
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Fabric Used by PO</Typography>
+        </Box>
+        <TableContainer sx={{ maxHeight: 280 }}>
+          <Table size="small" stickyHeader>
+            <TableHead><TableRow>
+              {['PO', 'Usage Date', 'Yards Used', 'Movements'].map(label => <TableCell key={label} sx={{ fontWeight: 700 }}>{label}</TableCell>)}
+            </TableRow></TableHead>
+            <TableBody>
+              {poUsage.length === 0 ? (
+                <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>No PO usage data recorded.</TableCell></TableRow>
+              ) : poUsage.map(row => (
+                <TableRow key={`${row.po}-${row.usageDate}`}>
+                  <TableCell sx={{ fontWeight: 600 }}>{row.po}</TableCell>
+                  <TableCell>{row.usageDate}</TableCell>
+                  <TableCell>{num(row.yards)} yd</TableCell>
+                  <TableCell>{row.movements}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
@@ -368,21 +459,23 @@ const FabricMovementsPage: React.FC = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                {['Date', 'Roll', 'Type', 'Quantity', 'UOM', 'Reference', 'Idempotency', 'Comments'].map(h =>
+                {['Date', 'Roll', 'PO Used', 'Usage Date', 'Type', 'Quantity', 'UOM', 'Reference', 'Idempotency', 'Comments'].map(h =>
                   <TableCell key={h} sx={{ color: 'white', fontWeight: 600, py: 1.5 }}>{h}</TableCell>)}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} align="center" sx={{ py: 4 }}><CircularProgress size={28} /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No movements found</Typography>
                 </TableCell></TableRow>
-              ) : filtered.map(m => (
+              ) : visibleMovements.map(m => (
                 <TableRow key={m.id} hover>
                   <TableCell>{fmt(m.movementDate)}</TableCell>
                   <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{m.rollNumber || '-'}</Typography></TableCell>
+                  <TableCell>{m.usagePONumber || '-'}</TableCell>
+                  <TableCell>{fmt(m.usageDate)}</TableCell>
                   <TableCell><Chip label={m.movementType} size="small" color={sc(m.movementType)} /></TableCell>
                   <TableCell>{num(m.quantity)}</TableCell>
                   <TableCell>{m.unitOfMeasure || '-'}</TableCell>
@@ -394,6 +487,15 @@ const FabricMovementsPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          component="div"
+          count={filtered.length}
+          page={movementPage}
+          onPageChange={(_, nextPage) => setMovementPage(nextPage)}
+          rowsPerPage={movementsPerPage}
+          rowsPerPageOptions={[]}
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${count}`}
+        />
       </Paper>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -423,6 +525,12 @@ const FabricMovementsPage: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth size="small" label="UOM (optional)" value={form.UnitOfMeasure} onChange={e => setF('UnitOfMeasure', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth size="small" label="PO Used (optional)" value={form.UsagePONumber} onChange={e => setF('UsagePONumber', e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth size="small" label="Usage Date (optional)" type="date" value={form.UsageDate} onChange={e => setF('UsageDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField fullWidth size="small" label="Date" type="date" value={form.MovementDate} onChange={e => setF('MovementDate', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
@@ -467,10 +575,10 @@ const FabricMovementsPage: React.FC = () => {
         <DialogContent>
           {importError && <Alert severity="error" sx={{ mb: 2 }}>{importError}</Alert>}
           {rejectedImportRows.length > 0 && <Alert severity="warning" sx={{ mb: 2 }}>
-            {rejectedImportRows.length} roll(s) exceeded their available balance. The other rolls were imported. Download the rejected rows to review or correct them.
+            {rejectedImportRows.length} roll/PO row(s) exceeded the roll balance. Other valid movements were imported. Download the rejected rows to review or correct them.
           </Alert>}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Upload the SALIDAS worksheet. Each row is matched by its unique ID (not ID Ticket), and SALIDA EN YDS is deducted from that roll. Rolls with enough balance are imported; overages are returned for review and download.
+            Upload the SALIDAS worksheet. Each row is matched by ID (not ID Ticket), assigned to its PO, and SALIDA EN YDS is deducted from that roll. FECHA SALIDA A CORTE is saved as the usage date. Rolls with enough balance are imported; overages are returned for review and download.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
             <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadExitTemplate}>Download Template</Button>
@@ -498,11 +606,13 @@ const FabricMovementsPage: React.FC = () => {
           {rejectedImportRows.length > 0 && <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 240, mb: 2 }}>
             <Table size="small" stickyHeader>
               <TableHead><TableRow>
-                {['Excel Row(s)', 'ID', 'Roll Number', 'Requested (yd)', 'Available (yd)', 'Overage (yd)'].map(label => <TableCell key={label}>{label}</TableCell>)}
+                {['Excel Row(s)', 'PO', 'Usage Date', 'ID', 'Roll Number', 'Requested (yd)', 'Available (yd)', 'Overage (yd)'].map(label => <TableCell key={label}>{label}</TableCell>)}
               </TableRow></TableHead>
               <TableBody>{rejectedImportRows.map((row, index) => (
                 <TableRow key={`${row.uniqueId}-${index}`}>
                   <TableCell>{row.sourceRows.join(', ')}</TableCell>
+                  <TableCell>{row.usagePONumber || '-'}</TableCell>
+                  <TableCell>{row.usageDate || '-'}</TableCell>
                   <TableCell>{row.uniqueId || '-'}</TableCell>
                   <TableCell>{row.rollNumber || '-'}</TableCell>
                   <TableCell>{num(row.quantity)}</TableCell>
@@ -514,16 +624,18 @@ const FabricMovementsPage: React.FC = () => {
           </TableContainer>}
           {importRows.length > 0 && <>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              {importRows.length} roll(s) to import from {importRows.reduce((total, row) => total + row.sourceRows.length, 0)} Excel row(s) · {importRows.filter(row => !row.error).length} valid · {importRows.filter(row => row.error).length} invalid
+              {importRows.length} movement(s) to import from {importRows.reduce((total, row) => total + row.sourceRows.length, 0)} Excel row(s) · {importRows.filter(row => !row.error).length} valid · {importRows.filter(row => row.error).length} invalid
             </Typography>
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 320 }}>
               <Table size="small" stickyHeader>
                 <TableHead><TableRow>
-                  {['Excel Row(s)', 'ID', 'Roll Number', 'Quantity (yd)', 'Validation'].map(label => <TableCell key={label}>{label}</TableCell>)}
+                  {['Excel Row(s)', 'PO', 'Usage Date', 'ID', 'Roll Number', 'Quantity (yd)', 'Validation'].map(label => <TableCell key={label}>{label}</TableCell>)}
                 </TableRow></TableHead>
                 <TableBody>{importRows.map(row => (
                   <TableRow key={`${row.rowNumber}-${row.rollReceivingId}`}>
                     <TableCell>{row.sourceRows.join(', ')}</TableCell>
+                    <TableCell>{row.usagePONumber || '-'}</TableCell>
+                    <TableCell>{row.usageDate || '-'}</TableCell>
                     <TableCell>{row.uniqueId || '-'}</TableCell>
                     <TableCell>{row.rollNumber || '-'}</TableCell>
                     <TableCell>{Number.isFinite(row.quantity) ? num(row.quantity) : '-'}</TableCell>

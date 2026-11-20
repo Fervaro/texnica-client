@@ -10,7 +10,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { rollReceivingsApi, fabricReceivingsApi } from '../utils/api';
 import { useColorOptions } from '../hooks/colors/useColorOptions';
 import { blockNegativeKey, firstNegativeField, nonNegativeInputProps } from '../utils/validation';
-import RollBulkGrid, { type RollBulkReceivingOption } from './RollBulkGrid';
+import RollBulkGrid from './RollBulkGrid';
+import type { RollBulkReceivingOption } from '../utils/rollBulkGrid';
 import type { RollReceiving } from '../types';
 
 const DEFAULT_CONDITIONS = ['Good', 'Damaged', 'Second Quality', 'Sample'];

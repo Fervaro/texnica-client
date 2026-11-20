@@ -33,6 +33,7 @@ interface PkRow {
   fullCartons: number;
   partialCartons: number;
   pcsPerCarton: number;
+  isMix: boolean;
   isIrrBox: boolean;
   isFqBox: boolean;
   irrFieldNo?: number | null;
@@ -85,6 +86,7 @@ const Warehouse: React.FC = () => {
           fullCartons: p.fullCartons ?? p.FullCartons ?? 0,
           partialCartons: p.partialCartons ?? p.PartialCartons ?? 0,
           pcsPerCarton: p.pcsPerCarton ?? p.PcsPerCarton ?? 0,
+          isMix: p.isMix ?? p.IsMix ?? false,
           isIrrBox: p.isIrrBox ?? p.IsIrrBox ?? false,
           isFqBox: p.isFqBox ?? p.IsFqBox ?? false,
           irrFieldNo: p.irrFieldNo ?? p.IrrFieldNo ?? null,
@@ -163,16 +165,18 @@ const Warehouse: React.FC = () => {
         fieldTotals[f.fieldNo] = g.items.reduce((s, p) => s + qtyFor(p, f.fieldNo), 0);
       });
 
-      type BoxAgg = { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number; fqQty: number; fields: Record<number, number> };
+      type BoxAgg = { style: string; color: string; size: string; pieces: number; perBox: number; unpacked: number; fqQty: number; fields: Record<number, number>; isMix: boolean; mixBoxes: number };
       const boxMap = new Map<string, BoxAgg>();
       g.items.forEach(p => {
-        const key = `${p.style || ''}|${p.color || ''}|${p.size || ''}`;
+        const size = p.isMix ? 'MIX' : p.size || '';
+        const key = `${p.style || ''}|${p.color || ''}|${size}`;
         const cur = boxMap.get(key);
         if (cur) {
           cur.pieces += p.packedQty;
           cur.unpacked += p.pendingPacking;
           cur.fqQty += p.fqQty;
-          if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
+          if (p.isMix) cur.mixBoxes += p.fullCartons + p.partialCartons;
+          else if (p.pcsPerCarton > 0) cur.perBox = p.pcsPerCarton;
           visibleFields.forEach(f => { cur.fields[f.fieldNo] += qtyFor(p, f.fieldNo); });
         } else {
           const fields: Record<number, number> = {};
@@ -180,18 +184,20 @@ const Warehouse: React.FC = () => {
           boxMap.set(key, {
             style: p.style || '',
             color: p.color || '',
-            size: p.size || '',
+            size,
             pieces: p.packedQty,
-            perBox: p.pcsPerCarton || 0,
+            perBox: p.isMix ? 0 : p.pcsPerCarton || 0,
             unpacked: p.pendingPacking,
             fqQty: p.fqQty,
             fields,
+            isMix: p.isMix,
+            mixBoxes: p.isMix ? p.fullCartons + p.partialCartons : 0,
           });
         }
       });
       const boxRows = Array.from(boxMap.values()).map(r => ({
         ...r,
-        boxes: r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0,
+        boxes: r.isMix ? r.mixBoxes : r.perBox > 0 ? Math.ceil(r.pieces / r.perBox) : 0,
       }));
 
       return {

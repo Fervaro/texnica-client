@@ -61,7 +61,8 @@ const FabricMovements = lazy(() => import('./pages/FabricMovements'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
 import { DataProvider } from './context/DataContext';
-import { AuthProvider, AuthContext } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { AuthContext } from './context/AuthContextValue';
 
 const theme = createTheme({
   palette: {

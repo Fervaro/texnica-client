@@ -44,7 +44,7 @@ import WidgetsIcon from '@mui/icons-material/Widgets';
 import PercentIcon from '@mui/icons-material/Percent';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContextValue';
 
 interface SidebarProps {
   mobileOpen: boolean;

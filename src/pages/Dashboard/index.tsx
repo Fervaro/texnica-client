@@ -12,7 +12,7 @@ import {
   fabricReceivingsApi, fourPointApi, internalTestsApi, shadeMatchesApi,
   fabricInventoriesApi, fabricReservationsApi,
 } from '../../utils/api';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContextValue';
 import AdminDashboard from './AdminDashboard';
 import { FgpoTimeline } from '../../types';
 
