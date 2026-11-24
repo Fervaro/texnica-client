@@ -12,13 +12,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   userOptions: Option[];
-  isVolcano: boolean;
   onSaved: () => Promise<void> | void;
 }
 
 const today = () => new Date().toISOString().split('T')[0];
 
-const PackingIrrBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVolcano, onSaved }) => {
+const PackingIrrBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, onSaved }) => {
   const [fgpoId, setFgpoId] = useState(0);
   const [fgpoOptions, setFgpoOptions] = useState<Option[]>([]);
   const [fgpoLoading, setFgpoLoading] = useState(false);
@@ -56,7 +55,7 @@ const PackingIrrBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVo
 
   const selectedVariant = useMemo(() => options?.variants.find(v => `${v.style}\u0000${v.color}` === variantKey), [options, variantKey]);
   const sizes = selectedVariant?.sizes.filter(s => s.fieldNo === fieldNo) ?? [];
-  const capacity = isVolcano ? (Number(manualCapacity) || 0) : (selectedVariant?.pcsPerCarton ?? 0);
+  const capacity = Number(manualCapacity) || 0;
   const total = sizes.reduce((sum, s) => sum + (Number(quantities[s.size] ?? '') || 0), 0);
 
   const loadOptions = async (id: number) => {
@@ -81,7 +80,12 @@ const PackingIrrBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVo
   };
 
   const selectCategory = (value: number) => { setFieldNo(value); setQuantities({}); };
-  const selectVariant = (value: string) => { setVariantKey(value); setQuantities({}); setManualCapacity(''); };
+  const selectVariant = (value: string) => {
+    const variant = options?.variants.find(v => `${v.style}\u0000${v.color}` === value);
+    setVariantKey(value);
+    setQuantities({});
+    setManualCapacity(variant?.pcsPerCarton ? String(variant.pcsPerCarton) : '');
+  };
 
   const autoFill = () => {
     let remaining = capacity;
@@ -110,7 +114,7 @@ const PackingIrrBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVo
       await packingControlsApi.createIrrBox({
         packingDate: new Date(packingDate).toISOString(), fgpoId, fieldNo,
         style: selectedVariant.style, color: selectedVariant.color,
-        pcsPerCarton: isVolcano ? capacity : null,
+        pcsPerCarton: capacity,
         responsiblePersonId: responsiblePersonId || null, remarks: remarks || null, lines,
       });
       await onSaved();
@@ -163,8 +167,7 @@ const PackingIrrBoxDialog: React.FC<Props> = ({ open, onClose, userOptions, isVo
         </>}
         {selectedVariant && <>
           <Grid size={{ xs: 12, sm: 6 }}>
-            {isVolcano ? <TextField fullWidth size="small" label="Box capacity (pcs) *" type="number" value={manualCapacity} onChange={e => setManualCapacity(e.target.value)} slotProps={{ htmlInput: { min: 1 } }} /> :
-              <TextField fullWidth size="small" label="Box capacity (pcs)" value={capacity || ''} disabled helperText="Configured capacity for this style/color" />}
+            <TextField fullWidth size="small" label="Box capacity (pcs) *" type="number" value={manualCapacity} onChange={e => setManualCapacity(e.target.value)} slotProps={{ htmlInput: { min: 1, step: 1 } }} helperText="Suggested for this style/color; adjust as needed" />
           </Grid>
           <Grid size={{ xs: 12 }}><Divider><Typography variant="caption" color="text.secondary">Pieces by size · {options?.categories.find(c => c.fieldNo === fieldNo)?.label}</Typography></Divider></Grid>
           {sizes.length === 0 ? <Grid size={{ xs: 12 }}><Typography variant="body2" color="text.secondary">No remaining pieces for this category, style and color.</Typography></Grid> : sizes.map(s => <Grid size={{ xs: 6, sm: 4 }} key={s.size}>
