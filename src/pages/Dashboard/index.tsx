@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Tabs, Tab, Chip, CircularProgress, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Pagination,
+  Pagination,
 } from '@mui/material';
 import {
   fgpoApi, ppSamplesApi, topSamplesApi, productionReadinessApi, cuttingReleasesApi,
@@ -15,6 +15,8 @@ import {
 import { AuthContext } from '../../context/AuthContextValue';
 import AdminDashboard from './AdminDashboard';
 import { FgpoTimeline } from '../../types';
+
+const MASTER_PAGE_SIZE = 5;
 
 // ── helpers ────────────────────────────────────────────────
 const pick = (o: any, camel: string, pascal: string) => o?.[camel] ?? o?.[pascal];
@@ -36,16 +38,6 @@ const sumBy = (rows: any[], fgpoId: number, camel: string, pascal: string) =>
 const sumAll = (rows: any[], camel: string, pascal: string) =>
   rows.reduce((s, r) => s + num(pick(r, camel, pascal)), 0);
 
-const statusChip = (s?: string) => {
-  const m: Record<string, any> = {
-    Approved: 'success', Passed: 'success', Ready: 'success', Accepted: 'success',
-    Rejected: 'error', Failed: 'error', Blocked: 'error',
-    'In Progress': 'info', Testing: 'info', 'In Transit': 'info', 'Partially Shipped': 'info',
-    Pending: 'warning', 'On Hold': 'warning', 'Not Ready': 'warning', 'Ready with Conditions': 'warning',
-  };
-  return m[s ?? ''] ?? 'default';
-};
-
 const riskOf = (f: any, lateBy: number) => {
   const pending = num(pick(f, 'pendingProduction', 'PendingProduction'));
   if (lateBy > 0) return 'High';
@@ -58,32 +50,12 @@ const riskOf = (f: any, lateBy: number) => {
 const MasterDashboard: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [masterPage, setMasterPage] = useState(1);
-  const masterPageSize = 5;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [data, setData] = useState<any>({});
 
-  // Línea de tiempo de una FGPO
-  const [timeline, setTimeline] = useState<FgpoTimeline | null>(null);
-  const [timelineOpen, setTimelineOpen] = useState(false);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState('');
-
-  const openTimeline = async (fgpoId: number) => {
-    setTimelineOpen(true);
-    setTimeline(null);
-    setTimelineError('');
-    setTimelineLoading(true);
-    try {
-      const res = await fgpoApi.getTimeline(fgpoId);
-      setTimeline(res.data ?? res);
-    } catch (err: any) {
-      setTimelineError(err?.response?.data?.message || err?.message || 'Could not load timeline.');
-    } finally {
-      setTimelineLoading(false);
-    }
-  };
+  const [timelineByFgpo, setTimelineByFgpo] = useState<Record<number, { timeline?: FgpoTimeline; error?: string; loading: boolean }>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -114,6 +86,34 @@ const MasterDashboard: React.FC = () => {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    const fgpos = (data.fgpos ?? []).filter((f: any) => pick(f, 'active', 'Active') !== false);
+    const ids = fgpos.slice((masterPage - 1) * MASTER_PAGE_SIZE, masterPage * MASTER_PAGE_SIZE)
+      .map((f: any) => pick(f, 'id', 'ID') ?? fgpoIdOf(f));
+    if (ids.length === 0) return;
+
+    let cancelled = false;
+    setTimelineByFgpo(current => ({
+      ...current,
+      ...Object.fromEntries(ids.map((id: number) => [id, { loading: true }])),
+    }));
+
+    const loadTimelines = async () => {
+      const results = await Promise.all(ids.map(async (id: number) => {
+        try {
+          const res = await fgpoApi.getTimeline(id);
+          return [id, { timeline: res.data ?? res, loading: false }] as const;
+        } catch (err: any) {
+          return [id, { error: err?.response?.data?.message || err?.message || 'Could not load timeline.', loading: false }] as const;
+        }
+      }));
+      if (!cancelled) setTimelineByFgpo(current => ({ ...current, ...Object.fromEntries(results) }));
+    };
+
+    loadTimelines();
+    return () => { cancelled = true; };
+  }, [data.fgpos, masterPage]);
 
   if (loading) return <Box sx={{ textAlign: 'center', py: 8 }}><CircularProgress /></Box>;
   if (error) return <Alert severity="error">{error}</Alert>;
@@ -170,8 +170,8 @@ const MasterDashboard: React.FC = () => {
       updated: pick(f, 'updatedAt', 'UpdatedAt') ?? pick(f, 'createdAt', 'CreatedAt') ?? '',
     };
   });
-  const masterPageCount = Math.max(1, Math.ceil(masterRows.length / masterPageSize));
-  const visibleMasterRows = masterRows.slice((masterPage - 1) * masterPageSize, masterPage * masterPageSize);
+  const masterPageCount = Math.max(1, Math.ceil(masterRows.length / MASTER_PAGE_SIZE));
+  const visibleMasterRows = masterRows.slice((masterPage - 1) * MASTER_PAGE_SIZE, masterPage * MASTER_PAGE_SIZE);
 
   // ---- FABRIC DASHBOARD ----
   const totalFabInTransit = sumAll(data.fabShip, 'inTransitQuantity', 'InTransitQuantity');
@@ -260,29 +260,12 @@ const MasterDashboard: React.FC = () => {
             {masterRows.length === 0 ? (
               <Typography align="center" color="text.secondary" sx={{ py: 4 }}>No FGPO data.</Typography>
             ) : visibleMasterRows.map((r: any) => {
-              const stages = [
-                { label: 'Fabric', value: r.fabricStatus, kind: 'status' },
-                { label: 'Trims', value: r.trimsStatus, kind: 'status' },
-                { label: 'PP Sample', value: r.ppSample, kind: 'status' },
-                { label: 'PRR', value: r.prr, kind: 'status' },
-                { label: 'Cut Release', value: r.cutRelease, kind: 'status' },
-                { label: 'Cut Qty', value: r.cutQty, kind: 'quantity' },
-                { label: 'TOP Sample', value: r.topSample, kind: 'status' },
-                { label: 'Sewing Qty', value: r.sewQty, kind: 'quantity' },
-                { label: 'Inline QC', value: r.inlineQc, kind: 'status' },
-                { label: 'Final QC', value: r.finalQc, kind: 'status' },
-                { label: 'Packed', value: r.packedQty, kind: 'quantity' },
-                { label: 'Ready to Ship', value: r.readyToShip, kind: 'quantity' },
-                { label: 'In Transit', value: r.inTransit, kind: 'quantity' },
-                { label: 'Received', value: r.receivedQty, kind: 'quantity' },
-              ];
+              const timelineState = timelineByFgpo[r.f];
               return (
                 <Paper key={r.f} variant="outlined" sx={{ p: 2, overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                      <Button size="small" sx={{ textTransform: 'none', p: 0, fontWeight: 700 }} onClick={() => openTimeline(r.f)}>
-                        {r.fgpo}
-                      </Button>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>{r.fgpo}</Typography>
                       <Typography variant="body2" color="text.secondary">{r.style || '-'} / {r.color || '-'} · Order {fmtNum(r.orderQty)}</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -290,30 +273,54 @@ const MasterDashboard: React.FC = () => {
                       <Typography variant="caption" color="text.secondary">Ship date: {r.shipDate ? r.shipDate.slice(0, 10) : '-'} · Updated: {r.updated ? r.updated.slice(0, 10) : '-'}</Typography>
                     </Box>
                   </Box>
-                  <Box sx={{ overflowX: 'auto', pb: 1 }}>
-                    <Box sx={{ display: 'flex', minWidth: stages.length * 132, px: 1 }}>
-                      {stages.map((stage, index) => {
-                        const hasValue = stage.kind === 'quantity' ? Number(stage.value) > 0 : Boolean(stage.value);
-                        const statusColors: Record<string, string> = {
-                          success: 'success.main', error: 'error.main', info: 'info.main', warning: 'warning.main', default: 'grey.400',
-                        };
-                        const nodeColor = hasValue
-                          ? stage.kind === 'status' ? statusColors[statusChip(String(stage.value))] ?? 'primary.main'
-                            : Number(stage.value) >= r.orderQty && r.orderQty > 0 ? 'success.main' : 'primary.main'
-                          : 'grey.400';
-                        return (
-                          <Box key={stage.label} sx={{ flex: '1 0 132px', minWidth: 132, position: 'relative' }}>
-                            {index < stages.length - 1 && <Box sx={{ position: 'absolute', top: 7, left: 14, right: 0, height: 2, bgcolor: 'grey.300' }} />}
-                            <Box sx={{ position: 'relative', zIndex: 1, width: 16, height: 16, borderRadius: '50%', bgcolor: nodeColor, border: '3px solid', borderColor: 'background.paper', boxSizing: 'border-box' }} />
-                            <Typography variant="caption" sx={{ display: 'block', mt: 0.75, fontWeight: 700, whiteSpace: 'nowrap' }}>{stage.label}</Typography>
-                            <Typography variant="body2" sx={{ color: hasValue ? 'text.primary' : 'text.disabled', whiteSpace: 'nowrap' }}>
-                              {stage.kind === 'quantity' ? fmtNum(Number(stage.value)) : stage.value || '-'}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
-                    </Box>
-                  </Box>
+                  {timelineState?.loading || !timelineState ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={24} /></Box>
+                  ) : timelineState.error ? (
+                    <Alert severity="error">{timelineState.error}</Alert>
+                  ) : timelineState.timeline ? (
+                    <>
+                      {timelineState.timeline.customerProvidedFabric && (
+                        <Alert severity="info" sx={{ mb: 2 }}>Customer-provided fabric — supply steps skipped.</Alert>
+                      )}
+                      <Box sx={{ overflowX: 'auto', pb: 1 }}>
+                        <Box sx={{ display: 'flex', minWidth: timelineState.timeline.steps.length * 145, px: 1 }}>
+                          {timelineState.timeline.steps.map((step, index) => {
+                            const color = step.status === 'done' ? 'success.main'
+                              : step.status === 'active' ? 'primary.main'
+                              : step.status === 'not_applicable' ? 'text.disabled'
+                              : 'grey.400';
+                            const detail = step.detail
+                              ? step.detail
+                              : step.status === 'pending' ? 'Pending'
+                                : step.status === 'active' ? 'In progress'
+                                  : step.status === 'not_applicable' ? 'Not applicable'
+                                    : step.date ? new Date(step.date).toLocaleDateString() : '-';
+                            return (
+                              <Box key={step.step} sx={{ flex: '1 0 145px', minWidth: 145, position: 'relative' }}>
+                                {index < timelineState.timeline!.steps.length - 1 && (
+                                  <Box sx={{ position: 'absolute', top: 7, left: 14, right: 0, height: 2, bgcolor: 'grey.300' }} />
+                                )}
+                                <Box sx={{
+                                  position: 'relative', zIndex: 1, width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                                  bgcolor: color, border: step.status === 'pending' ? '2px solid #bdbdbd' : '3px solid',
+                                  borderColor: step.status === 'pending' ? '#bdbdbd' : 'background.paper', boxSizing: 'border-box',
+                                }} />
+                                <Typography variant="caption" sx={{ display: 'block', mt: 0.75, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                  {step.step}
+                                  {step.quantity != null && (
+                                    <Box component="span" sx={{ color: 'primary.main', fontWeight: 700, ml: 0.5 }}>
+                                      · {step.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}{step.unit ? ` ${step.unit}` : ''}
+                                    </Box>
+                                  )}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{detail}</Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    </>
+                  ) : null}
                   <Typography variant="caption" color="text.secondary">
                     Shipment variance: <Box component="span" sx={{ fontWeight: 700, color: r.shipVariance < 0 ? 'error.main' : 'success.main' }}>{fmtNum(r.shipVariance)}</Box>
                   </Typography>
@@ -375,72 +382,6 @@ const MasterDashboard: React.FC = () => {
         )}
       </Paper>
 
-      {/* ── Línea de tiempo de la FGPO ── */}
-      <Dialog open={timelineOpen} onClose={() => setTimelineOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          Process Timeline{timeline ? ` — ${timeline.fgpoNumber}` : ''}
-        </DialogTitle>
-        <DialogContent>
-          {timelineLoading ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress size={28} /></Box>
-          ) : timelineError ? (
-            <Alert severity="error">{timelineError}</Alert>
-          ) : timeline ? (
-            <>
-              {timeline.customerProvidedFabric && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Customer-provided fabric — supply steps skipped.
-                </Alert>
-              )}
-              <Box sx={{ position: 'relative', pl: 3 }}>
-                {timeline.steps.map((s, i) => {
-                  const color =
-                    s.status === 'done' ? 'success.main'
-                    : s.status === 'active' ? 'primary.main'
-                    : s.status === 'not_applicable' ? 'text.disabled'
-                    : 'grey.400';
-                  const isLast = i === timeline.steps.length - 1;
-                  return (
-                    <Box key={s.step} sx={{ position: 'relative', pb: isLast ? 0 : 2 }}>
-                      {!isLast && (
-                        <Box sx={{ position: 'absolute', left: 7, top: 18, bottom: 0, width: 2, bgcolor: 'grey.300' }} />
-                      )}
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                        <Box sx={{
-                          width: 16, height: 16, borderRadius: '50%', flexShrink: 0, mt: 0.4,
-                          bgcolor: color,
-                          border: s.status === 'pending' ? '2px solid #bdbdbd' : undefined,
-                        }} />
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {s.step}
-                            {s.quantity != null && (
-                              <Typography component="span" variant="body2" sx={{ fontWeight: 700, color: 'primary.main', ml: 0.5 }}>
-                                · {s.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}{s.unit ? ` ${s.unit}` : ''}
-                              </Typography>
-                            )}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {s.detail
-                              ? s.detail
-                              : s.status === 'pending' ? 'Pending'
-                              : s.status === 'active' ? 'In progress'
-                              : s.status === 'not_applicable' ? 'Not applicable'
-                              : s.date ? new Date(s.date).toLocaleDateString() : '-'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            </>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTimelineOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };
