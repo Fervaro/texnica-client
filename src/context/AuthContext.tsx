@@ -1,6 +1,7 @@
-import React, { useState, useEffect, type ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { AuthContext, type User } from './AuthContextValue';
+import { authApi } from '../utils/api';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -10,6 +11,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
+  const [permissionsLoading, setPermissionsLoading] = useState<boolean>(true);
+  const [permissionsSuperAdmin, setPermissionsSuperAdmin] = useState<boolean>(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{ id: number; name: string } | null>(null);
 
   useEffect(() => {
@@ -42,6 +46,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    if (!token) {
+      setPermissionKeys([]);
+      setPermissionsSuperAdmin(false);
+      setPermissionsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setPermissionsLoading(true);
+    authApi.getMyPermissions()
+      .then(({ data }) => {
+        if (!active) return;
+        setPermissionKeys(Array.isArray(data?.permissionKeys)
+          ? data.permissionKeys.map((key: unknown) => String(key).trim().toUpperCase())
+          : []);
+        setPermissionsSuperAdmin(data?.hasActiveRole === true && data?.isSuperAdmin === true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPermissionKeys([]);
+        setPermissionsSuperAdmin(false);
+      })
+      .finally(() => {
+        if (active) setPermissionsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [token]);
+
+  const hasPermission = useCallback((module: string, action: string) => {
+    if (permissionsLoading) return false;
+    if (permissionsSuperAdmin) return true;
+    const key = `${module.trim().toUpperCase()}|${action.trim().toUpperCase()}`;
+    return permissionKeys.includes(key);
+  }, [permissionKeys, permissionsLoading, permissionsSuperAdmin]);
+
   const login = (newToken: string, userData: any) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -60,6 +101,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('selectedCustomer');
     setToken(null);
     setUser(null);
+    setPermissionKeys([]);
+    setPermissionsSuperAdmin(false);
+    setPermissionsLoading(false);
   };
 
   const setMustChangePassword = (value: boolean) => {
@@ -83,6 +127,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         login,
         logout,
         isAuthenticated: !!token,
+        permissionsLoading,
+        hasPermission,
         setMustChangePassword,
         selectedCustomer,
       }}

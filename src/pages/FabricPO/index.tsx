@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -120,6 +121,7 @@ const mapFabricPO = (raw: any): FabricPO => ({
 });
 
 const FabricPO: React.FC = () => {
+  const modulePermissions = useModulePermissions('Fabric PO');
   const [items, setItems] = useState<FabricPO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -406,7 +408,7 @@ const FabricPO: React.FC = () => {
           </FormControl>
 
           <Box sx={{ flexGrow: 1 }} />
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreate}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>
             New Fabric PO
           </Button>
         </Box>
@@ -508,13 +510,13 @@ const FabricPO: React.FC = () => {
                       </Tooltip>
 
                       <Tooltip title="Edit">
-                        <IconButton size="small" color="primary" onClick={() => void openEdit(item)}>
+                        <IconButton size="small" color="primary" disabled={!modulePermissions.canEdit} onClick={() => openEdit(item)}>
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
 
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => void handleDelete(item.id)}>
+                        <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.id)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

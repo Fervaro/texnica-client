@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -15,6 +16,7 @@ interface Permission {
 }
 
 const AdminPermisos: React.FC = () => {
+  const modulePermissions = useModulePermissions('Permissions');
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,7 +88,7 @@ const AdminPermisos: React.FC = () => {
           <TextField label="Module" size="small" required value={newPermission.module} onChange={e => setNewPermission({ ...newPermission, module: e.target.value })} sx={{ minWidth: 150 }} />
           <TextField label="Permission Name" size="small" required value={newPermission.name} onChange={e => setNewPermission({ ...newPermission, name: e.target.value })} sx={{ flexGrow: 1, minWidth: 200 }} />
           <TextField label="Description" size="small" value={newPermission.description} onChange={e => setNewPermission({ ...newPermission, description: e.target.value })} sx={{ flexGrow: 2, minWidth: 300 }} />
-          <Button type="submit" variant="contained" color="primary" disabled={saving}>{saving ? 'Saving...' : 'New Permission'}</Button>
+          <Button type="submit" variant="contained" color="primary" disabled={saving || !modulePermissions.canCreate}>{saving ? 'Saving...' : 'New Permission'}</Button>
         </Box>
       </Paper>
 
@@ -110,7 +112,7 @@ const AdminPermisos: React.FC = () => {
                   <TableCell>{permission.name}</TableCell>
                   <TableCell>{permission.description}</TableCell>
                   <TableCell>
-                    <Button size="small" color="error" onClick={() => handleDeletePermission(permission.id)}>Delete</Button>
+                    <Button size="small" color="error" disabled={!modulePermissions.canAdminister} onClick={() => handleDeletePermission(permission.id)}>Delete</Button>
                   </TableCell>
                 </TableRow>
               ))}

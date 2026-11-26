@@ -13,6 +13,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { rolesApi, permissionsApi, usersApi } from '../../utils/api';
 import { AuthContext } from '../../context/AuthContextValue';
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 
 const SUPER_ADMIN = 'super admin';
 const ACTION_ORDER = ['VER', 'CREAR', 'EDITAR', 'ANULAR', 'APROBAR', 'ADMINISTRAR'];
@@ -40,6 +41,7 @@ interface UserItem {
 }
 
 const AdminRoles: React.FC = () => {
+  const modulePermissions = useModulePermissions('Roles & Permissions');
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -221,7 +223,7 @@ const AdminRoles: React.FC = () => {
           <SecurityIcon color="primary" />
           <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 'bold' }}>Roles & Permissions</Typography>
         </Box>
-        <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button variant="contained" color="primary" startIcon={<AddIcon />} disabled={!modulePermissions.canEdit} onClick={openCreate}>
           New Role
         </Button>
       </Box>
@@ -268,7 +270,7 @@ const AdminRoles: React.FC = () => {
                           variant="outlined"
                           startIcon={<EditIcon />}
                           onClick={() => openEdit(role)}
-                          disabled={protectedRole}
+                          disabled={protectedRole || !modulePermissions.canEdit}
                         >
                           Edit
                         </Button>
@@ -277,7 +279,7 @@ const AdminRoles: React.FC = () => {
                           variant="outlined"
                           startIcon={<KeyIcon />}
                           onClick={() => openPermissions(role)}
-                          disabled={protectedRole}
+                          disabled={protectedRole || !modulePermissions.canAdminister}
                         >
                           Permissions
                         </Button>
@@ -287,7 +289,7 @@ const AdminRoles: React.FC = () => {
                           variant="outlined"
                           startIcon={<DeleteIcon />}
                           onClick={() => handleDeactivate(role)}
-                          disabled={protectedRole}
+                          disabled={protectedRole || !modulePermissions.canEdit}
                         >
                           Deactivate
                         </Button>
@@ -327,7 +329,7 @@ const AdminRoles: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setFormOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={saving}>
+            <Button type="submit" variant="contained" disabled={saving || !modulePermissions.canEdit}>
               {saving ? 'Saving...' : 'Save'}
             </Button>
           </DialogActions>
@@ -367,6 +369,7 @@ const AdminRoles: React.FC = () => {
                           <Checkbox
                             checked={selected.has(perm.id)}
                             onChange={() => togglePermission(perm.id)}
+                            disabled={!modulePermissions.canAdminister}
                             color="primary"
                           />
                         </TableCell>
@@ -383,7 +386,7 @@ const AdminRoles: React.FC = () => {
             {selected.size} permission(s) selected
           </Typography>
           <Button onClick={() => setPermOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={requestSavePermissions} disabled={savingPerms}>
+          <Button variant="contained" onClick={requestSavePermissions} disabled={savingPerms || !modulePermissions.canAdminister}>
             {savingPerms ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
@@ -400,7 +403,7 @@ const AdminRoles: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="primary" onClick={savePermissions} disabled={savingPerms}>
+          <Button variant="contained" color="primary" onClick={savePermissions} disabled={savingPerms || !modulePermissions.canAdminister}>
             Confirm
           </Button>
         </DialogActions>

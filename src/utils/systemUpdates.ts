@@ -4,9 +4,17 @@ export interface SystemUpdateChange {
 }
 
 export const systemUpdates = {
-  id: '2026-11-24',
-  date: '24 de noviembre de 2026',
+  id: '2026-11-26',
+  date: '26 de noviembre de 2026',
   changes: [
+    {
+      title: 'Permisos por acción en los módulos',
+      description: 'Las acciones de crear, editar y anular se habilitan según los permisos efectivos asignados al usuario.',
+    },
+    {
+      title: 'Línea de tiempo en el Dashboard de clientes',
+      description: 'La línea de tiempo detallada de cada FGPO se muestra directamente en el Dashboard, sin abrirla al seleccionar la FGPO. Se presentan hasta 5 FGPO por página.',
+    },
     {
       title: 'Salidas de tela desde Excel',
       description: 'La importación identifica cada rollo por su ID, procesa las líneas válidas y permite descargar las líneas que requieren revisión.',

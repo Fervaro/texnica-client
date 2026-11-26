@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -54,6 +55,7 @@ const mapFactory = (raw: any): Factory => ({
 });
 
 const Factories: React.FC = () => {
+  const modulePermissions = useModulePermissions('Factories');
   const [factories, setFactories] = useState<Factory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -212,7 +214,7 @@ const Factories: React.FC = () => {
             }}
           />
           <Button variant="contained" color="primary" onClick={handleSearch}>Search</Button>
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreate}>New Factory</Button>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Factory</Button>
         </Box>
 
         {loading ? (
@@ -248,7 +250,7 @@ const Factories: React.FC = () => {
                         <TableCell>{factory.Email ?? '-'}</TableCell>
                         <TableCell align="right">
                           <Tooltip title="Edit">
-                            <IconButton size="small" color="primary" onClick={() => openEdit(factory)}>
+                            <IconButton size="small" color="primary" disabled={!modulePermissions.canEdit} onClick={() => openEdit(factory)}>
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
@@ -295,7 +297,7 @@ const Factories: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button type="submit" variant="contained" color="primary" disabled={saving} onClick={handleSubmit}>
+          <Button type="submit" variant="contained" color="primary" disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} onClick={handleSubmit}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
@@ -307,7 +309,7 @@ const Factories: React.FC = () => {
         <DialogContent>Are you sure you want to delete this factory?</DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDelete}>Delete</Button>
+          <Button variant="contained" color="error" disabled={!modulePermissions.canVoid} onClick={handleDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -159,6 +160,8 @@ const mapFgpoLine = (raw: any): FgpoLine => ({
 });
 
 const Fgpo: React.FC = () => {
+  const modulePermissions = useModulePermissions('FGPO Master');
+  const fgpoLinePermissions = useModulePermissions('FGPO Lines');
   const { selectedCustomer } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -659,7 +662,7 @@ const Fgpo: React.FC = () => {
 
           <Box sx={{ flexGrow: 1 }} />
 
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreateDialog}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreateDialog}>
             New FGPO
           </Button>
         </Box>
@@ -740,12 +743,12 @@ const Fgpo: React.FC = () => {
                   <TableCell>{formatDate(fgpo.UpdatedAt || fgpo.CreatedAt)}</TableCell>
                   <TableCell>
                     <Tooltip title="Edit">
-                      <IconButton size="small" color="primary" onClick={() => openEditDialog(fgpo)}>
+                      <IconButton size="small" color="primary" disabled={!modulePermissions.canEdit} onClick={() => openEditDialog(fgpo)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(fgpo.ID)}>
+                      <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(fgpo.ID)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -762,6 +765,7 @@ const Fgpo: React.FC = () => {
                           size="small"
                           variant="contained"
                           startIcon={<AddIcon />}
+                          disabled={!fgpoLinePermissions.canCreate}
                           onClick={() => openLineDialog(fgpo.ID)}
                         >
                           Add Line
@@ -789,10 +793,10 @@ const Fgpo: React.FC = () => {
                                 <TableCell>{`$${line.totalValue.toFixed(2)}`}</TableCell>
                                 <TableCell>
                                   <Tooltip title="Edit line">
-                                    <IconButton size="small" color="primary" onClick={() => openLineDialog(fgpo.ID, line)}><EditIcon fontSize="small" /></IconButton>
+                                    <IconButton size="small" color="primary" disabled={!fgpoLinePermissions.canEdit} onClick={() => openLineDialog(fgpo.ID, line)}><EditIcon fontSize="small" /></IconButton>
                                   </Tooltip>
                                   <Tooltip title="Delete line">
-                                    <IconButton size="small" color="error" onClick={() => handleLineDelete(line.id)}><DeleteIcon fontSize="small" /></IconButton>
+                                    <IconButton size="small" color="error" disabled={!fgpoLinePermissions.canVoid} onClick={() => handleLineDelete(line.id)}><DeleteIcon fontSize="small" /></IconButton>
                                   </Tooltip>
                                 </TableCell>
                               </TableRow>
@@ -964,7 +968,7 @@ const Fgpo: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit} disabled={saving}>
+          <Button type="submit" variant="contained" color="primary" onClick={handleSubmit} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)}>
             {saving ? 'Saving...' : editingId !== null ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
@@ -1027,7 +1031,7 @@ const Fgpo: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setLineDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={lineSaving}>{editingLineId !== null ? 'Update' : 'Create'}</Button>
+            <Button type="submit" variant="contained" disabled={lineSaving || !(editingLineId !== null ? fgpoLinePermissions.canEdit : fgpoLinePermissions.canCreate)}>{editingLineId !== null ? 'Update' : 'Create'}</Button>
           </DialogActions>
         </form>
       </Dialog>

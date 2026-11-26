@@ -6,6 +6,7 @@ import {
 import { fgpoApi, customersApi } from '../../utils/api';
 import { getCurrentUserName } from '../../utils/session';
 import { AuthContext } from '../../context/AuthContextValue';
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 
 const STATUS_OPTIONS = [
   'Not Started', 'Pending', 'In Progress', 'Partially Completed', 'Completed',
@@ -18,6 +19,7 @@ const emptyForm = {
 };
 
 const CreatePO: React.FC = () => {
+  const modulePermissions = useModulePermissions('FGPO Master');
   const navigate = useNavigate();
   const { selectedCustomer } = useContext(AuthContext);
   const [customers, setCustomers] = useState<{ ID: number; Name: string }[]>([]);
@@ -136,7 +138,7 @@ const CreatePO: React.FC = () => {
             </Grid>
             <Grid size={{ xs: 12 }} sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 1 }}>
               <Button onClick={() => navigate(-1)}>Cancel</Button>
-              <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Creating...' : 'Create FGPO'}</Button>
+              <Button type="submit" variant="contained" disabled={saving || !modulePermissions.canCreate}>{saving ? 'Creating...' : 'Create FGPO'}</Button>
             </Grid>
           </Grid>
         </Box>

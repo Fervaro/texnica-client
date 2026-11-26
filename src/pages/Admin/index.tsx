@@ -8,8 +8,11 @@ import {
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 
 const Admin: React.FC = () => {
+  const userPermissions = useModulePermissions('Users');
+  const rolePermissions = useModulePermissions('Roles & Permissions');
   const { users, roles, addUser, addRole } = useContext(DataContext);
   
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Administrator' });
@@ -67,7 +70,7 @@ const Admin: React.FC = () => {
                 {roles.map(r => <MenuItem key={r.ID} value={r.Name}>{r.Name}</MenuItem>)}
               </Select>
             </FormControl>
-            <Button type="submit" variant="contained" color="primary">New User</Button>
+            <Button type="submit" variant="contained" color="primary" disabled={!userPermissions.canCreate}>New User</Button>
           </Box>
 
           <TableContainer>
@@ -123,7 +126,7 @@ const Admin: React.FC = () => {
               value={newRole.description} onChange={e => setNewRole({...newRole, description: e.target.value})}
               sx={{ flexGrow: 2, minWidth: 200 }}
             />
-            <Button type="submit" variant="contained" color="primary">New Role</Button>
+            <Button type="submit" variant="contained" color="primary" disabled={!rolePermissions.canEdit}>New Role</Button>
           </Box>
 
           <TableContainer>

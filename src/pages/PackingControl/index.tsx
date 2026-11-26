@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, FormEvent, useContext, useEffect } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -45,6 +46,7 @@ const FIELD_ITEM_KEY: Record<number, keyof PackingControl> = {
 };
 
 const PackingControlPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Packing Control');
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
@@ -267,13 +269,13 @@ const PackingControlPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
-          <Button variant="outlined" startIcon={<AddIcon />} endIcon={<ArrowDropDownIcon />} onClick={e => setBoxMenuAnchor(e.currentTarget)}>Create Box</Button>
+          <Button variant="outlined" startIcon={<AddIcon />} endIcon={<ArrowDropDownIcon />} disabled={!modulePermissions.canCreate} onClick={e => setBoxMenuAnchor(e.currentTarget)}>Create Box</Button>
           <Menu anchorEl={boxMenuAnchor} open={Boolean(boxMenuAnchor)} onClose={() => setBoxMenuAnchor(null)}>
             <MenuItem onClick={() => { setBoxMenuAnchor(null); openMix(); }}>Create Mix</MenuItem>
             <MenuItem onClick={() => { setBoxMenuAnchor(null); setIrrBoxOpen(true); }}>Create IRR Box</MenuItem>
             {fqEnabled && <MenuItem onClick={() => { setBoxMenuAnchor(null); setFqBoxOpen(true); }}>Create FQ Box</MenuItem>}
           </Menu>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Record</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Record</Button>
         </Box>
       </Box>
 
@@ -344,9 +346,9 @@ const PackingControlPage: React.FC = () => {
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     {!item.isMix && !item.isIrrBox && !item.isFqBox && (
-                      <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
                     )}
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -438,7 +440,7 @@ const PackingControlPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)}>{saving ? 'Saving...' : 'Save'}</Button>
         </DialogActions>
       </Dialog>
 

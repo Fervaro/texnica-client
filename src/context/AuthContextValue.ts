@@ -21,6 +21,8 @@ interface AuthContextType {
   login: (token: string, user: any) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  permissionsLoading: boolean;
+  hasPermission: (module: string, action: string) => boolean;
   setMustChangePassword: (value: boolean) => void;
   selectedCustomer: { id: number; name: string } | null;
 }
@@ -31,6 +33,8 @@ export const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   isAuthenticated: false,
+  permissionsLoading: false,
+  hasPermission: () => false,
   setMustChangePassword: () => {},
   selectedCustomer: null,
 });

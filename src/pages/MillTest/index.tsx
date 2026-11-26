@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -41,6 +42,7 @@ const emptyForm = {
 };
 
 const MillTestPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Mill Test');
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
@@ -132,7 +134,7 @@ const MillTestPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Test Record</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Test Record</Button>
         </Box>
       </Box>
 
@@ -170,7 +172,7 @@ const MillTestPage: React.FC = () => {
               ) : items.length === 0 ? (
                 <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No test records found</Typography>
-                  <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first test</Button>
+                  <Button variant="text" disabled={!modulePermissions.canCreate} onClick={openCreate} sx={{ mt: 1 }}>Create your first test</Button>
                 </TableCell></TableRow>
               ) : items.map((item: MillTest) => (
                 <TableRow key={item.id} hover>
@@ -184,8 +186,8 @@ const MillTestPage: React.FC = () => {
                   <TableCell>{item.testedBy || '-'}</TableCell>
                   <TableCell>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -320,7 +322,7 @@ const MillTestPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>
             {editingId ? 'Update' : 'Create'}
           </Button>
         </DialogActions>

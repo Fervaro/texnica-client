@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -26,6 +27,7 @@ const mapComponent = (raw: any): Component => ({
 const emptyForm = { ComponentCode: '', Description: '' };
 
 const ComponentsPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Components');
   const [items, setItems] = useState<Component[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -76,7 +78,7 @@ const ComponentsPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Component</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Component</Button>
         </Box>
       </Box>
 
@@ -106,8 +108,8 @@ const ComponentsPage: React.FC = () => {
                   <TableCell sx={{ fontWeight: 600 }}>{c.componentCode}</TableCell>
                   <TableCell>{c.description || '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(c)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(c)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" disabled={!modulePermissions.canEdit} onClick={() => handleDelete(c.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -128,7 +130,7 @@ const ComponentsPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button variant="contained" type="submit" disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
+            <Button variant="contained" type="submit" disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
           </DialogActions>
         </form>
       </Dialog>

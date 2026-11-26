@@ -7,6 +7,7 @@ import {
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import { useFgpoOptions } from '../../hooks/fgpos/useFgpoOptions';
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import { fabricInventoryImportApi } from '../../utils/api';
 
 type RowDto = {
@@ -102,6 +103,7 @@ const toNum = (v: any): number | undefined => {
 };
 
 const InventoryImport: React.FC = () => {
+  const modulePermissions = useModulePermissions('Fabric Inventory');
   const { options: fgpoList } = useFgpoOptions();
   const [mode, setMode] = useState<'import' | 'update'>('import');
   const [fgpoId, setFgpoId] = useState(0);
@@ -304,8 +306,8 @@ const InventoryImport: React.FC = () => {
         }}
         sx={{ mb: 2 }}
       >
-        <ToggleButton value="import">Import (receipts)</ToggleButton>
-        <ToggleButton value="update">Update</ToggleButton>
+        <ToggleButton value="import" disabled={!modulePermissions.canCreate}>Import (receipts)</ToggleButton>
+        <ToggleButton value="update" disabled={!modulePermissions.canEdit}>Update</ToggleButton>
       </ToggleButtonGroup>
 
       <Paper sx={{ p: 2, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
@@ -353,7 +355,7 @@ const InventoryImport: React.FC = () => {
             e.target.value = '';
           }}
         />
-        <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => fileRef.current?.click()}>
+        <Button variant="outlined" startIcon={<UploadFileIcon />} disabled={!(mode === 'update' ? modulePermissions.canEdit : modulePermissions.canCreate)} onClick={() => fileRef.current?.click()}>
           Select Excel
         </Button>
         {fileName && <Typography variant="body2" color="text.secondary">{fileName} — {rows.length} row(s)</Typography>}
@@ -457,7 +459,7 @@ const InventoryImport: React.FC = () => {
             <Button
               variant="contained"
               onClick={mode === 'update' ? handleUpdate : handleImport}
-              disabled={importing || (mode === 'import' && !fgpoId && !campoMaster.trim())}
+              disabled={importing || (mode === 'import' && !fgpoId && !campoMaster.trim()) || !(mode === 'update' ? modulePermissions.canEdit : modulePermissions.canCreate)}
               startIcon={importing ? <CircularProgress size={18} /> : <ImportExportIcon />}
             >
               {importing

@@ -9,6 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { fgpoApi } from '../../utils/api';
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 
 interface FgpoRow {
   ID: number;
@@ -31,6 +32,7 @@ const sc = (s: string) => {
 };
 
 const Production: React.FC = () => {
+  const modulePermissions = useModulePermissions('FGPO Master');
   const navigate = useNavigate();
   const [items, setItems] = useState<FgpoRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ const Production: React.FC = () => {
             Customer production orders (FGPO) — real system data
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/fgpo')}>Create FGPO</Button>
+        <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={() => navigate('/fgpo')}>Create FGPO</Button>
       </Box>
 
       <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, mb: 2 }}>

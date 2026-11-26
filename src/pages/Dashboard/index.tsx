@@ -37,6 +37,26 @@ const sumBy = (rows: any[], fgpoId: number, camel: string, pascal: string) =>
   rows.filter(r => fgpoIdOf(r) === fgpoId).reduce((s, r) => s + num(pick(r, camel, pascal)), 0);
 const sumAll = (rows: any[], camel: string, pascal: string) =>
   rows.reduce((s, r) => s + num(pick(r, camel, pascal)), 0);
+const shipmentVarianceFor = (shipments: any[], fgpoId: number, orderQty: number) => {
+  const countedStatuses = new Set(['delivered', 'partially delivered']);
+  const deliveredQty = shipments.reduce((total, shipment) => {
+    const status = String(pick(shipment, 'shipmentStatus', 'ShipmentStatus') ?? '').trim().toLowerCase();
+    if (!countedStatuses.has(status) || pick(shipment, 'active', 'Active') === false) return total;
+
+    const lines = pick(shipment, 'lines', 'Lines') ?? [];
+    if (lines.length > 0) {
+      return total + lines
+        .filter((line: any) => fgpoIdOf(line) === fgpoId && pick(line, 'active', 'Active') !== false)
+        .reduce((sum: number, line: any) => sum + num(pick(line, 'pieces', 'Pieces')), 0);
+    }
+
+    return fgpoIdOf(shipment) === fgpoId
+      ? total + num(pick(shipment, 'totalShippedQty', 'TotalShippedQty'))
+      : total;
+  }, 0);
+
+  return deliveredQty - orderQty;
+};
 
 const riskOf = (f: any, lateBy: number) => {
   const pending = num(pick(f, 'pendingProduction', 'PendingProduction'));
@@ -164,7 +184,7 @@ const MasterDashboard: React.FC = () => {
       readyToShip: sumBy(data.pack, fid, 'readyToShipQty', 'ReadyToShipQty'),
       inTransit: sh.reduce((s: number, g: any) => s + num(pick(g, 'inTransitQty', 'InTransitQty')), 0),
       receivedQty: sh.reduce((s: number, g: any) => s + num(pick(g, 'customerReceivedQty', 'CustomerReceivedQty')), 0),
-      shipVariance: num(pick(f, 'shipmentVariance', 'ShipmentVariance')),
+      shipVariance: shipmentVarianceFor(data.ship, fid, num(pick(f, 'orderQuantity', 'OrderQuantity'))),
       shipDate,
       risk: riskOf(f, late),
       updated: pick(f, 'updatedAt', 'UpdatedAt') ?? pick(f, 'createdAt', 'CreatedAt') ?? '',
@@ -202,7 +222,7 @@ const MasterDashboard: React.FC = () => {
       style: pick(f, 'style', 'Style') ?? '',
       color: pick(f, 'color', 'Color') ?? '',
       orderQty: num(pick(f, 'orderQuantity', 'OrderQuantity')),
-      shipVariance: num(pick(f, 'shipmentVariance', 'ShipmentVariance')),
+      shipVariance: shipmentVarianceFor(data.ship, fid, num(pick(f, 'orderQuantity', 'OrderQuantity'))),
       fabRequired: sumBy(data.fabReq, fid, 'netPurchaseRequirement', 'NetPurchaseRequirement'),
       fabOrdered: allocated,
       millProduced: sumBy(data.millProd, fid, 'producedQuantity', 'ProducedQuantity'),

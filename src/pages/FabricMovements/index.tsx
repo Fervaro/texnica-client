@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -58,6 +59,7 @@ const normalizeHeader = (value: unknown) => String(value ?? '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const FabricMovementsPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Fabric Movements');
   const [movements, setMovements] = useState<FabricMovement[]>([]);
   const [rolls, setRolls] = useState<RollReceiving[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,7 +394,7 @@ const FabricMovementsPage: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
           <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={openImport}>Import Exit Excel</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Movement</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Movement</Button>
         </Box>
       </Box>
 
@@ -564,7 +566,7 @@ const FabricMovementsPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !modulePermissions.canCreate} startIcon={saving ? <CircularProgress size={18} /> : null}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>

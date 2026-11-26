@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -8,6 +9,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import { useAdminUsuarios } from '../../hooks/AdminUsuarios/useAdminUsuarios';
 
 const AdminUsuarios: React.FC = () => {
+  const modulePermissions = useModulePermissions('Users');
   const {
     users,
     roles,
@@ -98,7 +100,7 @@ const AdminUsuarios: React.FC = () => {
               </Select>
             </FormControl>
           )}
-          <Button type="submit" variant="contained" color="primary" disabled={saving}>{saving ? 'Saving...' : 'New User'}</Button>
+          <Button type="submit" variant="contained" color="primary" disabled={saving || !modulePermissions.canCreate}>{saving ? 'Saving...' : 'New User'}</Button>
         </Box>
 
         <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
@@ -142,9 +144,9 @@ const AdminUsuarios: React.FC = () => {
                   </TableCell>
 
                   <TableCell>
-                    <Button size="small" variant="outlined" onClick={() => openEdit(user)}>Edit</Button>{' '}
-                    <Button size="small" variant="outlined" onClick={() => resetPassword(user)}>Reset Password</Button>{' '}
-                    <Button size="small" color={user.active ? 'error' : 'success'} onClick={() => toggleActive(user)}>
+                    <Button size="small" variant="outlined" disabled={!modulePermissions.canEdit} onClick={() => openEdit(user)}>Edit</Button>{' '}
+                    <Button size="small" variant="outlined" disabled={!modulePermissions.canAdminister} onClick={() => resetPassword(user)}>Reset Password</Button>{' '}
+                    <Button size="small" color={user.active ? 'error' : 'success'} disabled={!modulePermissions.canVoid} onClick={() => toggleActive(user)}>
                       {user.active ? 'Deactivate' : 'Activate'}
                     </Button>
                   </TableCell>
@@ -164,7 +166,7 @@ const AdminUsuarios: React.FC = () => {
           {editForm.userType === 'Client' && <FormControl size="small" required><InputLabel>Customer</InputLabel><Select label="Customer" value={editForm.customerId || ''} onChange={e => setEditForm({ ...editForm, customerId: Number(e.target.value) })}>{customers.map(customer => <MenuItem key={customer.id} value={customer.id}>{customer.name}</MenuItem>)}</Select></FormControl>}
           <FormControl size="small"><InputLabel>Role</InputLabel><Select label="Role" value={editForm.roleId || ''} onChange={e => setEditForm({ ...editForm, roleId: Number(e.target.value) })}>{roles.map(role => <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>)}</Select></FormControl>
         </DialogContent>
-        <DialogActions><Button onClick={() => setEditingUser(null)}>Cancel</Button><Button variant="contained" onClick={saveEdit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button></DialogActions>
+        <DialogActions><Button onClick={() => setEditingUser(null)}>Cancel</Button><Button variant="contained" onClick={saveEdit} disabled={saving || !modulePermissions.canEdit}>{saving ? 'Saving...' : 'Save'}</Button></DialogActions>
       </Dialog>
 
       <Snackbar

@@ -10,6 +10,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import { fabricPOsApi } from '../../utils/api';
 import { useSupplierOptions } from '../../hooks/suppliers/useSupplierOptions';
 import { useUserOptions } from '../../hooks/users/useUserOptions';
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import { getCurrentUserName } from '../../utils/session';
 import FabricRequirementPicker from './FabricRequirementPicker';
 import type {
@@ -119,6 +120,7 @@ interface Props {
 }
 
 const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }) => {
+  const modulePermissions = useModulePermissions('Fabric PO');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -500,7 +502,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
               Fabric Requirements / PO Lines
             </Typography>
             <Box sx={{ flexGrow: 1 }} />
-            <Button variant="contained" color="secondary" startIcon={<AddIcon />} onClick={() => setPickerOpen(true)}>
+            <Button variant="contained" color="secondary" startIcon={<AddIcon />} disabled={isEdit ? !modulePermissions.canEdit : !modulePermissions.canCreate} onClick={() => setPickerOpen(true)}>
               Select Fabric Requirements
             </Button>
           </Box>
@@ -589,7 +591,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
                         </TableCell>
                         <TableCell>
                           <Tooltip title="Remove from the PO (does not delete the Fabric Requirement)">
-                            <IconButton size="small" color="error" onClick={() => removeLine(line.key)}>
+                            <IconButton size="small" color="error" disabled={isEdit ? !modulePermissions.canEdit : !modulePermissions.canCreate} onClick={() => removeLine(line.key)}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
@@ -627,7 +629,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
           >
             Preview
           </Button>
-          <Button variant="contained" color="primary" onClick={() => void handleSave()} disabled={saving}>
+          <Button variant="contained" color="primary" onClick={() => void handleSave()} disabled={saving || (isEdit ? !modulePermissions.canEdit : !modulePermissions.canCreate)}>
             {saving ? <CircularProgress size={18} /> : (isEdit ? 'Update Fabric PO' : 'Save Fabric PO')}
           </Button>
         </DialogActions>
@@ -733,7 +735,7 @@ const FabricPOFormDialog: React.FC<Props> = ({ open, editing, onClose, onSaved }
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPreviewOpen(false)}>Back</Button>
-          <Button variant="contained" color="primary" onClick={() => void handleSave()} disabled={saving}>
+          <Button variant="contained" color="primary" onClick={() => void handleSave()} disabled={saving || (isEdit ? !modulePermissions.canEdit : !modulePermissions.canCreate)}>
             {saving ? <CircularProgress size={18} /> : (isEdit ? 'Update Fabric PO' : 'Save Fabric PO')}
           </Button>
         </DialogActions>

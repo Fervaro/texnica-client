@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -38,6 +39,7 @@ const mapBoxType = (raw: any): BoxType => ({
 const emptyForm = { BoxCode: '', Length: '', Width: '', Height: '', EmptyCartonWeight: '', Style: '', Color: '', Size: '', QtyPerBox: '', Comments: '' };
 
 const BoxTypesPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Box Types');
   const [items, setItems] = useState<BoxType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -115,7 +117,7 @@ const BoxTypesPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Box Type</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Box Type</Button>
         </Box>
       </Box>
 
@@ -154,8 +156,8 @@ const BoxTypesPage: React.FC = () => {
                   <TableCell>{b.emptyCartonWeight ?? '-'}</TableCell>
                   <TableCell>{b.comments || '-'}</TableCell>
                   <TableCell>
-                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(b)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(b.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(b)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" disabled={!modulePermissions.canEdit} onClick={() => handleDelete(b.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -196,7 +198,7 @@ const BoxTypesPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button variant="contained" type="submit" disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
+            <Button variant="contained" type="submit" disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
           </DialogActions>
         </form>
       </Dialog>

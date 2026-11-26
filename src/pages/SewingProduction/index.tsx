@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -34,6 +35,7 @@ const emptyForm = {
 };
 
 const SewingProductionPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Sewing Production');
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
@@ -118,7 +120,7 @@ const SewingProductionPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Record</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Record</Button>
         </Box>
       </Box>
 
@@ -149,7 +151,7 @@ const SewingProductionPage: React.FC = () => {
               ) : items.length === 0 ? (
                 <TableRow><TableCell colSpan={15} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No sewing records found</Typography>
-                  <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first record</Button>
+                  <Button variant="text" disabled={!modulePermissions.canCreate} onClick={openCreate} sx={{ mt: 1 }}>Create your first record</Button>
                 </TableCell></TableRow>
               ) : items.map((s) => (
                 <TableRow key={s.id} hover>
@@ -169,8 +171,8 @@ const SewingProductionPage: React.FC = () => {
                   <TableCell><Chip label={s.topStatus || 'N/A'} size="small" color={sc(s.topStatus ?? '')} /></TableCell>
                   <TableCell>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(s); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="info" onClick={() => openEdit(s)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(s.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(s)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(s.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -244,7 +246,7 @@ const SewingProductionPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
         </DialogActions>
       </Dialog>
 

@@ -676,6 +676,7 @@ export const aqlInspectionsApi = {
 
 // Auth API
 export const authApi = {
+  getMyPermissions: () => api.get('/auth/my-permissions'),
   login: (userName: string, password: string) => 
     api.post('/auth/login', { userName, password }),
   register: (userName: string, userEmail: string, password: string) => 

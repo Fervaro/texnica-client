@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -58,6 +59,7 @@ const mapCustomer = (raw: any): Customer => ({
 });
 
 const Customers: React.FC = () => {
+  const modulePermissions = useModulePermissions('Customers');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -217,7 +219,7 @@ const Customers: React.FC = () => {
             }}
           />
           <Button variant="contained" color="primary" onClick={handleSearch}>Search</Button>
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreate}>New Customer</Button>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Customer</Button>
         </Box>
 
         {loading ? (
@@ -255,7 +257,7 @@ const Customers: React.FC = () => {
                         <TableCell>{customer.ShippingAddress ?? '-'}</TableCell>
                         <TableCell align="right">
                           <Tooltip title="Edit">
-                            <IconButton size="small" color="primary" onClick={() => openEdit(customer)}>
+                            <IconButton size="small" color="primary" disabled={!modulePermissions.canEdit} onClick={() => openEdit(customer)}>
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
@@ -303,7 +305,7 @@ const Customers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button type="submit" variant="contained" color="primary" disabled={saving} onClick={handleSubmit}>
+          <Button type="submit" variant="contained" color="primary" disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} onClick={handleSubmit}>
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
@@ -315,7 +317,7 @@ const Customers: React.FC = () => {
         <DialogContent>Are you sure you want to delete this customer?</DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDelete}>Delete</Button>
+          <Button variant="contained" color="error" disabled={!modulePermissions.canVoid} onClick={handleDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>

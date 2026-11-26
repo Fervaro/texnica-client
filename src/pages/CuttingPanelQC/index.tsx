@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -33,6 +34,7 @@ const emptyForm = {
 };
 
 const CuttingPanelQCPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Cutting Panel QC');
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
@@ -118,7 +120,7 @@ const CuttingPanelQCPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Inspection</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Inspection</Button>
         </Box>
       </Box>
 
@@ -156,7 +158,7 @@ const CuttingPanelQCPage: React.FC = () => {
               ) : items.length === 0 ? (
                 <TableRow><TableCell colSpan={13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No inspections found</Typography>
-                  <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first inspection</Button>
+                  <Button variant="text" disabled={!modulePermissions.canCreate} onClick={openCreate} sx={{ mt: 1 }}>Create your first inspection</Button>
                 </TableCell></TableRow>
               ) : items.map((item: CuttingPanelQc) => (
                 <TableRow key={item.id} hover>
@@ -174,8 +176,8 @@ const CuttingPanelQCPage: React.FC = () => {
                   <TableCell><Chip label={item.result || 'N/A'} size="small" color={sc(item.result ?? '')} variant="outlined" /></TableCell>
                   <TableCell>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -251,7 +253,7 @@ const CuttingPanelQCPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>
             {editingId ? 'Update' : 'Create'}
           </Button>
         </DialogActions>

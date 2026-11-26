@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -53,6 +54,7 @@ const emptyForm = {
 };
 
 const FabricShipmentPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Fabric Shipment');
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
@@ -328,7 +330,7 @@ const FabricShipmentPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Shipment</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Shipment</Button>
         </Box>
       </Box>
 
@@ -376,7 +378,7 @@ const FabricShipmentPage: React.FC = () => {
               ) : items.length === 0 ? (
                 <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                   <Typography variant="body1">No shipments found</Typography>
-                  <Button variant="text" onClick={openCreate} sx={{ mt: 1 }}>Create your first shipment</Button>
+                  <Button variant="text" disabled={!modulePermissions.canCreate} onClick={openCreate} sx={{ mt: 1 }}>Create your first shipment</Button>
                 </TableCell></TableRow>
               ) : items.map((item: FabricShipment) => (
                 <TableRow key={item.id} hover>
@@ -396,8 +398,8 @@ const FabricShipmentPage: React.FC = () => {
                   <TableCell>
                     <IconButton size="small" color="primary" title="Lots" onClick={() => openLots(item)}><ListAltIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
                 </TableRow>
               ))}
@@ -476,7 +478,7 @@ const FabricShipmentPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>
             {editingId ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
@@ -527,7 +529,7 @@ const FabricShipmentPage: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               {lotsShipment?.fabricPONumber} · {lotsShipment?.fgpoNumber}
             </Typography>
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openLotCreate}>Add Lot</Button>
+            <Button variant="contained" size="small" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openLotCreate}>Add Lot</Button>
           </Box>
           {lotsLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
@@ -562,8 +564,8 @@ const FabricShipmentPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" color="info" onClick={() => openLotEdit(lot)}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleLotDelete(lot)}><DeleteIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openLotEdit(lot)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleLotDelete(lot)}><DeleteIcon fontSize="small" /></IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -622,7 +624,7 @@ const FabricShipmentPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setLotDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={lotSaving} startIcon={lotSaving ? <CircularProgress size={18} /> : null}>
+            <Button type="submit" variant="contained" disabled={lotSaving || !(editingLotId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={lotSaving ? <CircularProgress size={18} /> : null}>
               {editingLotId ? 'Update' : 'Create'}
             </Button>
           </DialogActions>

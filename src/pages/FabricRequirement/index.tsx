@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -161,6 +162,7 @@ const mapFabricRequirement = (raw: any): FabricRequirement => ({
 });
 
 const FabricRequirement: React.FC = () => {
+  const modulePermissions = useModulePermissions('Fabric Requirement');
   const navigate = useNavigate();
   const [items, setItems] = useState<FabricRequirement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -716,7 +718,7 @@ const FabricRequirement: React.FC = () => {
             Generate from FGPO
           </Button>
 
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openCreateDialog}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreateDialog}>
             New Fabric Requirement
           </Button>
         </Box>
@@ -795,12 +797,12 @@ const FabricRequirement: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit">
-                      <IconButton size="small" color="primary" onClick={() => openEditDialog(item)}>
+                      <IconButton size="small" color="primary" disabled={!modulePermissions.canEdit} onClick={() => openEditDialog(item)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(item.ID)}>
+                      <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.ID)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -1293,5 +1295,4 @@ const FabricRequirement: React.FC = () => {
 };
 
 export default FabricRequirement;
-
 

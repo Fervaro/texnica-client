@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, FormEvent, useContext } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -61,6 +62,7 @@ interface BoxOption {
 }
 
 const ShipmentControlPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('Shipment Control');
   const {
     items, loading, saving, error, page, rowsPerPage, totalCount,
     setPage, setRowsPerPage, setSearchQuery, setError, refresh,
@@ -198,7 +200,9 @@ const ShipmentControlPage: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Delete this shipment?')) return;
     try { await remove(id); }
-    catch (err: any) { setError(err.response?.data || 'Error deleting.'); }
+    catch (err: any) {
+      setError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message || 'Error deleting.');
+    }
   };
 
   const handleClose = async (id: number) => {
@@ -262,7 +266,9 @@ const ShipmentControlPage: React.FC = () => {
       if (editingId) await update(editingId, payload);
       else await create(payload);
       setDialogOpen(false);
-    } catch (err: any) { setFormError(err.response?.data || 'Error saving.'); }
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || (typeof err.response?.data === 'string' ? err.response.data : null) || err.message || 'Error saving.');
+    }
   };
 
   const fmt = (v?: string) => v?.split('T')[0] || '-';
@@ -288,7 +294,7 @@ const ShipmentControlPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={refresh}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Shipment</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Shipment</Button>
         </Box>
       </Box>
 
@@ -345,13 +351,13 @@ const ShipmentControlPage: React.FC = () => {
                     <IconButton size="small" color="primary" onClick={() => { setViewItem(item); setViewOpen(true); }}><VisibilityIcon fontSize="small" /></IconButton>
                     {item.isClosed ? (
                       isSuperAdmin && (
-                        <IconButton size="small" color="warning" title="Reopen" onClick={() => handleReopen(item.id)}><LockOpenIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="warning" title="Reopen" disabled={!modulePermissions.canEdit} onClick={() => handleReopen(item.id)}><LockOpenIcon fontSize="small" /></IconButton>
                       )
                     ) : (
                       <>
-                        <IconButton size="small" color="info" onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton size="small" color="success" title="Close shipment" onClick={() => handleClose(item.id)}><LockIcon fontSize="small" /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(item)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="success" title="Close shipment" disabled={!modulePermissions.canEdit} onClick={() => handleClose(item.id)}><LockIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(item.id)}><DeleteIcon fontSize="small" /></IconButton>
                       </>
                     )}
                   </TableCell>
@@ -540,7 +546,7 @@ const ShipmentControlPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)}>{saving ? 'Saving...' : 'Save'}</Button>
         </DialogActions>
       </Dialog>
 

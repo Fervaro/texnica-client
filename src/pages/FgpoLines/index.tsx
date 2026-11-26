@@ -1,3 +1,4 @@
+import { useModulePermissions } from '../../hooks/permissions/useModulePermissions';
 import React, { useState, useEffect, useRef, FormEvent } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -57,6 +58,7 @@ const mapFgpoLine = (raw: any): FgpoLine => ({
 const emptyForm = { FgpoId: 0, StyleId: 0, ColorId: 0, SizeId: 0, Quantity: '', UnitPrice: '' };
 
 const FgpoLinesPage: React.FC = () => {
+  const modulePermissions = useModulePermissions('FGPO Lines');
   const [items, setItems] = useState<FgpoLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -156,7 +158,7 @@ const FgpoLinesPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load}>Refresh</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Line</Button>
+          <Button variant="contained" startIcon={<AddIcon />} disabled={!modulePermissions.canCreate} onClick={openCreate}>New Line</Button>
         </Box>
       </Box>
 
@@ -192,8 +194,8 @@ const FgpoLinesPage: React.FC = () => {
                   <TableCell>{l.unitPrice != null ? `$${l.unitPrice.toFixed(3)}` : '-'}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>${l.totalValue.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Tooltip title="Edit"><IconButton size="small" color="info" onClick={() => openEdit(l)}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDelete(l.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Edit"><IconButton size="small" color="info" disabled={!modulePermissions.canEdit} onClick={() => openEdit(l)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title="Delete"><IconButton size="small" color="error" disabled={!modulePermissions.canVoid} onClick={() => handleDelete(l.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -253,7 +255,7 @@ const FgpoLinesPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button variant="contained" type="submit" disabled={saving} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
+            <Button variant="contained" type="submit" disabled={saving || !(editingId ? modulePermissions.canEdit : modulePermissions.canCreate)} startIcon={saving ? <CircularProgress size={18} /> : null}>{editingId ? 'Update' : 'Create'}</Button>
           </DialogActions>
         </form>
       </Dialog>
