@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Tabs, Tab, Chip, CircularProgress, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Pagination,
 } from '@mui/material';
 import {
   fgpoApi, ppSamplesApi, topSamplesApi, productionReadinessApi, cuttingReleasesApi,
@@ -57,6 +57,8 @@ const riskOf = (f: any, lateBy: number) => {
 // ── componente ─────────────────────────────────────────────
 const MasterDashboard: React.FC = () => {
   const [tab, setTab] = useState(0);
+  const [masterPage, setMasterPage] = useState(1);
+  const masterPageSize = 5;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -168,6 +170,8 @@ const MasterDashboard: React.FC = () => {
       updated: pick(f, 'updatedAt', 'UpdatedAt') ?? pick(f, 'createdAt', 'CreatedAt') ?? '',
     };
   });
+  const masterPageCount = Math.max(1, Math.ceil(masterRows.length / masterPageSize));
+  const visibleMasterRows = masterRows.slice((masterPage - 1) * masterPageSize, masterPage * masterPageSize);
 
   // ---- FABRIC DASHBOARD ----
   const totalFabInTransit = sumAll(data.fabShip, 'inTransitQuantity', 'InTransitQuantity');
@@ -220,8 +224,6 @@ const MasterDashboard: React.FC = () => {
 
   const hd = (label: string) => <TableCell key={label} sx={{ fontWeight: 700, whiteSpace: 'nowrap', bgcolor: 'grey.100' }}>{label}</TableCell>;
 
-  const masterHeaders = ['FGPO', 'Style', 'Color', 'Order Qty', 'Fabric', 'Trims', 'PP Sample', 'PRR', 'Cut Release', 'Cut Qty', 'TOP Sample', 'Sewing Qty', 'Inline QC', 'Final QC', 'Packed', 'Ready', 'In Transit', 'Received', 'Ship Var', 'Ship Date', 'Risk', 'Updated'];
-
   const fabricHeaders = ['Customer', 'FGPO', 'Status', 'Style', 'Color', 'Order Qty', 'Ship Var', 'Fabric Req.', 'Fabric Ord.', 'Mill Prod.', 'Mill Test', 'Exported', 'In Transit', 'Received', 'Rec Var', 'Four-Point', 'Int. Test', 'Shade', 'Approved', 'Reserved', 'Issued', 'Available', 'Shortage'];
 
   return (
@@ -253,49 +255,91 @@ const MasterDashboard: React.FC = () => {
           ))}
         </Box>
 
-        {/* Tables */}
-        <TableContainer sx={{ maxHeight: 'calc(100vh - 320px)' }}>
-          <Table stickyHeader size="small" sx={{ '& th, & td': { border: '1px solid #e0e0e0' } }}>
-            <TableHead>
-              <TableRow>
-                {(tab === 0 ? masterHeaders : fabricHeaders).map(hd)}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tab === 0 ? (
-                masterRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={masterHeaders.length} align="center" sx={{ py: 4, color: 'text.secondary' }}>No FGPO data.</TableCell></TableRow>
-                ) : masterRows.map((r: any) => (
-                  <TableRow key={r.f} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>
-                      <Button size="small" sx={{ textTransform: 'none', p: 0, fontWeight: 600 }}
-                        onClick={() => openTimeline(r.f)}>{r.fgpo}</Button>
-                    </TableCell>
-                    <TableCell>{r.style || '-'}</TableCell>
-                    <TableCell>{r.color || '-'}</TableCell>
-                    <TableCell align="center">{fmtNum(r.orderQty)}</TableCell>
-                    <TableCell align="center">{r.fabricStatus ? <Chip label={r.fabricStatus} size="small" color={statusChip(r.fabricStatus)} variant="outlined" /> : '-'}</TableCell>
-                    <TableCell align="center">{r.trimsStatus || '-'}</TableCell>
-                    <TableCell align="center">{r.ppSample || '-'}</TableCell>
-                    <TableCell align="center">{r.prr || '-'}</TableCell>
-                    <TableCell align="center">{r.cutRelease || '-'}</TableCell>
-                    <TableCell align="center">{fmtNum(r.cutQty)}</TableCell>
-                    <TableCell align="center">{r.topSample || '-'}</TableCell>
-                    <TableCell align="center">{fmtNum(r.sewQty)}</TableCell>
-                    <TableCell align="center">{r.inlineQc || '-'}</TableCell>
-                    <TableCell align="center">{r.finalQc || '-'}</TableCell>
-                    <TableCell align="center">{fmtNum(r.packedQty)}</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, color: 'success.main' }}>{fmtNum(r.readyToShip)}</TableCell>
-                    <TableCell align="center">{fmtNum(r.inTransit)}</TableCell>
-                    <TableCell align="center">{fmtNum(r.receivedQty)}</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, color: r.shipVariance < 0 ? 'error.main' : 'success.main' }}>{fmtNum(r.shipVariance)}</TableCell>
-                    <TableCell align="center">{r.shipDate ? r.shipDate.slice(0, 10) : '-'}</TableCell>
-                    <TableCell align="center"><Chip label={r.risk} size="small" color={r.risk === 'High' ? 'error' : r.risk === 'Medium' ? 'warning' : 'success'} /></TableCell>
-                    <TableCell align="center">{r.updated ? r.updated.slice(0, 10) : '-'}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                fabricRows.length === 0 ? (
+        {tab === 0 ? (
+          <Box sx={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', p: 2, display: 'grid', gap: 2 }}>
+            {masterRows.length === 0 ? (
+              <Typography align="center" color="text.secondary" sx={{ py: 4 }}>No FGPO data.</Typography>
+            ) : visibleMasterRows.map((r: any) => {
+              const stages = [
+                { label: 'Fabric', value: r.fabricStatus, kind: 'status' },
+                { label: 'Trims', value: r.trimsStatus, kind: 'status' },
+                { label: 'PP Sample', value: r.ppSample, kind: 'status' },
+                { label: 'PRR', value: r.prr, kind: 'status' },
+                { label: 'Cut Release', value: r.cutRelease, kind: 'status' },
+                { label: 'Cut Qty', value: r.cutQty, kind: 'quantity' },
+                { label: 'TOP Sample', value: r.topSample, kind: 'status' },
+                { label: 'Sewing Qty', value: r.sewQty, kind: 'quantity' },
+                { label: 'Inline QC', value: r.inlineQc, kind: 'status' },
+                { label: 'Final QC', value: r.finalQc, kind: 'status' },
+                { label: 'Packed', value: r.packedQty, kind: 'quantity' },
+                { label: 'Ready to Ship', value: r.readyToShip, kind: 'quantity' },
+                { label: 'In Transit', value: r.inTransit, kind: 'quantity' },
+                { label: 'Received', value: r.receivedQty, kind: 'quantity' },
+              ];
+              return (
+                <Paper key={r.f} variant="outlined" sx={{ p: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                      <Button size="small" sx={{ textTransform: 'none', p: 0, fontWeight: 700 }} onClick={() => openTimeline(r.f)}>
+                        {r.fgpo}
+                      </Button>
+                      <Typography variant="body2" color="text.secondary">{r.style || '-'} / {r.color || '-'} · Order {fmtNum(r.orderQty)}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <Chip size="small" label={`Risk: ${r.risk}`} color={r.risk === 'High' ? 'error' : r.risk === 'Medium' ? 'warning' : 'success'} />
+                      <Typography variant="caption" color="text.secondary">Ship date: {r.shipDate ? r.shipDate.slice(0, 10) : '-'} · Updated: {r.updated ? r.updated.slice(0, 10) : '-'}</Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ overflowX: 'auto', pb: 1 }}>
+                    <Box sx={{ display: 'flex', minWidth: stages.length * 132, px: 1 }}>
+                      {stages.map((stage, index) => {
+                        const hasValue = stage.kind === 'quantity' ? Number(stage.value) > 0 : Boolean(stage.value);
+                        const statusColors: Record<string, string> = {
+                          success: 'success.main', error: 'error.main', info: 'info.main', warning: 'warning.main', default: 'grey.400',
+                        };
+                        const nodeColor = hasValue
+                          ? stage.kind === 'status' ? statusColors[statusChip(String(stage.value))] ?? 'primary.main'
+                            : Number(stage.value) >= r.orderQty && r.orderQty > 0 ? 'success.main' : 'primary.main'
+                          : 'grey.400';
+                        return (
+                          <Box key={stage.label} sx={{ flex: '1 0 132px', minWidth: 132, position: 'relative' }}>
+                            {index < stages.length - 1 && <Box sx={{ position: 'absolute', top: 7, left: 14, right: 0, height: 2, bgcolor: 'grey.300' }} />}
+                            <Box sx={{ position: 'relative', zIndex: 1, width: 16, height: 16, borderRadius: '50%', bgcolor: nodeColor, border: '3px solid', borderColor: 'background.paper', boxSizing: 'border-box' }} />
+                            <Typography variant="caption" sx={{ display: 'block', mt: 0.75, fontWeight: 700, whiteSpace: 'nowrap' }}>{stage.label}</Typography>
+                            <Typography variant="body2" sx={{ color: hasValue ? 'text.primary' : 'text.disabled', whiteSpace: 'nowrap' }}>
+                              {stage.kind === 'quantity' ? fmtNum(Number(stage.value)) : stage.value || '-'}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Shipment variance: <Box component="span" sx={{ fontWeight: 700, color: r.shipVariance < 0 ? 'error.main' : 'success.main' }}>{fmtNum(r.shipVariance)}</Box>
+                  </Typography>
+                </Paper>
+              );
+            })}
+            {masterPageCount > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gridColumn: '1 / -1', pt: 1 }}>
+                <Pagination
+                  count={masterPageCount}
+                  page={masterPage}
+                  onChange={(_, value) => setMasterPage(value)}
+                  color="primary"
+                  aria-label="Master Dashboard pages"
+                />
+              </Box>
+            )}
+          </Box>
+        ) : (
+          <TableContainer sx={{ maxHeight: 'calc(100vh - 320px)' }}>
+            <Table stickyHeader size="small" sx={{ '& th, & td': { border: '1px solid #e0e0e0' } }}>
+              <TableHead>
+                <TableRow>{fabricHeaders.map(hd)}</TableRow>
+              </TableHead>
+              <TableBody>
+                {fabricRows.length === 0 ? (
                   <TableRow><TableCell colSpan={fabricHeaders.length} align="center" sx={{ py: 4, color: 'text.secondary' }}>No FGPO data.</TableCell></TableRow>
                 ) : fabricRows.map((r: any) => (
                   <TableRow key={r.f} hover>
@@ -324,10 +368,11 @@ const MasterDashboard: React.FC = () => {
                     <TableCell align="center" sx={{ fontWeight: 600, color: r.shortage > 0 ? 'error.main' : 'inherit' }}>{fmtNum(r.shortage)}</TableCell>
                   </TableRow>
                 ))
-              )}
+                }
             </TableBody>
           </Table>
         </TableContainer>
+        )}
       </Paper>
 
       {/* ── Línea de tiempo de la FGPO ── */}
